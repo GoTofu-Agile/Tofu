@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import Link from "next/link";
-import { requireAuthWithOrgs } from "@/lib/auth";
+import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { getPersonaGroupsForOrg } from "@/lib/db/queries/personas";
 import { CreateGroupDialog } from "@/components/personas/create-group-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -8,12 +7,7 @@ import { Users } from "lucide-react";
 
 export default async function PersonasPage() {
   const { organizations } = await requireAuthWithOrgs();
-
-  const cookieStore = await cookies();
-  const cookieOrgId = cookieStore.get("activeOrgId")?.value;
-  const activeOrgId =
-    organizations.find((org) => org.id === cookieOrgId)?.id ??
-    organizations[0]?.id;
+  const activeOrgId = await getActiveOrgId(organizations);
 
   const groups = await getPersonaGroupsForOrg(activeOrgId);
 

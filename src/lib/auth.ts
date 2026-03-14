@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUser, upsertUser } from "@/lib/db/queries/users";
 import { getOrganizationsForUser, createPersonalWorkspace } from "@/lib/db/queries/organizations";
@@ -19,6 +20,7 @@ export async function requireAuth() {
   // Ensure user exists in our DB
   let dbUser = await getUser(authUser.id);
   if (!dbUser) {
+    console.log("[auth] New user, creating DB record:", authUser.email);
     dbUser = await upsertUser(
       authUser.id,
       authUser.email!,
@@ -28,6 +30,7 @@ export async function requireAuth() {
     // Create personal workspace for new users
     try {
       await createPersonalWorkspace(authUser.id, authUser.email!);
+      console.log("[auth] Created personal workspace for:", authUser.email);
     } catch (error) {
       // Personal workspace may already exist from a concurrent request — ignore unique constraint errors
       if (
@@ -35,6 +38,7 @@ export async function requireAuth() {
       ) {
         throw error;
       }
+      console.log("[auth] Personal workspace already exists for:", authUser.email);
     }
   }
 
@@ -45,4 +49,12 @@ export async function requireAuthWithOrgs() {
   const user = await requireAuth();
   const organizations = await getOrganizationsForUser(user.id);
   return { user, organizations };
+}
+
+export async function getActiveOrgId(organizations: Array<{ id: string }>) {
+  const cookieStore = await cookies();
+  return (
+    organizations.find((org) => org.id === cookieStore.get("activeOrgId")?.value)?.id ??
+    organizations[0]?.id
+  );
 }

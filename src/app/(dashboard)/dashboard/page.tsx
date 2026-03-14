@@ -1,15 +1,9 @@
-import { cookies } from "next/headers";
-import { requireAuthWithOrgs } from "@/lib/auth";
+import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 
 export default async function DashboardPage() {
   const { user, organizations } = await requireAuthWithOrgs();
-
-  const cookieStore = await cookies();
-  const cookieOrgId = cookieStore.get("activeOrgId")?.value;
-  const activeOrgId =
-    organizations.find((org) => org.id === cookieOrgId)?.id ??
-    organizations[0]?.id;
+  const activeOrgId = await getActiveOrgId(organizations);
 
   const [personaGroupCount, studyCount, personaCount] = await Promise.all([
     prisma.personaGroup.count({ where: { organizationId: activeOrgId } }),
