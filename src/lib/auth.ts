@@ -26,7 +26,16 @@ export async function requireAuth() {
     );
 
     // Create personal workspace for new users
-    await createPersonalWorkspace(authUser.id, authUser.email!);
+    try {
+      await createPersonalWorkspace(authUser.id, authUser.email!);
+    } catch (error) {
+      // Personal workspace may already exist from a concurrent request — ignore unique constraint errors
+      if (
+        !(error instanceof Error && error.message.includes("Unique constraint"))
+      ) {
+        throw error;
+      }
+    }
   }
 
   return dbUser;

@@ -4,11 +4,14 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import { createPersonaGroupSchema } from "@/lib/validation/schemas";
-import { createPersonaGroup, deletePersonaGroup } from "@/lib/db/queries/personas";
+import {
+  createPersonaGroup,
+  deletePersonaGroup,
+  getPersonaGroup,
+} from "@/lib/db/queries/personas";
 import { getUserRole } from "@/lib/db/queries/organizations";
-import { inngest } from "@/lib/inngest/client";
 
-export async function createGroupAndGenerate(formData: FormData) {
+export async function createGroup(formData: FormData) {
   const user = await requireAuth();
 
   const cookieStore = await cookies();
@@ -40,18 +43,13 @@ export async function createGroupAndGenerate(formData: FormData) {
     domainContext: parsed.data.domainContext,
   });
 
-  // Dispatch Inngest event to generate personas
-  await inngest.send({
-    name: "persona/batch.requested",
-    data: {
-      groupId: group.id,
-      count: parsed.data.count,
-      domainContext: parsed.data.domainContext,
-    },
-  });
-
   revalidatePath("/personas");
-  return { success: true, groupId: group.id };
+  return {
+    success: true,
+    groupId: group.id,
+    count: parsed.data.count,
+    domainContext: parsed.data.domainContext,
+  };
 }
 
 export async function removeGroup(groupId: string) {
@@ -66,6 +64,12 @@ export async function removeGroup(groupId: string) {
   const role = await getUserRole(activeOrgId, user.id);
   if (!role || role === "VIEWER") {
     return { error: "Insufficient permissions" };
+  }
+
+  // Verify group belongs to active org
+  const group = await getPersonaGroup(groupId);
+  if (!group || group.organizationId !== activeOrgId) {
+    return { error: "Group not found" };
   }
 
   await deletePersonaGroup(groupId);

@@ -10,6 +10,8 @@ interface PersonaCardProps {
     location: string | null;
     occupation: string | null;
     bio: string | null;
+    archetype: string | null;
+    representativeQuote: string | null;
     personality: {
       openness: number;
       conscientiousness: number;
@@ -17,6 +19,7 @@ interface PersonaCardProps {
       agreeableness: number;
       neuroticism: number;
       communicationStyle: string | null;
+      criticalFeedbackTendency: number | null;
     } | null;
   };
   groupId: string;
@@ -24,9 +27,7 @@ interface PersonaCardProps {
 
 export function PersonaCard({ persona, groupId }: PersonaCardProps) {
   const traits = persona.personality;
-  const topTrait = traits
-    ? getTopTrait(traits)
-    : null;
+  const feedbackTendency = traits?.criticalFeedbackTendency ?? null;
 
   return (
     <Link
@@ -42,11 +43,35 @@ export function PersonaCard({ persona, groupId }: PersonaCardProps) {
               .join(" · ")}
           </p>
         </div>
-        {topTrait && (
-          <Badge variant="outline" className="text-xs">
-            {topTrait}
-          </Badge>
-        )}
+        <div className="flex items-center gap-1.5">
+          {feedbackTendency !== null && (
+            <span
+              className={`h-2 w-2 rounded-full ${
+                feedbackTendency > 0.6
+                  ? "bg-red-400"
+                  : feedbackTendency < 0.3
+                    ? "bg-green-400"
+                    : "bg-yellow-400"
+              }`}
+              title={
+                feedbackTendency > 0.6
+                  ? "Gives tough, critical feedback"
+                  : feedbackTendency < 0.3
+                    ? "Tends to be agreeable"
+                    : "Balanced feedback style"
+              }
+            />
+          )}
+          {persona.archetype ? (
+            <Badge variant="outline" className="text-xs">
+              {persona.archetype}
+            </Badge>
+          ) : traits ? (
+            <Badge variant="outline" className="text-xs">
+              {getTopTrait(traits)}
+            </Badge>
+          ) : null}
+        </div>
       </div>
       {persona.occupation && (
         <p className="mt-2 text-sm">{persona.occupation}</p>
@@ -54,6 +79,11 @@ export function PersonaCard({ persona, groupId }: PersonaCardProps) {
       {persona.bio && (
         <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
           {persona.bio}
+        </p>
+      )}
+      {persona.representativeQuote && (
+        <p className="mt-2 text-sm italic text-muted-foreground line-clamp-1">
+          &ldquo;{persona.representativeQuote}&rdquo;
         </p>
       )}
       {traits && (

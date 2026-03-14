@@ -124,6 +124,16 @@ model Persona {
   embedding       Unsupported("vector(1536)")?
   qualityScore    Float?
   isActive        Boolean      @default(true)
+
+  // Rich persona fields
+  archetype           String?
+  representativeQuote String?  @db.Text
+  techLiteracy        Int?
+  domainExpertise     String?
+  dayInTheLife        String?  @db.Text
+  coreValues          Json?
+  communicationSample String?  @db.Text
+
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -139,13 +149,30 @@ model PersonalityProfile {
   id                     String  @id @default(cuid())
   personaId              String  @unique
   persona                Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+
+  // Big Five
   openness               Float
   conscientiousness      Float
   extraversion           Float
   agreeableness          Float
   neuroticism            Float
+
+  // Communication
   communicationStyle     String?
   responseLengthTendency String?
+
+  // Decision & Behavior
+  decisionMakingStyle    String?
+  riskTolerance          Float?
+  trustPropensity        Float?
+  emotionalExpressiveness Float?
+
+  // Interview Behavior Modifiers
+  directness             Float?
+  criticalFeedbackTendency Float?
+  vocabularyLevel        String?
+  tangentTendency        Float?
+
   createdAt              DateTime @default(now())
 }
 

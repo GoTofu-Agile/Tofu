@@ -1,23 +1,38 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getPersonaGroup, getPersonasForGroup } from "@/lib/db/queries/personas";
+import { getUserRole } from "@/lib/db/queries/organizations";
+import { requireAuth } from "@/lib/auth";
 import { PersonaCard } from "@/components/personas/persona-card";
+import { GeneratePersonasButton } from "@/components/personas/generate-personas-button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Users } from "lucide-react";
 
 export default async function PersonaGroupDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ groupId: string }>;
+  searchParams: Promise<{ count?: string; domainContext?: string }>;
 }) {
   const { groupId } = await params;
+  const query = await searchParams;
   const group = await getPersonaGroup(groupId);
 
   if (!group) {
     notFound();
   }
 
+  // Access control: verify user is member of the group's org
+  const user = await requireAuth();
+  const role = await getUserRole(group.organizationId, user.id);
+  if (!role) {
+    notFound();
+  }
+
   const personas = await getPersonasForGroup(groupId);
+  const count = query.count ? parseInt(query.count, 10) : 5;
+  const domainContext = query.domainContext || group.domainContext || undefined;
 
   return (
     <div className="space-y-6">
@@ -51,12 +66,12 @@ export default async function PersonaGroupDetailPage({
       </div>
 
       {personas.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <h3 className="text-lg font-medium">Generating personas...</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your personas are being generated. Refresh the page to check progress.
-          </p>
-        </div>
+        <GeneratePersonasButton
+          groupId={groupId}
+          defaultCount={count}
+          domainContext={domainContext}
+          autoStart={!!query.count}
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {personas.map((persona) => (

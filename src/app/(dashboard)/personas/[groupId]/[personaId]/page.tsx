@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getPersona } from "@/lib/db/queries/personas";
+import { getUserRole } from "@/lib/db/queries/organizations";
+import { requireAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft } from "lucide-react";
@@ -17,10 +19,18 @@ export default async function PersonaDetailPage({
     notFound();
   }
 
+  // Access control: verify user is member of the group's org
+  const user = await requireAuth();
+  const role = await getUserRole(persona.personaGroup.organizationId, user.id);
+  if (!role) {
+    notFound();
+  }
+
   const traits = persona.personality;
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
+      {/* Hero Section */}
       <div>
         <Link
           href={`/personas/${groupId}`}
@@ -35,6 +45,11 @@ export default async function PersonaDetailPage({
             <h2 className="text-2xl font-semibold tracking-tight">
               {persona.name}
             </h2>
+            {persona.archetype && (
+              <p className="mt-0.5 text-sm font-medium text-primary">
+                {persona.archetype}
+              </p>
+            )}
             <p className="mt-1 text-muted-foreground">
               {[
                 persona.age && `${persona.age} years old`,
@@ -45,14 +60,26 @@ export default async function PersonaDetailPage({
                 .join(" · ")}
             </p>
           </div>
-          {persona.qualityScore !== null && (
-            <Badge variant="outline">
-              Quality: {Math.round(persona.qualityScore * 100)}%
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {persona.qualityScore !== null && (
+              <Badge variant="outline">
+                Quality: {Math.round(persona.qualityScore * 100)}%
+              </Badge>
+            )}
+            {persona.domainExpertise && (
+              <Badge variant="secondary">{persona.domainExpertise}</Badge>
+            )}
+          </div>
         </div>
+
+        {persona.representativeQuote && (
+          <blockquote className="mt-4 border-l-2 border-primary/30 pl-4 italic text-muted-foreground">
+            &ldquo;{persona.representativeQuote}&rdquo;
+          </blockquote>
+        )}
       </div>
 
+      {/* Occupation & Bio */}
       {persona.occupation && (
         <div>
           <h3 className="text-sm font-medium text-muted-foreground">
@@ -69,6 +96,7 @@ export default async function PersonaDetailPage({
         </div>
       )}
 
+      {/* Story Section */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground">
           Backstory
@@ -76,8 +104,36 @@ export default async function PersonaDetailPage({
         <p className="mt-1 whitespace-pre-line">{persona.backstory}</p>
       </div>
 
+      {persona.dayInTheLife && (
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            A Day in Their Life
+          </h3>
+          <p className="mt-1 whitespace-pre-line">{persona.dayInTheLife}</p>
+        </div>
+      )}
+
+      {/* Core Values */}
+      {persona.coreValues &&
+        Array.isArray(persona.coreValues) &&
+        (persona.coreValues as string[]).length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Core Values
+            </h3>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(persona.coreValues as string[]).map((value, i) => (
+                <Badge key={i} variant="outline">
+                  {value}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
       <Separator />
 
+      {/* Goals, Frustrations, Behaviors */}
       <div className="grid gap-6 sm:grid-cols-3">
         <ListSection
           title="Goals"
@@ -93,6 +149,7 @@ export default async function PersonaDetailPage({
         />
       </div>
 
+      {/* Personality Profile */}
       {traits && (
         <>
           <Separator />
@@ -116,7 +173,48 @@ export default async function PersonaDetailPage({
               />
               <PersonalityBar label="Neuroticism" value={traits.neuroticism} />
             </div>
-            <div className="mt-4 flex gap-4 text-sm text-muted-foreground">
+
+            {/* Extended Personality Traits */}
+            <div className="mt-6 space-y-3">
+              <h4 className="text-sm font-medium text-muted-foreground">
+                Interview Behavior
+              </h4>
+              {traits.directness !== null && (
+                <PersonalityBar label="Directness" value={traits.directness} />
+              )}
+              {traits.criticalFeedbackTendency !== null && (
+                <PersonalityBar
+                  label="Critical Feedback"
+                  value={traits.criticalFeedbackTendency}
+                />
+              )}
+              {traits.emotionalExpressiveness !== null && (
+                <PersonalityBar
+                  label="Emotional Expression"
+                  value={traits.emotionalExpressiveness}
+                />
+              )}
+              {traits.riskTolerance !== null && (
+                <PersonalityBar
+                  label="Risk Tolerance"
+                  value={traits.riskTolerance}
+                />
+              )}
+              {traits.trustPropensity !== null && (
+                <PersonalityBar
+                  label="Trust Propensity"
+                  value={traits.trustPropensity}
+                />
+              )}
+              {traits.tangentTendency !== null && (
+                <PersonalityBar
+                  label="Tangent Tendency"
+                  value={traits.tangentTendency}
+                />
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
               {traits.communicationStyle && (
                 <span>
                   Communication:{" "}
@@ -133,6 +231,49 @@ export default async function PersonaDetailPage({
                   </span>
                 </span>
               )}
+              {traits.decisionMakingStyle && (
+                <span>
+                  Decisions:{" "}
+                  <span className="text-foreground">
+                    {traits.decisionMakingStyle}
+                  </span>
+                </span>
+              )}
+              {traits.vocabularyLevel && (
+                <span>
+                  Vocabulary:{" "}
+                  <span className="text-foreground">
+                    {traits.vocabularyLevel}
+                  </span>
+                </span>
+              )}
+            </div>
+            {persona.techLiteracy !== null && (
+              <div className="mt-2 text-sm text-muted-foreground">
+                Tech literacy:{" "}
+                <span className="text-foreground">
+                  {persona.techLiteracy}/5
+                </span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Interview Preview */}
+      {persona.communicationSample && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">
+              Interview Preview
+            </h3>
+            <p className="text-xs text-muted-foreground mb-2">
+              How this persona might respond to: &ldquo;What do you think about
+              trying new technology?&rdquo;
+            </p>
+            <div className="rounded-lg bg-muted/50 p-4 text-sm italic">
+              {persona.communicationSample}
             </div>
           </div>
         </>

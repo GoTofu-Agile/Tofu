@@ -1,8 +1,5 @@
 import { inngest } from "../client";
-import { prisma } from "@/lib/db/prisma";
-import { getModel } from "@/lib/ai/provider";
-import { generateObject } from "ai";
-import { personaSchema, type PersonaOutput } from "@/lib/validation/schemas";
+import { generateAndSavePersonas } from "@/lib/ai/generate-personas";
 
 export const generatePersonaBatch = inngest.createFunction(
   {
@@ -18,78 +15,10 @@ export const generatePersonaBatch = inngest.createFunction(
       domainContext?: string;
     };
 
-    // Load domain knowledge for RAG context
-    const context = await step.run("load-context", async () => {
-      const knowledge = await prisma.domainKnowledge.findMany({
-        where: { personaGroupId: groupId },
-        take: 10,
-        orderBy: { createdAt: "desc" },
-      });
-      return knowledge.map((k) => k.content).join("\n\n");
+    const result = await step.run("generate-all", async () => {
+      return generateAndSavePersonas({ groupId, count, domainContext });
     });
 
-    const personas: PersonaOutput[] = [];
-    for (let i = 0; i < count; i++) {
-      const result = await step.run(`generate-${i}`, async () => {
-        const { object } = await generateObject({
-          model: getModel(),
-          schema: personaSchema,
-          prompt: [
-            "You are a demographic simulation engine. Generate a realistic, unique synthetic user persona.",
-            domainContext ? `Domain context: ${domainContext}` : "",
-            context ? `Background research:\n${context}` : "",
-            `This is persona ${i + 1} of ${count}. Ensure diversity — vary age, gender, location, occupation, and personality traits.`,
-            "Create a rich, believable backstory grounded in the domain context. Avoid stereotypes.",
-          ]
-            .filter(Boolean)
-            .join("\n\n"),
-        });
-        return object;
-      });
-      personas.push(result);
-    }
-
-    // Save all personas to DB
-    await step.run("save-personas", async () => {
-      for (const p of personas) {
-        await prisma.persona.create({
-          data: {
-            personaGroupId: groupId,
-            name: p.name,
-            age: p.age,
-            gender: p.gender,
-            location: p.location,
-            occupation: p.occupation,
-            bio: p.bio,
-            backstory: p.backstory,
-            goals: p.goals,
-            frustrations: p.frustrations,
-            behaviors: p.behaviors,
-            sourceType: "PROMPT_GENERATED",
-            personality: {
-              create: {
-                openness: p.personality.openness,
-                conscientiousness: p.personality.conscientiousness,
-                extraversion: p.personality.extraversion,
-                agreeableness: p.personality.agreeableness,
-                neuroticism: p.personality.neuroticism,
-                communicationStyle: p.personality.communicationStyle,
-                responseLengthTendency: p.personality.responseLengthTendency,
-              },
-            },
-          },
-        });
-      }
-
-      // Update group persona count
-      await prisma.personaGroup.update({
-        where: { id: groupId },
-        data: {
-          personaCount: { increment: personas.length },
-        },
-      });
-    });
-
-    return { generated: personas.length, groupId };
+    return result;
   }
 );

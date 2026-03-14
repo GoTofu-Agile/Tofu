@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { createGroupAndGenerate } from "@/app/(dashboard)/personas/actions";
+import { createGroup } from "@/app/(dashboard)/personas/actions";
 import { Plus } from "lucide-react";
 
 export function CreateGroupDialog() {
@@ -25,7 +25,7 @@ export function CreateGroupDialog() {
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
-    const result = await createGroupAndGenerate(formData);
+    const result = await createGroup(formData);
     setLoading(false);
 
     if (result.error) {
@@ -33,9 +33,12 @@ export function CreateGroupDialog() {
       return;
     }
 
-    toast.success("Persona group created. Generation started!");
+    toast.success("Persona group created!");
     setOpen(false);
-    router.push(`/personas/${result.groupId}`);
+    const params = new URLSearchParams();
+    if (result.count) params.set("count", String(result.count));
+    if (result.domainContext) params.set("domainContext", result.domainContext);
+    router.push(`/personas/${result.groupId}?${params.toString()}`);
   }
 
   return (
