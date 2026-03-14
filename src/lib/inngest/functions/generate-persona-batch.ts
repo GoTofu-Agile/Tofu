@@ -2,29 +2,7 @@ import { inngest } from "../client";
 import { prisma } from "@/lib/db/prisma";
 import { getModel } from "@/lib/ai/provider";
 import { generateObject } from "ai";
-import { z } from "zod";
-
-const personaSchema = z.object({
-  name: z.string(),
-  age: z.number().int().min(18).max(100),
-  gender: z.string(),
-  location: z.string(),
-  occupation: z.string(),
-  bio: z.string(),
-  backstory: z.string(),
-  goals: z.array(z.string()),
-  frustrations: z.array(z.string()),
-  behaviors: z.array(z.string()),
-  personality: z.object({
-    openness: z.number().min(0).max(1),
-    conscientiousness: z.number().min(0).max(1),
-    extraversion: z.number().min(0).max(1),
-    agreeableness: z.number().min(0).max(1),
-    neuroticism: z.number().min(0).max(1),
-    communicationStyle: z.enum(["direct", "verbose", "analytical", "empathetic"]),
-    responseLengthTendency: z.enum(["short", "medium", "long"]),
-  }),
-});
+import { personaSchema, type PersonaOutput } from "@/lib/validation/schemas";
 
 export const generatePersonaBatch = inngest.createFunction(
   {
@@ -50,7 +28,7 @@ export const generatePersonaBatch = inngest.createFunction(
       return knowledge.map((k) => k.content).join("\n\n");
     });
 
-    const personas: z.infer<typeof personaSchema>[] = [];
+    const personas: PersonaOutput[] = [];
     for (let i = 0; i < count; i++) {
       const result = await step.run(`generate-${i}`, async () => {
         const { object } = await generateObject({
