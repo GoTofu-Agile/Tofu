@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -35,6 +36,11 @@ interface SidebarProps {
 
 export function Sidebar({ user, organizations, activeOrgId }: SidebarProps) {
   const pathname = usePathname();
+
+  // Persist activeOrgId to cookie so server actions can read it
+  useEffect(() => {
+    document.cookie = `activeOrgId=${activeOrgId}; path=/; max-age=31536000`;
+  }, [activeOrgId]);
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r bg-background">

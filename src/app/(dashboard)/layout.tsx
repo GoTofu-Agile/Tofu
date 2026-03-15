@@ -29,14 +29,6 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Persist activeOrgId to cookie so server actions can read it
-  if (activeOrgId !== cookieOrgId) {
-    cookieStore.set("activeOrgId", activeOrgId, {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
-  }
-
   return (
     <div className="flex h-screen">
       <Sidebar
