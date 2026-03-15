@@ -4,6 +4,7 @@ import { getStudy } from "@/lib/db/queries/studies";
 import { Badge } from "@/components/ui/badge";
 import { StudyPersonaList } from "@/components/studies/study-persona-list";
 import { StudySessionList } from "@/components/studies/study-session-list";
+import { BatchRunButton } from "@/components/studies/batch-run-button";
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -47,6 +48,13 @@ export default async function StudyDetailPage({
     study.sessions.map((s) => s.personaId)
   );
 
+  const pendingCount = allPersonas.filter(
+    (p) => !personasWithSessions.has(p.id)
+  ).length;
+  const completedCount = study.sessions.filter(
+    (s) => s.status === "COMPLETED"
+  ).length;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -76,10 +84,22 @@ export default async function StudyDetailPage({
         )}
       </div>
 
+      {/* Batch Interview Button */}
+      {allPersonas.length > 0 && (
+        <BatchRunButton
+          studyId={study.id}
+          pendingCount={pendingCount}
+          totalCount={allPersonas.length}
+          completedCount={completedCount}
+        />
+      )}
+
       {/* Sessions */}
       {study.sessions.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-medium">Sessions</h3>
+          <h3 className="text-lg font-medium">
+            Sessions ({study.sessions.length})
+          </h3>
           <StudySessionList sessions={study.sessions} studyId={study.id} />
         </div>
       )}
@@ -90,7 +110,7 @@ export default async function StudyDetailPage({
           Personas ({allPersonas.length})
         </h3>
         <p className="text-sm text-muted-foreground">
-          Click a persona to start an interview session.
+          Click a persona to start a manual interview, or use &quot;Run All&quot; above for automatic batch interviews.
         </p>
         <StudyPersonaList
           personas={allPersonas}

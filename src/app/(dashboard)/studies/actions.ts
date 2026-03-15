@@ -86,6 +86,32 @@ export async function endSession(sessionId: string) {
   return { success: true };
 }
 
+export async function runBatchInterviews(studyId: string) {
+  const { activeOrgId } = await getActiveOrg();
+
+  const study = await getStudy(studyId);
+  if (!study || study.organizationId !== activeOrgId) {
+    return { error: "Study not found" };
+  }
+
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3004"}/api/studies/${studyId}/run-batch`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json();
+    return { error: data.error || "Failed to start batch" };
+  }
+
+  const data = await response.json();
+  revalidatePath(`/studies/${studyId}`);
+  return { success: true, pendingCount: data.pendingCount };
+}
+
 export async function removeStudy(studyId: string) {
   const { activeOrgId, role } = await getActiveOrg();
 
