@@ -14,7 +14,19 @@ import type { ManualFormInput } from "@/lib/validation/schemas";
 
 type Phase = "select-method" | "configure" | "settings" | "generating";
 
-export function PersonaCreationFlow() {
+export interface OrgContext {
+  productName?: string;
+  productDescription?: string;
+  targetAudience?: string;
+  industry?: string;
+  competitors?: string;
+}
+
+interface PersonaCreationFlowProps {
+  orgContext?: OrgContext;
+}
+
+export function PersonaCreationFlow({ orgContext }: PersonaCreationFlowProps) {
   const router = useRouter();
 
   // Flow state
@@ -168,9 +180,26 @@ export function PersonaCreationFlow() {
     setPhase("configure");
   }
 
+  function buildOrgContextString(): string {
+    if (!orgContext) return "";
+    const parts: string[] = [];
+    if (orgContext.productName)
+      parts.push(`Product: ${orgContext.productName}`);
+    if (orgContext.productDescription)
+      parts.push(`Description: ${orgContext.productDescription}`);
+    if (orgContext.targetAudience)
+      parts.push(`Target audience: ${orgContext.targetAudience}`);
+    if (orgContext.industry) parts.push(`Industry: ${orgContext.industry}`);
+    if (orgContext.competitors)
+      parts.push(`Competitors: ${orgContext.competitors}`);
+    return parts.length > 0
+      ? `\n\nOrganization context:\n${parts.join("\n")}`
+      : "";
+  }
+
   async function handleQuickPromptSubmit(prompt: string) {
     const name = prompt.length > 60 ? prompt.slice(0, 57) + "..." : prompt;
-    const context = `Generate personas matching this description: ${prompt}`;
+    const context = `Generate personas matching this description: ${prompt}${buildOrgContextString()}`;
 
     const gId = await createGroupForMethod(
       name,
@@ -199,7 +228,7 @@ export function PersonaCreationFlow() {
     if (data.painPoints) parts.push(`Pain points: ${data.painPoints}`);
     if (data.tools) parts.push(`Tools/products: ${data.tools}`);
 
-    const context = parts.join("\n");
+    const context = parts.join("\n") + buildOrgContextString();
     const name = `${data.role}${data.industry ? ` — ${data.industry}` : ""}`;
 
     const gId = await createGroupForMethod(
@@ -335,6 +364,10 @@ export function PersonaCreationFlow() {
           onCreateGroup={handleWebResearchCreateGroup}
           onResearchComplete={handleWebResearchComplete}
           onBack={handleBack}
+          initialProductName={orgContext?.productName}
+          initialOneLiner={orgContext?.productDescription}
+          initialTargetAudience={orgContext?.targetAudience}
+          initialCompetitors={orgContext?.competitors}
         />
       )}
 

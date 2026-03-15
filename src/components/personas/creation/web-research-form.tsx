@@ -39,6 +39,10 @@ interface WebResearchFormProps {
     groupName: string;
   }) => void;
   onBack: () => void;
+  initialProductName?: string;
+  initialOneLiner?: string;
+  initialTargetAudience?: string;
+  initialCompetitors?: string;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -59,11 +63,15 @@ export function WebResearchForm({
   onCreateGroup,
   onResearchComplete,
   onBack,
+  initialProductName,
+  initialOneLiner,
+  initialTargetAudience,
+  initialCompetitors,
 }: WebResearchFormProps) {
-  const [productName, setProductName] = useState("");
-  const [oneLiner, setOneLiner] = useState("");
-  const [targetAudience, setTargetAudience] = useState("");
-  const [competitors, setCompetitors] = useState("");
+  const [productName, setProductName] = useState(initialProductName || "");
+  const [oneLiner, setOneLiner] = useState(initialOneLiner || "");
+  const [targetAudience, setTargetAudience] = useState(initialTargetAudience || "");
+  const [competitors, setCompetitors] = useState(initialCompetitors || "");
   const [researchGoals, setResearchGoals] = useState<string[]>(["pain_points"]);
 
   const [researching, setResearching] = useState(false);

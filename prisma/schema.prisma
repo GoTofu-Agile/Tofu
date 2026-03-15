@@ -33,6 +33,15 @@ model Organization {
   logoUrl    String?
   isPersonal Boolean @default(false)
 
+  // Product context (filled via AI onboarding chat)
+  productName        String?
+  productDescription String?  @db.Text
+  targetAudience     String?
+  industry           String?
+  competitors        String?  // comma-separated
+  websiteUrl         String?
+  setupCompleted     Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

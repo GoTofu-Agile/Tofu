@@ -138,6 +138,21 @@ export async function acceptInvitation(token: string, userId: string) {
   return invitation.organization;
 }
 
+export async function getOrgProductContext(orgId: string) {
+  return prisma.organization.findUnique({
+    where: { id: orgId },
+    select: {
+      productName: true,
+      productDescription: true,
+      targetAudience: true,
+      industry: true,
+      competitors: true,
+      websiteUrl: true,
+      setupCompleted: true,
+    },
+  });
+}
+
 export async function getPendingInvitations(orgId: string) {
   return prisma.organizationInvitation.findMany({
     where: {
