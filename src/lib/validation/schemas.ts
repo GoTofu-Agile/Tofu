@@ -96,3 +96,28 @@ export const manualFormSchema = z.object({
 });
 
 export type ManualFormInput = z.infer<typeof manualFormSchema>;
+
+// Unified creation flow schemas
+export const extractRequestSchema = z.object({
+  freetext: z.string().min(5, "Describe your target users").max(2000),
+  orgContext: z.object({
+    productName: z.string().optional(),
+    productDescription: z.string().optional(),
+    targetAudience: z.string().optional(),
+    industry: z.string().optional(),
+    competitors: z.string().optional(),
+  }).optional(),
+});
+
+export type ExtractRequest = z.infer<typeof extractRequestSchema>;
+
+export const extractedContextSchema = z.object({
+  groupName: z.string(),
+  targetUserRole: z.string(),
+  industry: z.string().nullable(),
+  painPoints: z.array(z.string()),
+  demographicsHints: z.string().nullable(),
+  domainContext: z.string(),
+});
+
+export type ExtractedContext = z.infer<typeof extractedContextSchema>;

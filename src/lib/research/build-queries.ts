@@ -98,6 +98,120 @@ export const RESEARCH_GOALS = [
   { value: "market_trends", label: "Market Trends" },
 ] as const;
 
+// Source categories for unified creation flow
+export const RESEARCH_SOURCES = [
+  {
+    id: "reddit",
+    label: "Reddit",
+    description: "Discussions, complaints, recommendations",
+    domains: ["reddit.com"],
+  },
+  {
+    id: "app_store",
+    label: "App Store / Play Store",
+    description: "App reviews and ratings",
+    domains: ["apps.apple.com", "play.google.com", "appfollow.io", "sensortower.com"],
+  },
+  {
+    id: "review_sites",
+    label: "Review Sites",
+    description: "G2, Trustpilot, ProductHunt, Capterra",
+    domains: ["producthunt.com", "g2.com", "trustpilot.com", "capterra.com"],
+  },
+  {
+    id: "forums",
+    label: "Forums & Communities",
+    description: "Stack Overflow, Quora, niche forums",
+    domains: undefined as string[] | undefined,
+  },
+  {
+    id: "news",
+    label: "News & Articles",
+    description: "Tech blogs, industry news",
+    domains: undefined as string[] | undefined,
+  },
+] as const;
+
+export interface ContextQueryInput {
+  targetUserRole: string;
+  industry?: string | null;
+  painPoints?: string[];
+  domainContext: string;
+  selectedSources: string[];
+  depth: "quick" | "deep";
+}
+
+interface SearchPlanWithDomains {
+  query: string;
+  includeDomains?: string[];
+  label: string;
+}
+
+export function buildQueriesFromContext(input: ContextQueryInput): SearchPlanWithDomains[] {
+  const queries: SearchPlanWithDomains[] = [];
+  const { targetUserRole, industry, painPoints, selectedSources, depth } = input;
+  const context = [targetUserRole, industry].filter(Boolean).join(" ");
+
+  // Build queries per selected source
+  for (const sourceId of selectedSources) {
+    const source = RESEARCH_SOURCES.find((s) => s.id === sourceId);
+    if (!source) continue;
+
+    if (sourceId === "reddit") {
+      queries.push({
+        query: `${context} user experience pain points frustrations`,
+        includeDomains: ["reddit.com"],
+        label: `Reddit: ${targetUserRole} discussions`,
+      });
+      if (depth === "deep" && painPoints && painPoints.length > 0) {
+        queries.push({
+          query: `${context} ${painPoints.slice(0, 2).join(" ")} reddit`,
+          includeDomains: ["reddit.com"],
+          label: `Reddit: specific pain points`,
+        });
+      }
+    } else if (sourceId === "app_store") {
+      queries.push({
+        query: `${context} app review feedback`,
+        includeDomains: source.domains as string[],
+        label: "App Store / Play Store reviews",
+      });
+    } else if (sourceId === "review_sites") {
+      queries.push({
+        query: `${context} product review user feedback`,
+        includeDomains: source.domains as string[],
+        label: "Review sites (G2, Trustpilot, ProductHunt)",
+      });
+    } else if (sourceId === "forums") {
+      queries.push({
+        query: `${context} forum community discussion experience challenges`,
+        label: `Forums: ${targetUserRole} communities`,
+      });
+      if (depth === "deep") {
+        queries.push({
+          query: `${context} daily workflow tools habits`,
+          label: `Forums: ${targetUserRole} workflows`,
+        });
+      }
+    } else if (sourceId === "news") {
+      queries.push({
+        query: `${context} trends challenges industry 2025`,
+        label: `News about ${industry || targetUserRole}`,
+      });
+    }
+  }
+
+  // If deep mode + pain points, add targeted queries
+  if (depth === "deep" && painPoints && painPoints.length >= 2) {
+    queries.push({
+      query: `${targetUserRole} "${painPoints[0]}" OR "${painPoints[1]}"`,
+      label: "Targeted pain point search",
+    });
+  }
+
+  return queries;
+}
+
 export const TARGET_AUDIENCES = [
   "B2C Consumers",
   "B2B SaaS Users",

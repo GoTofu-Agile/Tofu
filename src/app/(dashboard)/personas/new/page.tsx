@@ -1,6 +1,6 @@
 import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { getOrgProductContext } from "@/lib/db/queries/organizations";
-import { PersonaCreationFlow } from "@/components/personas/creation/persona-creation-flow";
+import { UnifiedCreationFlow } from "@/components/personas/creation/unified-creation-flow";
 
 export default async function NewPersonaGroupPage() {
   const { organizations } = await requireAuthWithOrgs();
@@ -8,7 +8,7 @@ export default async function NewPersonaGroupPage() {
   const productContext = await getOrgProductContext(activeOrgId);
 
   return (
-    <PersonaCreationFlow
+    <UnifiedCreationFlow
       orgContext={
         productContext?.setupCompleted
           ? {
