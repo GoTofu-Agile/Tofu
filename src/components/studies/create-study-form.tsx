@@ -15,6 +15,7 @@ import {
   Users,
   Loader2,
   Check,
+  Sparkles,
 } from "lucide-react";
 import type { StudyType } from "@prisma/client";
 
@@ -65,6 +66,7 @@ export function CreateStudyForm({
   const [studyType, setStudyType] = useState<StudyType>("INTERVIEW");
   const [interviewGuide, setInterviewGuide] = useState("");
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [generatingGuide, setGeneratingGuide] = useState(false);
 
   function toggleGroup(groupId: string) {
     setSelectedGroups((prev) =>
@@ -168,10 +170,47 @@ export function CreateStudyForm({
 
       {/* Interview Guide */}
       <div className="space-y-2">
-        <Label htmlFor="guide">
-          Interview Guide{" "}
-          <span className="text-muted-foreground">(optional)</span>
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="guide">
+            Interview Guide{" "}
+            <span className="text-muted-foreground">(optional)</span>
+          </Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={generatingGuide || !title.trim()}
+            onClick={async () => {
+              setGeneratingGuide(true);
+              try {
+                const res = await fetch("/api/studies/generate-guide", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    title,
+                    description: description || undefined,
+                    studyType,
+                  }),
+                });
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                setInterviewGuide(data.guide);
+                toast.success("Interview guide generated!");
+              } catch {
+                toast.error("Failed to generate guide");
+              } finally {
+                setGeneratingGuide(false);
+              }
+            }}
+          >
+            {generatingGuide ? (
+              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className="mr-1.5 h-3 w-3" />
+            )}
+            Generate with AI
+          </Button>
+        </div>
         <Textarea
           id="guide"
           value={interviewGuide}

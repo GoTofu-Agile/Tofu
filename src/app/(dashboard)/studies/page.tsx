@@ -3,7 +3,7 @@ import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { getStudiesForOrg } from "@/lib/db/queries/studies";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { ClipboardList, Plus, MessageSquare } from "lucide-react";
+import { ClipboardList, Plus, MessageSquare, CheckCircle2, Clock } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -90,6 +90,18 @@ export default async function StudiesPage() {
                   <MessageSquare className="h-3 w-3" />
                   {study._count.sessions} sessions
                 </span>
+                {study.completedCount > 0 && (
+                  <span className="flex items-center gap-1 text-green-600">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {study.completedCount} done
+                  </span>
+                )}
+                {study.status === "ACTIVE" && study.completedCount === 0 && (
+                  <span className="flex items-center gap-1 text-amber-600">
+                    <Clock className="h-3 w-3" />
+                    running
+                  </span>
+                )}
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
                 {study.personaGroups.map((pg) => pg.personaGroup.name).join(", ")}

@@ -7,7 +7,7 @@ import { StudyPersonaList } from "@/components/studies/study-persona-list";
 import { StudySessionList } from "@/components/studies/study-session-list";
 import { BatchRunButton } from "@/components/studies/batch-run-button";
 import { InsightsPanel } from "@/components/studies/insights-panel";
-import { Download } from "lucide-react";
+import { Download, GitCompareArrows } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -108,13 +108,24 @@ export default async function StudyDetailPage({
               Sessions ({study.sessions.length})
             </h3>
             {completedCount > 0 && (
-              <Link
-                href={`/api/studies/${study.id}/export`}
-                className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-              >
-                <Download className="h-3 w-3" />
-                Export CSV
-              </Link>
+              <div className="flex items-center gap-2">
+                {completedCount >= 2 && (
+                  <Link
+                    href={`/studies/${study.id}/compare`}
+                    className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                  >
+                    <GitCompareArrows className="h-3 w-3" />
+                    Compare
+                  </Link>
+                )}
+                <Link
+                  href={`/api/studies/${study.id}/export`}
+                  className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                >
+                  <Download className="h-3 w-3" />
+                  Export CSV
+                </Link>
+              </div>
             )}
           </div>
           <StudySessionList sessions={study.sessions} studyId={study.id} />
