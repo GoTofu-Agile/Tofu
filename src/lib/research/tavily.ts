@@ -2,7 +2,15 @@ import { tavily } from "@tavily/core";
 import { prisma } from "@/lib/db/prisma";
 import type { DataSourceType } from "@prisma/client";
 
-const client = tavily({ apiKey: process.env.TAVILY_API_KEY! });
+function getClient() {
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "TAVILY_API_KEY is not set. Add it to .env.local to enable web research. Personas will still be generated from your product description."
+    );
+  }
+  return tavily({ apiKey });
+}
 
 export interface ResearchResult {
   title: string;
@@ -49,6 +57,7 @@ export async function searchTavily(
     searchDepth?: "basic" | "advanced";
   }
 ): Promise<ResearchResult[]> {
+  const client = getClient();
   const response = await client.search(query, {
     maxResults: options?.maxResults ?? 10,
     searchDepth: options?.searchDepth ?? "advanced",

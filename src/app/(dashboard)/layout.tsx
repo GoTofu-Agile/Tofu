@@ -18,16 +18,20 @@ export default async function DashboardLayout({
 
   const { user, organizations } = authData;
 
+  if (organizations.length === 0) {
+    // This should never happen — requireAuth auto-creates a personal workspace.
+    // If it does, something is seriously wrong with the DB connection.
+    throw new Error(
+      "No organizations found. Please try logging out and back in, or contact support."
+    );
+  }
+
   // Determine active org from cookie, default to first
   const cookieStore = await cookies();
   const cookieOrgId = cookieStore.get("activeOrgId")?.value;
   const activeOrgId =
     organizations.find((org) => org.id === cookieOrgId)?.id ??
-    organizations[0]?.id;
-
-  if (!activeOrgId) {
-    redirect("/login");
-  }
+    organizations[0].id;
 
   return (
     <div className="flex h-screen">

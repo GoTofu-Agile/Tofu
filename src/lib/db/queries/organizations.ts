@@ -60,6 +60,13 @@ export async function createPersonalWorkspace(userId: string, email: string) {
   return createOrganization("Personal", slug, userId, true);
 }
 
+export async function updateOrganization(orgId: string, data: { name?: string; slug?: string }) {
+  return prisma.organization.update({
+    where: { id: orgId },
+    data,
+  });
+}
+
 export async function getUserRole(orgId: string, userId: string) {
   const member = await prisma.organizationMember.findUnique({
     where: { organizationId_userId: { organizationId: orgId, userId } },

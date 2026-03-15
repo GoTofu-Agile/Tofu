@@ -1,14 +1,10 @@
-"use client";
+import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
+import { SettingsForm } from "./settings-form";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-
-export default function SettingsPage() {
-  const [orgName, setOrgName] = useState("");
+export default async function SettingsPage() {
+  const { organizations } = await requireAuthWithOrgs();
+  const activeOrgId = await getActiveOrgId(organizations);
+  const activeOrg = organizations.find((o) => o.id === activeOrgId);
 
   return (
     <div className="space-y-6">
@@ -18,43 +14,10 @@ export default function SettingsPage() {
           Manage your workspace settings.
         </p>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Workspace Name</CardTitle>
-          <CardDescription>
-            The name of your workspace as it appears across GoTofu.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-4">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="orgName">Name</Label>
-              <Input
-                id="orgName"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                placeholder="My Organization"
-              />
-            </div>
-            <Button>Save</Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Separator />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Create New Workspace</CardTitle>
-          <CardDescription>
-            Create a new workspace for a different team or project.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="outline">Create workspace</Button>
-        </CardContent>
-      </Card>
+      <SettingsForm
+        orgId={activeOrgId}
+        orgName={activeOrg?.name ?? ""}
+      />
     </div>
   );
 }

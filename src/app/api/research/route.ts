@@ -53,6 +53,15 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Access denied" }, { status: 403 });
   }
 
+  // Check if Tavily is configured
+  if (!process.env.TAVILY_API_KEY) {
+    return Response.json({
+      type: "done",
+      totalResults: 0,
+      message: "Web research is disabled (no TAVILY_API_KEY). Personas will be generated from your product description.",
+    });
+  }
+
   // Build search queries from product info
   const queries = buildSearchQueries(body.productInfo);
   const searchSession = crypto.randomUUID();

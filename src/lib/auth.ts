@@ -17,28 +17,25 @@ export async function requireAuth() {
     throw new Error("Not authenticated");
   }
 
-  // Ensure user exists in our DB
-  let dbUser = await getUser(authUser.id);
-  if (!dbUser) {
-    console.log("[auth] New user, creating DB record:", authUser.email);
-    dbUser = await upsertUser(
-      authUser.id,
-      authUser.email!,
-      authUser.user_metadata?.name
-    );
+  // Upsert user — idempotent, works for both new and returning users
+  const dbUser = await upsertUser(
+    authUser.id,
+    authUser.email!,
+    authUser.user_metadata?.name
+  );
 
-    // Create personal workspace for new users
+  // Ensure personal workspace exists (check every time, not just on first login)
+  const orgs = await getOrganizationsForUser(dbUser.id);
+  if (orgs.length === 0) {
     try {
       await createPersonalWorkspace(authUser.id, authUser.email!);
       console.log("[auth] Created personal workspace for:", authUser.email);
     } catch (error) {
-      // Personal workspace may already exist from a concurrent request — ignore unique constraint errors
       if (
         !(error instanceof Error && error.message.includes("Unique constraint"))
       ) {
         throw error;
       }
-      console.log("[auth] Personal workspace already exists for:", authUser.email);
     }
   }
 

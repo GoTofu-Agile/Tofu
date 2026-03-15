@@ -11,12 +11,25 @@ const providers = {
 
 type Provider = keyof typeof providers;
 
+const requiredKeys: Record<Provider, string> = {
+  openai: "OPENAI_API_KEY",
+  claude: "ANTHROPIC_API_KEY",
+  gemini: "GOOGLE_GENERATIVE_AI_API_KEY",
+};
+
 export function getModel() {
   const provider = (process.env.LLM_PROVIDER || "openai") as Provider;
 
   if (!(provider in providers)) {
     throw new Error(
       `Unknown LLM provider: ${provider}. Supported: ${Object.keys(providers).join(", ")}`
+    );
+  }
+
+  const keyName = requiredKeys[provider];
+  if (!process.env[keyName]) {
+    throw new Error(
+      `Missing API key: Set ${keyName} in your .env.local file to use the "${provider}" provider.`
     );
   }
 
