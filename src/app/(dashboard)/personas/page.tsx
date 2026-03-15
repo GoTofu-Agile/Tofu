@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { getPersonaGroupsForOrg } from "@/lib/db/queries/personas";
-import { CreationWizard } from "@/components/personas/creation-wizard";
 import { Badge } from "@/components/ui/badge";
-import { Users } from "lucide-react";
+import { Users, Plus } from "lucide-react";
 
 export default async function PersonasPage() {
   const { organizations } = await requireAuthWithOrgs();
@@ -20,7 +19,13 @@ export default async function PersonasPage() {
             Manage your persona groups and individual personas.
           </p>
         </div>
-        <CreationWizard />
+        <Link
+          href="/personas/new"
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 h-9 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+        >
+          <Plus className="h-4 w-4" />
+          Create Personas
+        </Link>
       </div>
 
       {groups.length === 0 ? (
@@ -30,6 +35,13 @@ export default async function PersonasPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             Create your first persona group to get started.
           </p>
+          <Link
+            href="/personas/new"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 h-9 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+          >
+            <Plus className="h-4 w-4" />
+            Get Started
+          </Link>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

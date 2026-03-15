@@ -76,3 +76,23 @@ export const wizardGroupSettingsSchema = z.object({
 });
 
 export type WizardGroupSettings = z.infer<typeof wizardGroupSettingsSchema>;
+
+// Creation flow schemas
+export const quickPromptSchema = z.object({
+  prompt: z.string().min(5, "Describe your target user in at least a few words").max(500),
+});
+
+export type QuickPromptInput = z.infer<typeof quickPromptSchema>;
+
+export const manualFormSchema = z.object({
+  role: z.string().min(1, "Role is required").max(100),
+  industry: z.string().max(100).optional(),
+  company: z.string().max(100).optional(),
+  ageRange: z.enum(["18-25", "26-35", "36-45", "46-55", "56+", "Any"]).default("Any"),
+  location: z.string().max(100).optional(),
+  background: z.string().max(1000).optional(),
+  painPoints: z.string().max(1000).optional(),
+  tools: z.string().max(500).optional(),
+});
+
+export type ManualFormInput = z.infer<typeof manualFormSchema>;

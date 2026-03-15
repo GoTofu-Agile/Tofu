@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import type { SourceType } from "@prisma/client";
 
 export async function getPersonaGroupsForOrg(organizationId: string) {
   return prisma.personaGroup.findMany({
@@ -24,6 +25,7 @@ export async function createPersonaGroup(data: {
   name: string;
   description?: string;
   domainContext?: string;
+  sourceType?: SourceType;
 }) {
   return prisma.personaGroup.create({
     data: {
@@ -31,7 +33,7 @@ export async function createPersonaGroup(data: {
       name: data.name,
       description: data.description,
       domainContext: data.domainContext,
-      sourceType: "PROMPT_GENERATED",
+      sourceType: data.sourceType ?? "PROMPT_GENERATED",
     },
   });
 }
