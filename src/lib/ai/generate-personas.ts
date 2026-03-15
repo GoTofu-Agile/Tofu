@@ -188,15 +188,25 @@ export async function generateAndSavePersonas(
 ): Promise<GeneratePersonasResult> {
   const { groupId, count, domainContext, onProgress } = params;
 
-  // Load domain knowledge for RAG context
+  // Load domain knowledge for RAG context (with provenance tracking)
   const knowledge = await prisma.domainKnowledge.findMany({
     where: { personaGroupId: groupId },
-    take: 10,
-    orderBy: { createdAt: "desc" },
+    take: 20,
+    orderBy: [{ relevanceScore: "desc" }, { createdAt: "desc" }],
   });
+  const knowledgeIds = knowledge.map((k) => k.id);
   const ragContext = knowledge.length
-    ? knowledge.map((k) => k.content).join("\n\n")
+    ? knowledge
+        .map((k) => {
+          const source = k.sourceDomain ? ` [${k.sourceDomain}]` : "";
+          const date = k.publishedAt
+            ? ` (${k.publishedAt.toISOString().slice(0, 10)})`
+            : "";
+          return `${k.title}${source}${date}:\n${k.content}`;
+        })
+        .join("\n\n---\n\n")
     : undefined;
+  const sourceType = knowledge.length > 0 ? "DATA_BASED" : "PROMPT_GENERATED";
 
   const previousPersonas: { name: string; archetype: string }[] = [];
   const errors: string[] = [];
@@ -221,7 +231,7 @@ export async function generateAndSavePersonas(
       const qualityScore = computeQualityScore(persona);
       const llmSystemPrompt = buildSystemPrompt(persona);
 
-      await prisma.persona.create({
+      const createdPersona = await prisma.persona.create({
         data: {
           personaGroupId: groupId,
           name: persona.name,
@@ -234,7 +244,7 @@ export async function generateAndSavePersonas(
           goals: persona.goals,
           frustrations: persona.frustrations,
           behaviors: persona.behaviors,
-          sourceType: "PROMPT_GENERATED",
+          sourceType,
           qualityScore,
           llmSystemPrompt,
           archetype: persona.archetype,
@@ -265,6 +275,17 @@ export async function generateAndSavePersonas(
           },
         },
       });
+
+      // Link persona to data sources for provenance tracking
+      if (knowledgeIds.length > 0) {
+        await prisma.personaDataSource.createMany({
+          data: knowledgeIds.map((dkId) => ({
+            personaId: createdPersona.id,
+            domainKnowledgeId: dkId,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       previousPersonas.push({
         name: persona.name,

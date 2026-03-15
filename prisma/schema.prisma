@@ -137,10 +137,11 @@ model Persona {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  personality PersonalityProfile?
-  attributes  PersonaAttribute[]
-  sessions    Session[]
-  tags        TagOnPersona[]
+  personality  PersonalityProfile?
+  attributes   PersonaAttribute[]
+  sessions     Session[]
+  tags         TagOnPersona[]
+  dataSources  PersonaDataSource[]
 
   @@index([personaGroupId, isActive])
 }
@@ -318,12 +319,64 @@ model DomainKnowledge {
   id             String       @id @default(cuid())
   personaGroupId String
   personaGroup   PersonaGroup @relation(fields: [personaGroupId], references: [id], onDelete: Cascade)
-  source         String
+
+  // Content
   title          String
   content        String       @db.Text
+  summary        String?      @db.Text
+
+  // Provenance
+  sourceType     DataSourceType
+  sourceUrl      String?
+  sourceDomain   String?
+  sourceAuthor   String?
+
+  // Temporal tracking
+  publishedAt    DateTime?
+  scrapedAt      DateTime     @default(now())
+
+  // Quality & relevance
+  relevanceScore Float?
+  sentiment      String?
+  language       String?      @default("en")
+
+  // Search context
+  searchQuery    String?
+  searchSession  String?
+
   embedding      Unsupported("vector(1536)")?
   metadata       Json?
   createdAt      DateTime     @default(now())
+
+  personaSources PersonaDataSource[]
+
+  @@index([personaGroupId, sourceType])
+  @@index([publishedAt])
+}
+
+model PersonaDataSource {
+  id                String          @id @default(cuid())
+  personaId         String
+  persona           Persona         @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  domainKnowledgeId String
+  domainKnowledge   DomainKnowledge @relation(fields: [domainKnowledgeId], references: [id], onDelete: Cascade)
+  influence         String?
+
+  @@unique([personaId, domainKnowledgeId])
+}
+
+enum DataSourceType {
+  REDDIT
+  APP_REVIEW
+  PLAY_STORE_REVIEW
+  FORUM
+  PRODUCT_HUNT
+  G2_REVIEW
+  TRUSTPILOT
+  NEWS
+  ACADEMIC
+  SOCIAL_MEDIA
+  MANUAL
 }
 
 // ─── Tags ───

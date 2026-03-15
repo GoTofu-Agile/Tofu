@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { getPersonaGroupsForOrg } from "@/lib/db/queries/personas";
-import { CreateGroupDialog } from "@/components/personas/create-group-dialog";
+import { CreationWizard } from "@/components/personas/creation-wizard";
 import { Badge } from "@/components/ui/badge";
 import { Users } from "lucide-react";
 
@@ -20,7 +20,7 @@ export default async function PersonasPage() {
             Manage your persona groups and individual personas.
           </p>
         </div>
-        <CreateGroupDialog />
+        <CreationWizard />
       </div>
 
       {groups.length === 0 ? (

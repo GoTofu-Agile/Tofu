@@ -57,3 +57,22 @@ export const personaSchema = z.object({
 });
 
 export type PersonaOutput = z.infer<typeof personaSchema>;
+
+// Wizard schemas
+export const wizardProductInfoSchema = z.object({
+  productName: z.string().min(1, "Product name is required").max(100),
+  oneLiner: z.string().min(1, "One-liner is required").max(300),
+  targetAudience: z.string().min(1, "Target audience is required"),
+  competitors: z.string().max(500).optional(), // comma-separated
+  researchGoals: z.array(z.string()).min(1, "Select at least one research goal"),
+});
+
+export type WizardProductInfo = z.infer<typeof wizardProductInfoSchema>;
+
+export const wizardGroupSettingsSchema = z.object({
+  name: z.string().min(1, "Group name is required").max(100),
+  count: z.number().int().min(3).max(50).default(10),
+  includeSkeptics: z.boolean().default(true),
+});
+
+export type WizardGroupSettings = z.infer<typeof wizardGroupSettingsSchema>;
