@@ -1,120 +1,146 @@
 # GoTofu — Agent Handoff Prompt
 
-Kopiere alles unterhalb in den nächsten Agent-Chat.
+Kopiere alles unterhalb in den naechsten Agent-Chat.
 
 ---
 
 ## Projekt
 
-**GoTofu** — SaaS-Plattform für synthetische User-Interviews. Kunden erstellen Organisationen, generieren KI-basierte Personas (datenbasiert via Web-Research oder prompt-basiert), clustern sie in Gruppen und führen damit Studies durch (Interviews, Surveys, Focus Groups etc.).
+**GoTofu** — SaaS-Plattform fuer synthetische User-Interviews. Kunden erstellen Organisationen, beschreiben ihr Produkt per AI-Chat, generieren datenbasierte Personas und fuehren damit Studies durch (Interviews, Surveys, Focus Groups).
 
 **Repo-Pfad:** `/Users/danielkourie/My Drive (daniel.kourie@code.berlin)/projects/SyntheticUserPlatform`
-
-**Referenz-Dokument:** `PLAN.md` im Repo-Root — vollständiger Implementierungsplan.
+**GitHub:** `https://github.com/habibidani/gotofu` (private)
 
 ## Tech Stack
 
 - **Next.js 16** (App Router, Turbopack) + **TypeScript**
-- **Supabase** (PostgreSQL + Auth + Storage + Realtime) — Projekt-ID: `cgkgolnccyuqjlvcazov`
-- **Prisma v5** ORM (v5.22.0, weil Node 20.11.1 — Prisma v6+ braucht Node 20.19+)
-- **Vercel AI SDK** — LLM-agnostisch (OpenAI/Claude/Gemini switchbar via `LLM_PROVIDER` env)
-- **Tavily SDK** — Web-Research (Reddit, Foren, App Store Reviews) für datenbasierte Personas
+- **Supabase** (PostgreSQL + Auth) — Projekt-ID: `cgkgolnccyuqjlvcazov`
+- **Prisma v5** ORM (v5.22.0 — Node 20.11.1, Prisma v6+ braucht Node 20.19+)
+- **Vercel AI SDK** — LLM-agnostisch (OpenAI/Claude/Gemini via `LLM_PROVIDER` env)
+- **Tavily SDK** — Web-Research (Reddit, Foren, App Store Reviews)
 - **shadcn/ui v4** (base-ui statt Radix — KEIN `asChild` prop)
-- **Tailwind CSS v4**
-- **Zod v4** (nutzt `issues` statt `errors` bei Validierungsfehlern)
+- **Tailwind CSS v4**, **Zod v4** (`issues` statt `errors`)
 
 ## Was fertig ist
 
-### Phase 1: Foundation ✅
-- Supabase Auth (Login, Signup, OAuth Callback) + Session-Middleware
-- Prisma Schema mit 20+ Models — pushed zu Supabase via `prisma db push`
-- Org-Management (CRUD, Invitations, Member Roles) — Query-Layer in `src/lib/db/queries/`
+### Sprint 1: Foundation ✅
+- Supabase Auth (Signup, Login, OAuth Callback) + Session-Middleware
+- Prisma Schema (20+ Models) — pushed zu Supabase
+- Org-Management (CRUD, Invitations, Member Roles)
 - Dashboard Layout (Sidebar + Topbar + OrgSwitcher)
-- Landing Page, Dashboard Page, Placeholder-Pages für alle Routen
-- LLM Provider (`src/lib/ai/provider.ts`) — `getModel()` mit API-Key Validation
-- Error Boundaries für Dashboard + Personas
-- Settings Page (Workspace umbenennen, neuen Workspace erstellen)
+- Personal Workspace auto-erstellt bei Signup (idempotent)
+- LLM Provider Switch mit API-Key Validation
+- Error Boundaries, Settings (Workspace umbenennen/erstellen)
 
-### Phase 2A: Persona Engine ✅ (voll funktionsfähig)
-- **4-Step Creation Wizard** (ersetzt alten simplen Dialog):
-  - Step 1: Produkt-Info (Name, One-Liner, Zielgruppe, Konkurrenz, Research Goals)
-  - Step 2: Auto-Research via Tavily (Reddit, Foren, App Reviews) → Preview
-  - Step 3: Gruppe konfigurieren (Anzahl, Skeptics Toggle)
-  - Step 4: Streaming Generation mit Progress Bar
-- **Direkte Persona-Generierung** (kein Inngest nötig) via `/api/personas/generate`
-- Persona Group Overview (`/personas`) — Grid mit Wizard-Button
-- Group Detail Page (`/personas/[groupId]`) — Persona-Cards mit Big Five Mini-Bars
-- Persona Detail Page (`/personas/[groupId]/[personaId]`) — Voller Profil-View
-- **Data Provenance**: DomainKnowledge trackt sourceType, sourceUrl, publishedAt, relevanceScore
-- **PersonaDataSource**: Jede Persona verlinkt zu ihren Datenquellen
-- 12 DataSourceTypes: REDDIT, APP_REVIEW, PLAY_STORE_REVIEW, FORUM, PRODUCT_HUNT, etc.
+### Sprint 2: Persona Creation ✅
+- **Multi-Method Creation Page** (`/personas/new`) mit 3 aktiven Methoden:
+  - **Quick Prompt** — Ein Satz, AI + Auto-Research erledigt den Rest
+  - **Web Research** — Produktdetails → Tavily durchsucht Reddit/Foren/Reviews → Generate
+  - **Manual + AI** — Rolle, Branche, Pain Points → AI ergaenzt Personality & Backstory
+  - **Templates** — Placeholder (Coming soon)
+- **Data-First**: Alle Methoden scrapen automatisch via Tavily bevor Personas generiert werden
+- **AI-powered Org Setup Chat** (Settings → Product Context):
+  - User beschreibt Produkt im Fliesstext → AI extrahiert structurierte Felder
+  - Follow-up Fragen wenn Info fehlt → gespeichert auf Org-Level
+  - Pre-fills Web Research Form, enriched Quick Prompt + Manual Kontext
+- Streaming Persona Generation mit Progress Bar
+- Persona Detail View (Big Five, Archetype, Interview Modifiers, 60+ Felder)
+- Data Provenance: DomainKnowledge trackt Quellen, PersonaDataSource verlinkt Personas zu Daten
 
-## Auth-Flow
+### Sprint 3: Study & Interview System ✅
+- Study Creation (Typ, Titel, Interview Guide, Persona-Gruppen zuweisen)
+- Multi-turn Streaming Chat mit Persona (nutzt `llmSystemPrompt`)
+- Persona bleibt in-character (Big Five, Communication Style, Directness)
+- Session Transcript Viewer
+- Message Persistence (Interviewer + Respondent)
 
-Der Auth-Flow funktioniert end-to-end:
-1. Signup → Email-Bestätigung (wenn in Supabase aktiviert) → Login
-2. `requireAuth()` erstellt automatisch einen Personal Workspace wenn keiner existiert (idempotent)
-3. Dashboard Layout bestimmt activeOrgId aus Cookie (Fallback: erste Org)
-4. Sidebar persistiert activeOrgId Cookie client-seitig per useEffect
+## Alle Routes
+
+### Pages
+| Route | Zweck |
+|-------|-------|
+| `/` | Landing Page |
+| `/login`, `/signup` | Auth |
+| `/callback` | OAuth Callback |
+| `/dashboard` | Dashboard mit Stats |
+| `/personas` | Persona Groups Grid |
+| `/personas/new` | Multi-Method Creation Flow |
+| `/personas/[groupId]` | Group Detail + Persona Cards |
+| `/personas/[groupId]/[personaId]` | Persona Profil (Big Five, Backstory, etc.) |
+| `/studies` | Studies Liste |
+| `/studies/new` | Study erstellen |
+| `/studies/[studyId]` | Study Detail + Sessions |
+| `/studies/[studyId]/[sessionId]` | Interview Chat |
+| `/settings` | Workspace Settings + Product Context Chat |
+| `/settings/members` | Member Management |
+| `/uploads` | Upload Manager (Placeholder) |
+
+### API Routes
+| Route | Zweck |
+|-------|-------|
+| `POST /api/chat` | Multi-turn Interview Streaming |
+| `POST /api/org/setup` | AI Org Setup (Fliesstext → strukturierte Felder) |
+| `POST /api/personas/generate` | Streaming Persona Generation |
+| `POST /api/research` | Tavily Web Research (Streaming NDJSON) |
+| `POST /api/research/quick` | Quick Auto-Research (1-2 Queries) |
 
 ## Wichtige Dateien
 
 | Datei | Zweck |
 |-------|-------|
-| `PLAN.md` | Vollständiger Projektplan |
-| `prisma/schema.prisma` | Datenbank-Schema (20+ Models) |
+| `prisma/schema.prisma` | DB Schema (20+ Models) |
 | `src/lib/auth.ts` | `requireAuth()`, `requireAuthWithOrgs()`, `getActiveOrgId()` |
-| `src/lib/ai/provider.ts` | `getModel()` — LLM Provider Switch mit Key-Validation |
-| `src/lib/ai/generate-personas.ts` | Persona-Generierung (RAG + Streaming) |
-| `src/lib/research/tavily.ts` | Tavily Client + Search-Funktionen |
-| `src/lib/research/build-queries.ts` | Product-Info → Tavily Search Queries |
-| `src/lib/db/queries/personas.ts` | Persona CRUD Queries |
-| `src/lib/db/queries/organizations.ts` | Org Management Queries |
-| `src/lib/validation/schemas.ts` | Zod Schemas |
-| `src/app/api/personas/generate/route.ts` | Streaming Generation API |
-| `src/app/api/research/route.ts` | Streaming Research API |
-| `src/components/personas/creation-wizard.tsx` | 4-Step Wizard |
+| `src/lib/ai/provider.ts` | `getModel()` — LLM Provider Switch |
+| `src/lib/ai/generate-personas.ts` | Persona Generation (RAG, Anti-Sycophancy, Streaming) |
+| `src/lib/research/tavily.ts` | Tavily Client, `quickResearch()`, `buildAutoQueries()` |
+| `src/lib/research/build-queries.ts` | Product Info → Tavily Search Queries |
+| `src/lib/db/queries/personas.ts` | Persona CRUD |
+| `src/lib/db/queries/organizations.ts` | Org Management + `getOrgProductContext()` |
+| `src/lib/db/queries/studies.ts` | Study + Session Queries |
+| `src/lib/validation/schemas.ts` | Zod Schemas (persona, quickPrompt, manualForm, etc.) |
+| `src/components/personas/creation/` | Multi-Method Creation Flow (7 Components) |
+| `src/components/org/org-setup-chat.tsx` | AI Org Setup Chat |
+| `src/components/studies/` | Interview Chat, Study Forms |
 | `src/components/layout/` | Sidebar, Topbar, OrgSwitcher |
 
 ## Dev-Setup
 
 ```bash
 cd "/Users/danielkourie/My Drive (daniel.kourie@code.berlin)/projects/SyntheticUserPlatform"
-npm run dev          # Startet auf Port 3004
-npx prisma db push   # Schema zu Supabase pushen (liest .env, nicht .env.local)
-npx prisma generate  # Prisma Client regenerieren
+npm run dev          # Port 3004
+npx prisma db push   # Schema zu Supabase (liest .env)
+npx prisma generate  # Client regenerieren
 npx next build       # Build verifizieren
 ```
 
 ## .env Setup
 
-Beide Dateien (.env und .env.local) mit denselben Werten füllen:
-- `.env.local` → wird von Next.js gelesen
-- `.env` → wird von Prisma CLI gelesen (`prisma db push`, `prisma generate`)
+Beide Dateien (`.env` und `.env.local`) mit denselben Werten fuellen:
+- `.env.local` → Next.js Runtime
+- `.env` → Prisma CLI (`prisma db push`, `prisma generate`)
 
-Siehe `.env.example` für alle benötigten Variablen.
+Siehe `.env.example` fuer alle Variablen.
 
-## Nächste Schritte
+## Naechste Schritte
 
-### Phase 2B: Polish
-- Persona-Filtering (Alter, Trait, Archetype)
-- Mobile Navigation (Sidebar collapsible)
-- Persona Edit/Delete
+### Sprint 4: Template Marketplace & Admin Tool
+- Internes Admin Panel (GoTofu Team Org = Platform Admin)
+- Templates erstellen, kuratieren, publishen
+- Visibility: Public / bestimmte Orgs / bestimmte User
+- User-Facing Template Gallery + Clone-Logik
 
-### Phase 3: Study & Interview System (KERNPRODUKT)
-- Study Creation Wizard (Interview, Survey, Focus Group)
-- Interview Guide Builder
-- Multi-turn Chat mit Persona (nutzt `llmSystemPrompt`)
-- Session Transcript Viewer
-
-### Phase 4-6: Uploads, Analysis, Scale (siehe PLAN.md)
+### Sprint 5-6: Uploads, Analysis, Scale
+- CSV/PDF Upload → Personas
+- Theme Extraction, Sentiment Analysis
+- Billing, Monitoring, Performance
 
 ## Gotchas
 
-- **shadcn/ui v4**: Kein `asChild` prop — nutzt base-ui statt Radix
-- **Prisma v5**: Wegen Node 20.11.1 — NICHT auf v6+ upgraden
+- **shadcn/ui v4**: Kein `asChild` prop — base-ui statt Radix
+- **Prisma v5**: Wegen Node 20.11.1 — NICHT v6+ upgraden
 - **Zod v4**: `error.issues` statt `error.errors`
-- **Next.js 16**: `middleware.ts` Convention ist deprecated (Warning, funktioniert aber)
+- **Next.js 16**: `middleware.ts` deprecated (Warning, funktioniert)
 - **Port 3004**: In `package.json` konfiguriert
-- **`.env` vs `.env.local`**: Beide brauchen `DATABASE_URL` (Prisma-Limitation)
-- **Tavily optional**: Ohne `TAVILY_API_KEY` funktioniert alles — Personas werden dann nur prompt-basiert generiert
+- **`.env` vs `.env.local`**: Beide brauchen `DATABASE_URL`
+- **Tavily optional**: Ohne Key werden Personas nur prompt-basiert generiert
+- **Organization hat Product Context**: productName, productDescription, targetAudience, industry, competitors — wird von Persona Creation automatisch genutzt
