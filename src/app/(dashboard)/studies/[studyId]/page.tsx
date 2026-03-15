@@ -1,10 +1,13 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
-import { getStudy } from "@/lib/db/queries/studies";
+import { getStudy, getAnalysisReport } from "@/lib/db/queries/studies";
 import { Badge } from "@/components/ui/badge";
 import { StudyPersonaList } from "@/components/studies/study-persona-list";
 import { StudySessionList } from "@/components/studies/study-session-list";
 import { BatchRunButton } from "@/components/studies/batch-run-button";
+import { InsightsPanel } from "@/components/studies/insights-panel";
+import { Download } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -30,7 +33,10 @@ export default async function StudyDetailPage({
   const { organizations } = await requireAuthWithOrgs();
   const activeOrgId = await getActiveOrgId(organizations);
 
-  const study = await getStudy(studyId);
+  const [study, analysisReport] = await Promise.all([
+    getStudy(studyId),
+    getAnalysisReport(studyId),
+  ]);
   if (!study || study.organizationId !== activeOrgId) {
     notFound();
   }
@@ -94,15 +100,33 @@ export default async function StudyDetailPage({
         />
       )}
 
-      {/* Sessions */}
+      {/* Sessions + Export */}
       {study.sessions.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-medium">
-            Sessions ({study.sessions.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">
+              Sessions ({study.sessions.length})
+            </h3>
+            {completedCount > 0 && (
+              <Link
+                href={`/api/studies/${study.id}/export`}
+                className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+              >
+                <Download className="h-3 w-3" />
+                Export CSV
+              </Link>
+            )}
+          </div>
           <StudySessionList sessions={study.sessions} studyId={study.id} />
         </div>
       )}
+
+      {/* Analysis & Insights */}
+      <InsightsPanel
+        studyId={study.id}
+        report={analysisReport}
+        hasCompletedSessions={completedCount > 0}
+      />
 
       {/* Personas to interview */}
       <div className="space-y-3">

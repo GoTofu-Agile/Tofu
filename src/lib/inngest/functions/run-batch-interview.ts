@@ -219,6 +219,14 @@ export const runBatchInterview = inngest.createFunction(
       });
     }
 
+    // Auto-trigger insights generation after batch completion
+    if (completedCount > 0) {
+      await inngest.send({
+        name: "study/generate-insights",
+        data: { studyId },
+      });
+    }
+
     return { completed: completedCount, total: personas.length };
   }
 );

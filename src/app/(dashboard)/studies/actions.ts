@@ -112,6 +112,31 @@ export async function runBatchInterviews(studyId: string) {
   return { success: true, pendingCount: data.pendingCount };
 }
 
+export async function triggerInsights(studyId: string) {
+  const { activeOrgId } = await getActiveOrg();
+
+  const study = await getStudy(studyId);
+  if (!study || study.organizationId !== activeOrgId) {
+    return { error: "Study not found" };
+  }
+
+  const completedSessions = study.sessions.filter(
+    (s) => s.status === "COMPLETED"
+  );
+  if (completedSessions.length === 0) {
+    return { error: "No completed interviews to analyze" };
+  }
+
+  const { inngest } = await import("@/lib/inngest/client");
+  await inngest.send({
+    name: "study/generate-insights",
+    data: { studyId },
+  });
+
+  revalidatePath(`/studies/${studyId}`);
+  return { success: true };
+}
+
 export async function removeStudy(studyId: string) {
   const { activeOrgId, role } = await getActiveOrg();
 

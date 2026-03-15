@@ -152,6 +152,54 @@ export async function getMessageCount(sessionId: string) {
   });
 }
 
+// ─── Analysis Reports ───
+
+export async function getAnalysisReport(studyId: string) {
+  return prisma.analysisReport.findFirst({
+    where: { studyId },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createAnalysisReport(data: {
+  studyId: string;
+  title: string;
+  summary: string;
+  keyFindings: Record<string, unknown>[] | unknown[];
+  themes: Record<string, unknown>[] | unknown[];
+  sentimentBreakdown: Record<string, unknown>;
+  recommendations: Record<string, unknown>[] | unknown[];
+}) {
+  return prisma.analysisReport.create({
+    data: {
+      studyId: data.studyId,
+      title: data.title,
+      summary: data.summary,
+      keyFindings: data.keyFindings as never,
+      themes: data.themes as never,
+      sentimentBreakdown: data.sentimentBreakdown as never,
+      recommendations: data.recommendations as never,
+    },
+  });
+}
+
+export async function getStudyTranscripts(studyId: string) {
+  return prisma.session.findMany({
+    where: { studyId, status: "COMPLETED" },
+    include: {
+      persona: {
+        select: { name: true, archetype: true, occupation: true, age: true },
+      },
+      messages: {
+        where: { role: { not: "SYSTEM" } },
+        orderBy: { sequence: "asc" },
+        select: { role: true, content: true, sequence: true, createdAt: true },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
 export async function completeSession(sessionId: string) {
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
