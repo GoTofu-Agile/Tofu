@@ -122,8 +122,10 @@ export async function acceptInvitation(token: string, userId: string) {
   }
 
   await prisma.$transaction([
-    prisma.organizationMember.create({
-      data: {
+    prisma.organizationMember.upsert({
+      where: { organizationId_userId: { organizationId: invitation.organizationId, userId } },
+      update: {},
+      create: {
         organizationId: invitation.organizationId,
         userId,
         role: invitation.role,
@@ -159,6 +161,23 @@ export async function getPendingInvitations(orgId: string) {
       organizationId: orgId,
       acceptedAt: null,
       expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function revokeInvitation(invitationId: string) {
+  return prisma.organizationInvitation.delete({
+    where: { id: invitationId },
+  });
+}
+
+export async function getAllOrganizations() {
+  return prisma.organization.findMany({
+    include: {
+      _count: {
+        select: { members: true, studies: true, personaGroups: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });

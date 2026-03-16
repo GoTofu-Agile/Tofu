@@ -33,12 +33,16 @@ export default async function DashboardLayout({
     organizations.find((org) => org.id === cookieOrgId)?.id ??
     organizations[0].id;
 
+  const adminEmails = (process.env.GOTOFU_ADMIN_EMAILS ?? "").split(",").map((e) => e.trim());
+  const isAdmin = adminEmails.includes(user.email);
+
   return (
     <div className="flex h-screen">
       <Sidebar
         user={user}
         organizations={organizations}
         activeOrgId={activeOrgId}
+        isAdmin={isAdmin}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar />

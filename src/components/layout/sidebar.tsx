@@ -6,9 +6,11 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  UserPlus,
   FlaskConical,
   Upload,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrgSwitcher } from "./org-switcher";
@@ -18,6 +20,7 @@ const navigation = [
   { name: "Personas", href: "/personas", icon: Users },
   { name: "Studies", href: "/studies", icon: FlaskConical },
   { name: "Uploads", href: "/uploads", icon: Upload },
+  { name: "Members", href: "/settings/members", icon: UserPlus },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -32,9 +35,10 @@ interface SidebarProps {
     _count: { members: number };
   }>;
   activeOrgId: string;
+  isAdmin?: boolean;
 }
 
-export function Sidebar({ user, organizations, activeOrgId }: SidebarProps) {
+export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarProps) {
   const pathname = usePathname();
 
   // Persist activeOrgId to cookie so server actions can read it
@@ -51,10 +55,12 @@ export function Sidebar({ user, organizations, activeOrgId }: SidebarProps) {
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navigation.map((item) => {
+        {[...navigation, ...(isAdmin ? [{ name: "Admin", href: "/admin", icon: ShieldCheck }] : [])].map((item) => {
           const isActive =
             item.href === "/dashboard"
               ? pathname === "/dashboard"
+              : item.href === "/settings"
+              ? pathname === "/settings"
               : pathname.startsWith(item.href);
           return (
             <Link

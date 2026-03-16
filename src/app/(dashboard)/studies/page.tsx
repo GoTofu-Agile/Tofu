@@ -2,7 +2,6 @@ import Link from "next/link";
 import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { getStudiesForOrg } from "@/lib/db/queries/studies";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { ClipboardList, Plus, MessageSquare, CheckCircle2, Clock } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -37,7 +36,7 @@ export default async function StudiesPage() {
         </div>
         <Link
           href="/studies/new"
-          className={buttonVariants({ size: "sm" })}
+          className="inline-flex items-center rounded-lg bg-primary px-3 h-9 text-sm font-medium text-primary-foreground hover:bg-primary/80"
         >
           <Plus className="mr-1.5 h-4 w-4" />
           New Study
@@ -53,7 +52,7 @@ export default async function StudiesPage() {
           </p>
           <Link
             href="/studies/new"
-            className={buttonVariants({ variant: "outline", className: "mt-4" })}
+            className="mt-4 inline-flex items-center rounded-lg border px-3 h-9 text-sm font-medium hover:bg-muted transition-colors"
           >
             Create your first study
           </Link>

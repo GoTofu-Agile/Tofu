@@ -94,22 +94,28 @@ export async function runBatchInterviews(studyId: string) {
     return { error: "Study not found" };
   }
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3004"}/api/studies/${studyId}/run-batch`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    }
+  // Count pending personas
+  const existingPersonaIds = new Set(study.sessions.map((s) => s.personaId));
+  const allPersonas = study.personaGroups.flatMap(
+    (spg) => spg.personaGroup.personas
   );
+  const pendingCount = allPersonas.filter(
+    (p) => !existingPersonaIds.has(p.id)
+  ).length;
 
-  if (!response.ok) {
-    const data = await response.json();
-    return { error: data.error || "Failed to start batch" };
+  if (pendingCount === 0) {
+    return { error: "All personas already have sessions" };
   }
 
-  const data = await response.json();
+  // Send event directly to Inngest (no HTTP round-trip)
+  const { inngest } = await import("@/lib/inngest/client");
+  await inngest.send({
+    name: "study/run-batch",
+    data: { studyId },
+  });
+
   revalidatePath(`/studies/${studyId}`);
-  return { success: true, pendingCount: data.pendingCount };
+  return { success: true, pendingCount };
 }
 
 export async function triggerInsights(studyId: string) {
