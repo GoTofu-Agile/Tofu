@@ -3,6 +3,7 @@ import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { getPersonaGroupsForOrg } from "@/lib/db/queries/personas";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus } from "lucide-react";
+import { SOURCE_LABELS } from "@/lib/constants/source-labels";
 
 export default async function PersonasPage() {
   const { organizations } = await requireAuthWithOrgs();
@@ -55,8 +56,11 @@ export default async function PersonasPage() {
                 <h3 className="font-medium group-hover:underline">
                   {group.name}
                 </h3>
-                <Badge variant="secondary" className="text-xs">
-                  {group.sourceType.replace("_", " ").toLowerCase()}
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] shrink-0 ${SOURCE_LABELS[group.sourceType].className}`}
+                >
+                  {SOURCE_LABELS[group.sourceType].label}
                 </Badge>
               </div>
               {group.description && (

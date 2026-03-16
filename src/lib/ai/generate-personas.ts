@@ -7,6 +7,7 @@ export interface GeneratePersonasParams {
   groupId: string;
   count: number;
   domainContext?: string;
+  sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
   onProgress?: (completed: number, total: number, personaName: string) => void;
 }
 
@@ -186,7 +187,7 @@ function computeQualityScore(persona: PersonaOutput): number {
 export async function generateAndSavePersonas(
   params: GeneratePersonasParams
 ): Promise<GeneratePersonasResult> {
-  const { groupId, count, domainContext, onProgress } = params;
+  const { groupId, count, domainContext, sourceTypeOverride, onProgress } = params;
 
   // Load domain knowledge for RAG context (with provenance tracking)
   const knowledge = await prisma.domainKnowledge.findMany({
@@ -206,7 +207,7 @@ export async function generateAndSavePersonas(
         })
         .join("\n\n---\n\n")
     : undefined;
-  const sourceType = knowledge.length > 0 ? "DATA_BASED" : "PROMPT_GENERATED";
+  const sourceType = sourceTypeOverride ?? (knowledge.length > 0 ? "DATA_BASED" : "PROMPT_GENERATED");
 
   const previousPersonas: { name: string; archetype: string }[] = [];
   const errors: string[] = [];

@@ -4,18 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createGroup } from "@/app/(dashboard)/personas/actions";
+import { StepMethodPicker, type CreationMethod } from "./step-method-picker";
 import { StepDescribe } from "./step-describe";
+import { StepManual } from "./step-manual";
+import { StepLinkedin } from "./step-linkedin";
+import { StepUrl } from "./step-url";
 import { StepReview } from "./step-review";
 import { StepSources } from "./step-sources";
 import { StepProgress } from "./step-progress";
 import type { ExtractedContext } from "@/lib/validation/schemas";
-import {
-  searchTavily,
-  saveResearchResults,
-} from "@/lib/research/tavily";
+import { searchTavily, saveResearchResults } from "@/lib/research/tavily";
 import { buildQueriesFromContext } from "@/lib/research/build-queries";
 
-type Phase = "describe" | "review" | "sources" | "progress";
+type Phase = "pick" | "describe" | "manual" | "linkedin" | "url" | "review" | "sources" | "progress";
 
 export interface OrgContext {
   productName?: string;
@@ -29,58 +30,69 @@ interface UnifiedCreationFlowProps {
   orgContext?: OrgContext;
 }
 
+// Methods that skip the sources/research step
+const SKIP_SOURCES_METHODS: CreationMethod[] = ["ai-generate", "manual"];
+
+// sourceType override per method
+const SOURCE_TYPE_MAP: Partial<Record<CreationMethod, string>> = {
+  "ai-generate": "PROMPT_GENERATED",
+  manual: "UPLOAD_BASED",
+  linkedin: "UPLOAD_BASED",
+  "company-url": "UPLOAD_BASED",
+  // deep-search → DATA_BASED auto-set by knowledge.length
+};
+
 export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   const router = useRouter();
 
-  // Phase
-  const [phase, setPhase] = useState<Phase>("describe");
+  const [phase, setPhase] = useState<Phase>("pick");
+  const [method, setMethod] = useState<CreationMethod | null>(null);
 
-  // Step 1: Describe
+  // Step: Describe
   const [extracting, setExtracting] = useState(false);
-  const [freetext, setFreetext] = useState("");
 
-  // Step 2: Review
+  // Step: Review
   const [extracted, setExtracted] = useState<ExtractedContext | null>(null);
 
-  // Step 3: Sources
-  const [selectedSources, setSelectedSources] = useState<string[]>([
-    "reddit",
-    "forums",
-  ]);
+  // Step: Sources
+  const [selectedSources, setSelectedSources] = useState<string[]>(["reddit", "forums"]);
   const [depth, setDepth] = useState<"quick" | "deep">("quick");
   const [personaCount, setPersonaCount] = useState(10);
   const [includeSkeptics, setIncludeSkeptics] = useState(true);
 
-  // Step 4: Progress
-  const [groupId, setGroupId] = useState<string | null>(null);
-  const [progressPhase, setProgressPhase] = useState<
-    "researching" | "generating" | "done"
-  >("researching");
+  // Step: Progress
+  const [progressPhase, setProgressPhase] = useState<"researching" | "generating" | "done">("researching");
   const [researchCurrent, setResearchCurrent] = useState(0);
   const [researchTotal, setResearchTotal] = useState(0);
   const [researchLabel, setResearchLabel] = useState("");
   const [researchResults, setResearchResults] = useState(0);
-  const [researchBySource, setResearchBySource] = useState<
-    Record<string, number>
-  >({});
+  const [researchBySource, setResearchBySource] = useState<Record<string, number>>({});
   const [genCompleted, setGenCompleted] = useState(0);
   const [genTotal, setGenTotal] = useState(0);
   const [genCurrentName, setGenCurrentName] = useState("");
   const [starting, setStarting] = useState(false);
 
-  // --- Step 1: Extract ---
+  // --- Method selection ---
+
+  function handleMethodSelect(m: CreationMethod) {
+    setMethod(m);
+    if (m === "deep-search" || m === "ai-generate") {
+      setPhase("describe");
+    } else {
+      setPhase(m as Phase);
+    }
+  }
+
+  // --- Step: Describe (AI Generate + Deep Search) ---
 
   async function handleDescribe(text: string) {
-    setFreetext(text);
     setExtracting(true);
-
     try {
       const response = await fetch("/api/personas/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ freetext: text, orgContext }),
       });
-
       if (!response.ok) throw new Error("Extraction failed");
       const data: ExtractedContext = await response.json();
       setExtracted(data);
@@ -92,19 +104,26 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
     }
   }
 
-  // --- Step 4: Research & Generate ---
+  // --- From Review: decide next step ---
 
-  async function handleResearchAndGenerate() {
+  function handleReviewContinue() {
+    if (method && SKIP_SOURCES_METHODS.includes(method)) {
+      // No research — go straight to generate
+      handleGenerateOnly();
+    } else {
+      setPhase("sources");
+    }
+  }
+
+  // --- Generate without research ---
+
+  async function handleGenerateOnly() {
     if (!extracted) return;
     setStarting(true);
 
-    // 1. Create group
     const formData = new FormData();
     formData.set("name", extracted.groupName);
-    formData.set(
-      "description",
-      `${extracted.targetUserRole}${extracted.industry ? ` — ${extracted.industry}` : ""}`
-    );
+    formData.set("description", `${extracted.targetUserRole}${extracted.industry ? ` — ${extracted.industry}` : ""}`);
     formData.set("domainContext", extracted.domainContext);
     formData.set("count", String(personaCount));
 
@@ -115,10 +134,53 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       return;
     }
     const gId = result.groupId!;
-    setGroupId(gId);
     setPhase("progress");
+    setProgressPhase("generating");
+    setGenTotal(personaCount);
 
-    // 2. Research
+    const sourceTypeOverride = method ? SOURCE_TYPE_MAP[method] : undefined;
+
+    try {
+      const response = await fetch("/api/personas/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groupId: gId,
+          count: personaCount,
+          domainContext: extracted.domainContext,
+          sourceTypeOverride,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Generation failed");
+      await streamGenerationProgress(response, gId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Generation failed");
+    }
+  }
+
+  // --- Research + Generate (Deep Search / LinkedIn / Company URL) ---
+
+  async function handleResearchAndGenerate() {
+    if (!extracted) return;
+    setStarting(true);
+
+    const formData = new FormData();
+    formData.set("name", extracted.groupName);
+    formData.set("description", `${extracted.targetUserRole}${extracted.industry ? ` — ${extracted.industry}` : ""}`);
+    formData.set("domainContext", extracted.domainContext);
+    formData.set("count", String(personaCount));
+
+    const result = await createGroup(formData);
+    if (result.error) {
+      toast.error(result.error);
+      setStarting(false);
+      return;
+    }
+    const gId = result.groupId!;
+    setPhase("progress");
+    setProgressPhase("researching");
+
     const queries = buildQueriesFromContext({
       targetUserRole: extracted.targetUserRole,
       industry: extracted.industry,
@@ -129,10 +191,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
     });
 
     setResearchTotal(queries.length);
-    setProgressPhase("researching");
-    const searchSession = crypto.randomUUID();
     let totalFound = 0;
-    const sourceCounts: Record<string, number> = {};
 
     for (let i = 0; i < queries.length; i++) {
       const plan = queries[i];
@@ -140,28 +199,25 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       setResearchLabel(plan.label);
 
       try {
-        const results = await fetch("/api/research/quick", {
+        const res = await fetch("/api/research/quick", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            groupId: gId,
-            prompt: plan.query,
-          }),
+          body: JSON.stringify({ groupId: gId, prompt: plan.query }),
         });
-        if (results.ok) {
-          const data = await results.json();
+        if (res.ok) {
+          const data = await res.json();
           totalFound += data.totalResults || 0;
         }
       } catch {
-        // Continue with next query
+        // continue
       }
     }
 
     setResearchResults(totalFound);
-
-    // 3. Generate
     setProgressPhase("generating");
     setGenTotal(personaCount);
+
+    const sourceTypeOverride = method ? SOURCE_TYPE_MAP[method] : undefined;
 
     try {
       const response = await fetch("/api/personas/generate", {
@@ -171,91 +227,114 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
           groupId: gId,
           count: personaCount,
           domainContext: extracted.domainContext,
+          sourceTypeOverride,
         }),
       });
 
       if (!response.ok) throw new Error("Generation failed");
+      await streamGenerationProgress(response, gId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Generation failed");
+    }
+  }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No stream");
+  async function streamGenerationProgress(response: Response, gId: string) {
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("No stream");
 
-      const decoder = new TextDecoder();
-      let buffer = "";
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const event = JSON.parse(line);
-            if (event.type === "progress") {
-              setGenCompleted(event.completed);
-              setGenCurrentName(event.personaName || "");
-            } else if (event.type === "done") {
-              setProgressPhase("done");
-              toast.success(`Generated ${event.generated} personas!`);
-              setTimeout(() => {
-                router.push(`/personas/${gId}`);
-                router.refresh();
-              }, 1000);
-            } else if (event.type === "error") {
-              toast.error(event.message);
-            }
-          } catch {
-            // skip
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          if (event.type === "progress") {
+            setGenCompleted(event.completed);
+            setGenCurrentName(event.personaName || "");
+          } else if (event.type === "done") {
+            setProgressPhase("done");
+            toast.success(`Generated ${event.generated} personas!`);
+            setTimeout(() => {
+              router.push(`/personas/${gId}`);
+              router.refresh();
+            }, 1000);
+          } else if (event.type === "error") {
+            toast.error(event.message);
           }
+        } catch {
+          // skip
         }
       }
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Generation failed"
-      );
     }
   }
 
   // --- Render ---
 
+  const isPickPhase = phase === "pick";
+  const stepLabels =
+    method && SKIP_SOURCES_METHODS.includes(method)
+      ? ["Input", "Review", "Generate"]
+      : ["Input", "Review", "Sources", "Generate"];
+
   const stepIndex =
-    phase === "describe" ? 0 : phase === "review" ? 1 : phase === "sources" ? 2 : 3;
+    phase === "describe" || phase === "manual" || phase === "linkedin" || phase === "url" ? 0
+    : phase === "review" ? 1
+    : phase === "sources" ? 2
+    : phase === "progress" ? (stepLabels.length - 1)
+    : -1;
+
+  const titles: Partial<Record<Phase, string>> = {
+    pick: "Create Personas",
+    describe: "Describe Your Personas",
+    manual: "Build Manually",
+    linkedin: "Upload LinkedIn PDF",
+    url: "Enter Company URL",
+    review: "Review & Refine",
+    sources: "Research & Settings",
+    progress: "Creating Your Personas",
+  };
+
+  const subtitles: Partial<Record<Phase, string>> = {
+    pick: "Choose a creation method.",
+    describe: "Describe who you need — AI extracts the details.",
+    manual: "Fill in the persona details directly.",
+    linkedin: "We'll extract persona context from the PDF.",
+    url: "We'll scrape the URL to infer target users.",
+    review: "We extracted these details. Edit anything that's off.",
+    sources: "Choose data sources and generation settings.",
+    progress: "Researching real-world data and generating personas...",
+  };
 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          {phase === "describe" && "Create Personas"}
-          {phase === "review" && "Review & Refine"}
-          {phase === "sources" && "Research & Settings"}
-          {phase === "progress" && "Creating Your Personas"}
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          {phase === "describe" &&
-            "Describe who you need — we'll handle the rest."}
-          {phase === "review" &&
-            "We extracted these details. Edit anything that's off."}
-          {phase === "sources" &&
-            "Choose data sources and generation settings."}
-          {phase === "progress" &&
-            "Researching real-world data and generating personas..."}
-        </p>
+        <h2 className="text-2xl font-semibold tracking-tight">{titles[phase]}</h2>
+        <p className="text-muted-foreground mt-1">{subtitles[phase]}</p>
 
-        {/* Step indicator */}
-        <div className="flex gap-1.5 mt-4">
-          {[0, 1, 2, 3].map((s) => (
-            <div
-              key={s}
-              className={`h-1 flex-1 rounded-full transition-colors ${
-                s <= stepIndex ? "bg-primary" : "bg-muted"
-              }`}
-            />
-          ))}
-        </div>
+        {!isPickPhase && stepIndex >= 0 && (
+          <div className="flex gap-1.5 mt-4">
+            {stepLabels.map((_, s) => (
+              <div
+                key={s}
+                className={`h-1 flex-1 rounded-full transition-colors ${s <= stepIndex ? "bg-primary" : "bg-muted"}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
+
+      {phase === "pick" && (
+        <StepMethodPicker onSelect={handleMethodSelect} />
+      )}
 
       {phase === "describe" && (
         <StepDescribe
@@ -265,13 +344,38 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
         />
       )}
 
+      {phase === "manual" && (
+        <StepManual
+          onSubmit={(ctx) => { setExtracted(ctx); setPhase("review"); }}
+          onBack={() => setPhase("pick")}
+        />
+      )}
+
+      {phase === "linkedin" && (
+        <StepLinkedin
+          onExtracted={(ctx) => { setExtracted(ctx); setPhase("review"); }}
+          onBack={() => setPhase("pick")}
+        />
+      )}
+
+      {phase === "url" && (
+        <StepUrl
+          onExtracted={(ctx) => { setExtracted(ctx); setPhase("review"); }}
+          onBack={() => setPhase("pick")}
+        />
+      )}
+
       {phase === "review" && extracted && (
         <StepReview
           extracted={extracted}
           onChange={setExtracted}
           orgContext={orgContext}
-          onBack={() => setPhase("describe")}
-          onContinue={() => setPhase("sources")}
+          onBack={() => {
+            if (method === "deep-search" || method === "ai-generate") setPhase("describe");
+            else if (method) setPhase(method as Phase);
+            else setPhase("pick");
+          }}
+          onContinue={handleReviewContinue}
         />
       )}
 

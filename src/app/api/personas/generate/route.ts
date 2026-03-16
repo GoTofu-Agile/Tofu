@@ -10,6 +10,7 @@ const requestSchema = z.object({
   groupId: z.string().min(1),
   count: z.number().int().min(1).max(100),
   domainContext: z.string().max(2000).optional(),
+  sourceTypeOverride: z.enum(["PROMPT_GENERATED", "DATA_BASED", "UPLOAD_BASED"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
           groupId: body.groupId,
           count: body.count,
           domainContext: body.domainContext,
+          sourceTypeOverride: body.sourceTypeOverride,
           onProgress: (completed, total, personaName) => {
             const event = JSON.stringify({
               type: "progress",

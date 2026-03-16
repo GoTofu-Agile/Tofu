@@ -7,6 +7,7 @@ import { PersonaCard } from "@/components/personas/persona-card";
 import { GeneratePersonasButton } from "@/components/personas/generate-personas-button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Users } from "lucide-react";
+import { SOURCE_LABELS } from "@/lib/constants/source-labels";
 
 export default async function PersonaGroupDetailPage({
   params,
@@ -53,8 +54,11 @@ export default async function PersonaGroupDetailPage({
               <p className="mt-1 text-muted-foreground">{group.description}</p>
             )}
             <div className="mt-2 flex items-center gap-3">
-              <Badge variant="secondary">
-                {group.sourceType.replace("_", " ").toLowerCase()}
+              <Badge
+                variant="secondary"
+                className={SOURCE_LABELS[group.sourceType].className}
+              >
+                {SOURCE_LABELS[group.sourceType].label}
               </Badge>
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Users className="h-3.5 w-3.5" />

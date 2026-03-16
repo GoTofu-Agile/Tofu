@@ -33,12 +33,15 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 - Error Boundaries, Settings (Workspace umbenennen/erstellen)
 
 ### Sprint 2: Persona Creation ✅
-- **Multi-Method Creation Page** (`/personas/new`) mit 3 aktiven Methoden:
-  - **Quick Prompt** — Ein Satz, AI + Auto-Research erledigt den Rest
-  - **Web Research** — Produktdetails → Tavily durchsucht Reddit/Foren/Reviews → Generate
-  - **Manual + AI** — Rolle, Branche, Pain Points → AI ergaenzt Personality & Backstory
-  - **Templates** — Placeholder (Coming soon)
-- **Data-First**: Alle Methoden scrapen automatisch via Tavily bevor Personas generiert werden
+- **6-Method Picker** (`/personas/new`) — Karten-Grid mit Source-Labels:
+  - **Templates** — Coming Soon (disabled)
+  - **Manual** → Formular → StepReview → Generate direkt (kein Research) → `UPLOAD_BASED`
+  - **AI Generate** → Freitext-Prompt → Extract → StepReview → Generate ohne Tavily → `PROMPT_GENERATED`
+  - **LinkedIn PDF** → PDF-Upload → `/api/personas/extract-pdf` → StepReview → optional Sources → `UPLOAD_BASED`
+  - **Company URL** → URL-Input → `/api/personas/extract-url` (Tavily scrape) → StepReview → optional Sources → `UPLOAD_BASED`
+  - **Deep Search** → Freitext → Extract → StepReview → StepSources (Tavily) → Generate → `DATA_BASED`
+- **Source Labels**: Personas tragen Labels "Prompted" / "Data Backed" / "Own Data" (Badge auf Group-Cards)
+- `sourceTypeOverride` kann bei Generation übergeben werden (`PROMPT_GENERATED` | `DATA_BASED` | `UPLOAD_BASED`)
 - **AI-powered Org Setup Chat** (Settings → Product Context):
   - User beschreibt Produkt im Fliesstext → AI extrahiert structurierte Felder
   - Follow-up Fragen wenn Info fehlt → gespeichert auf Org-Level
@@ -46,6 +49,17 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 - Streaming Persona Generation mit Progress Bar
 - Persona Detail View (Big Five, Archetype, Interview Modifiers, 60+ Felder)
 - Data Provenance: DomainKnowledge trackt Quellen, PersonaDataSource verlinkt Personas zu Daten
+
+### Sprint 4: Team Onboarding & Admin ✅
+- **Invite System**: Copy-Link Invites → `/accept-invite/[token]` → acceptInvitation (upsert, kein Crash bei Duplicate)
+- **Members Page** (`/settings/members`): Member-List, Role-Change, Remove, Pending Invites, Invite-Link Generator
+- **Dashboard Onboarding Checklist**: 4 Steps (workspace → product context → persona group → study)
+- **Admin Panel** (`/admin`): Gated via `GOTOFU_ADMIN_EMAILS` env var — Orgs erstellen, Invite-Links generieren, Übersicht
+- **Live Batch Progress**: BatchRunButton pollt `/api/studies/[id]/status` alle 3s → Progress Bar + aktueller Persona-Name
+- **Insights**: Auto-generate nach Batch, InsightsPanel mit Themes/Quotes/Sentiment/Recommendations
+- **CSV Export**: `/api/studies/[id]/export`
+- **Session Compare**: `/studies/[id]/compare`
+- **Env Var**: `GOTOFU_ADMIN_EMAILS=email1@...,email2@...` für Admin-Zugriff
 
 ### Sprint 3: Study & Interview System ✅
 - Study Creation (Typ, Titel, Interview Guide, Persona-Gruppen zuweisen)
@@ -72,7 +86,9 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 | `/studies/[studyId]` | Study Detail + Sessions |
 | `/studies/[studyId]/[sessionId]` | Interview Chat |
 | `/settings` | Workspace Settings + Product Context Chat |
-| `/settings/members` | Member Management |
+| `/settings/members` | Member Management (Invite-Links, Rollen, Remove) |
+| `/accept-invite/[token]` | Invite-Link Landing Page |
+| `/admin` | GoTofu Admin Panel (gated via GOTOFU_ADMIN_EMAILS) |
 | `/uploads` | Upload Manager (Placeholder) |
 
 ### API Routes
@@ -80,9 +96,15 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 |-------|-------|
 | `POST /api/chat` | Multi-turn Interview Streaming |
 | `POST /api/org/setup` | AI Org Setup (Fliesstext → strukturierte Felder) |
-| `POST /api/personas/generate` | Streaming Persona Generation |
+| `POST /api/personas/generate` | Streaming Persona Generation (accepts `sourceTypeOverride`) |
+| `POST /api/personas/extract` | Freitext → strukturiertes ExtractedContext-Objekt |
+| `POST /api/personas/extract-pdf` | LinkedIn PDF → ExtractedContext |
+| `POST /api/personas/extract-url` | Company URL (Tavily scrape) → ExtractedContext |
 | `POST /api/research` | Tavily Web Research (Streaming NDJSON) |
 | `POST /api/research/quick` | Quick Auto-Research (1-2 Queries) |
+| `GET /api/accept-invite` | Invite-Token akzeptieren + activeOrgId Cookie setzen |
+| `GET /api/studies/[studyId]/status` | Batch-Interview Live Status (Polling) |
+| `GET /api/studies/[studyId]/export` | CSV Transcript Export |
 
 ## Wichtige Dateien
 
