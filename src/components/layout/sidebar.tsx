@@ -40,6 +40,8 @@ interface SidebarProps {
 
 export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarProps) {
   const pathname = usePathname();
+  const activeOrg = organizations.find((o) => o.id === activeOrgId);
+  const activeOrgName = activeOrg?.isPersonal ? "Personal" : (activeOrg?.name ?? "Workspace");
 
   // Persist activeOrgId to cookie so server actions can read it
   useEffect(() => {
@@ -49,8 +51,9 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
   return (
     <aside className="flex h-screen w-60 flex-col border-r bg-background">
       <div className="flex h-14 items-center border-b px-4">
-        <Link href="/dashboard" className="text-lg font-semibold tracking-tight">
-          GoTofu
+        <Link href="/dashboard" className="flex flex-col gap-0.5">
+          <span className="text-[10px] text-muted-foreground leading-none">GoTofu</span>
+          <span className="text-sm font-semibold truncate max-w-[170px] leading-tight">{activeOrgName}</span>
         </Link>
       </div>
 

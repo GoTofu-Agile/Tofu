@@ -16,8 +16,10 @@ import {
   Loader2,
   Check,
   Sparkles,
+  Zap,
+  ArrowLeft,
+  Lock,
 } from "lucide-react";
-import type { StudyType } from "@prisma/client";
 
 interface PersonaGroup {
   id: string;
@@ -27,46 +29,59 @@ interface PersonaGroup {
   _count: { personas: number };
 }
 
-const studyTypes: {
-  value: StudyType;
-  label: string;
-  description: string;
-  icon: typeof MessageSquare;
-}[] = [
+interface OrgContext {
+  productName: string | null;
+  productDescription: string | null;
+  targetAudience: string | null;
+  industry: string | null;
+}
+
+type Mode = "pick" | "quick-describe" | "quick-review" | "manual-form";
+
+const studyTypes = [
   {
-    value: "INTERVIEW",
+    id: "INTERVIEW" as const,
     label: "Interview",
-    description: "1-on-1 conversation with a persona. Best for deep insights.",
+    description: "1-on-1 deep conversation with a persona.",
     icon: MessageSquare,
   },
   {
-    value: "SURVEY",
+    id: "SURVEY" as const,
     label: "Survey",
     description: "Structured questions across multiple personas.",
     icon: ClipboardList,
+    comingSoon: true,
   },
   {
-    value: "FOCUS_GROUP",
-    label: "Focus Group",
-    description: "Group discussion with multiple personas at once.",
+    id: "DISCUSSION" as const,
+    label: "Discussion",
+    description: "Group discussion between personas about a topic.",
     icon: Users,
+    comingSoon: true,
   },
 ];
 
 export function CreateStudyForm({
   personaGroups,
+  orgContext,
 }: {
   personaGroups: PersonaGroup[];
+  orgContext: OrgContext | null;
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<Mode>("pick");
 
+  // Quick Start state
+  const [quickDescription, setQuickDescription] = useState("");
+  const [settingUp, setSettingUp] = useState(false);
+
+  // Form state (shared by quick-review and manual-form)
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [studyType, setStudyType] = useState<StudyType>("INTERVIEW");
   const [interviewGuide, setInterviewGuide] = useState("");
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [generatingGuide, setGeneratingGuide] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   function toggleGroup(groupId: string) {
     setSelectedGroups((prev) =>
@@ -74,6 +89,49 @@ export function CreateStudyForm({
         ? prev.filter((id) => id !== groupId)
         : [...prev, groupId]
     );
+  }
+
+  function resetForm() {
+    setTitle("");
+    setDescription("");
+    setInterviewGuide("");
+    setSelectedGroups([]);
+  }
+
+  async function handleQuickSetup() {
+    if (!quickDescription.trim()) {
+      toast.error("Describe what you want to learn");
+      return;
+    }
+
+    setSettingUp(true);
+    try {
+      const res = await fetch("/api/studies/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: quickDescription.trim(),
+          personaGroups: personaGroups.map((g) => ({
+            id: g.id,
+            name: g.name,
+            description: g.description,
+          })),
+          orgContext,
+        }),
+      });
+
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+
+      setTitle(data.title || "");
+      setInterviewGuide(data.interviewGuide || "");
+      setSelectedGroups(data.suggestedGroupIds || []);
+      setMode("quick-review");
+    } catch {
+      toast.error("Failed to set up study. Please try again.");
+    } finally {
+      setSettingUp(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -93,7 +151,7 @@ export function CreateStudyForm({
       const result = await createNewStudy({
         title: title.trim(),
         description: description.trim() || undefined,
-        studyType,
+        studyType: "INTERVIEW",
         interviewGuide: interviewGuide.trim() || undefined,
         personaGroupIds: selectedGroups,
       });
@@ -112,184 +170,307 @@ export function CreateStudyForm({
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Title */}
-      <div className="space-y-2">
-        <Label htmlFor="title">Study Title *</Label>
-        <Input
-          id="title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Onboarding Flow Feedback"
-        />
-      </div>
+  async function generateGuide() {
+    setGeneratingGuide(true);
+    try {
+      const res = await fetch("/api/studies/generate-guide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description: description || undefined,
+          studyType: "INTERVIEW",
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setInterviewGuide(data.guide);
+      toast.success("Interview guide generated!");
+    } catch {
+      toast.error("Failed to generate guide");
+    } finally {
+      setGeneratingGuide(false);
+    }
+  }
 
-      {/* Description */}
-      <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="What do you want to learn from this study?"
-          rows={2}
-        />
-      </div>
+  // ── Method Picker ──────────────────────────────────────────────
 
-      {/* Study Type */}
-      <div className="space-y-2">
-        <Label>Study Type</Label>
+  if (mode === "pick") {
+    return (
+      <div className="space-y-4">
+        {/* Quick Start — full width */}
+        <button
+          type="button"
+          onClick={() => setMode("quick-describe")}
+          className="group relative w-full rounded-lg border-2 border-primary/30 bg-primary/5 p-6 text-left transition-colors hover:border-primary hover:bg-primary/10"
+        >
+          <Badge className="absolute top-4 right-4 text-xs">Recommended</Badge>
+          <Zap className="h-6 w-6 text-primary" />
+          <p className="mt-3 text-lg font-semibold">Quick Start</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Describe what you want to learn — AI sets up your study
+            automatically.
+          </p>
+        </button>
+
+        {/* Study type cards — 3 columns */}
         <div className="grid gap-3 sm:grid-cols-3">
           {studyTypes.map((type) => {
             const Icon = type.icon;
-            const selected = studyType === type.value;
+            const disabled = type.comingSoon;
+
             return (
               <button
-                key={type.value}
+                key={type.id}
                 type="button"
-                onClick={() => setStudyType(type.value)}
-                className={`rounded-lg border p-4 text-left transition-colors ${
-                  selected
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-foreground/20"
+                disabled={disabled}
+                onClick={() => {
+                  if (!disabled) {
+                    resetForm();
+                    setMode("manual-form");
+                  }
+                }}
+                className={`relative rounded-lg border p-4 text-left transition-colors ${
+                  disabled
+                    ? "cursor-not-allowed border-border opacity-50"
+                    : "border-border hover:border-primary hover:bg-primary/5"
                 }`}
               >
-                <Icon
-                  className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`}
-                />
+                {disabled ? (
+                  <Lock className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                )}
                 <p className="mt-2 text-sm font-medium">{type.label}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {type.description}
                 </p>
+                {disabled && (
+                  <Badge
+                    variant="secondary"
+                    className="mt-2 text-[10px]"
+                  >
+                    Coming Soon
+                  </Badge>
+                )}
               </button>
             );
           })}
         </div>
       </div>
+    );
+  }
 
-      {/* Interview Guide */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="guide">
-            Interview Guide{" "}
-            <span className="text-muted-foreground">(optional)</span>
+  // ── Quick Start: Describe ──────────────────────────────────────
+
+  if (mode === "quick-describe") {
+    return (
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => setMode("pick")}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+
+        <div className="space-y-2">
+          <Label htmlFor="quick-desc" className="text-base font-medium">
+            What do you want to learn?
           </Label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={generatingGuide || !title.trim()}
-            onClick={async () => {
-              setGeneratingGuide(true);
-              try {
-                const res = await fetch("/api/studies/generate-guide", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    title,
-                    description: description || undefined,
-                    studyType,
-                  }),
-                });
-                if (!res.ok) throw new Error();
-                const data = await res.json();
-                setInterviewGuide(data.guide);
-                toast.success("Interview guide generated!");
-              } catch {
-                toast.error("Failed to generate guide");
-              } finally {
-                setGeneratingGuide(false);
-              }
-            }}
-          >
-            {generatingGuide ? (
-              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-            ) : (
-              <Sparkles className="mr-1.5 h-3 w-3" />
-            )}
-            Generate with AI
-          </Button>
+          <Textarea
+            id="quick-desc"
+            value={quickDescription}
+            onChange={(e) => setQuickDescription(e.target.value)}
+            placeholder="e.g. I want to understand how users feel about our new cycle prediction feature and what would make them trust it more"
+            rows={4}
+          />
+          <p className="text-xs text-muted-foreground">
+            Be specific about what you want to learn. AI will generate a study
+            title, interview questions, and suggest relevant persona groups.
+          </p>
         </div>
-        <Textarea
-          id="guide"
-          value={interviewGuide}
-          onChange={(e) => setInterviewGuide(e.target.value)}
-          placeholder={`Questions or topics to cover, e.g.:\n- What was your first impression of the onboarding?\n- Where did you get confused?\n- What would make you come back?`}
-          rows={5}
-        />
-        <p className="text-xs text-muted-foreground">
-          These guide the AI interviewer. Leave blank for open-ended
-          conversation.
-        </p>
-      </div>
 
-      {/* Persona Groups */}
-      <div className="space-y-2">
-        <Label>Persona Groups *</Label>
-        {personaGroups.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              No persona groups yet. Create one first in the Personas section.
-            </p>
+        <Button
+          onClick={handleQuickSetup}
+          disabled={settingUp || !quickDescription.trim()}
+          className="w-full"
+        >
+          {settingUp ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Setting up your study...
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Set up my study
+            </>
+          )}
+        </Button>
+      </div>
+    );
+  }
+
+  // ── Study Form (shared by quick-review and manual-form) ────────
+
+  const isQuickReview = mode === "quick-review";
+
+  return (
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={() => {
+          if (isQuickReview) {
+            setMode("quick-describe");
+          } else {
+            resetForm();
+            setMode("pick");
+          }
+        }}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
+
+      {isQuickReview && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            <Sparkles className="mr-1.5 inline h-3.5 w-3.5 text-primary" />
+            AI set up your study. Review and edit anything below before
+            creating.
+          </p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Title */}
+        <div className="space-y-2">
+          <Label htmlFor="title">Study Title *</Label>
+          <Input
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Onboarding Flow Feedback"
+          />
+        </div>
+
+        {/* Description */}
+        <div className="space-y-2">
+          <Label htmlFor="description">Description</Label>
+          <Textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What do you want to learn from this study?"
+            rows={2}
+          />
+        </div>
+
+        {/* Interview Guide */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="guide">
+              Interview Guide{" "}
+              <span className="text-muted-foreground">(optional)</span>
+            </Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={generatingGuide || !title.trim()}
+              onClick={generateGuide}
+            >
+              {generatingGuide ? (
+                <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-3 w-3" />
+              )}
+              {interviewGuide ? "Regenerate" : "Generate with AI"}
+            </Button>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {personaGroups.map((group) => {
-              const selected = selectedGroups.includes(group.id);
-              return (
-                <button
-                  key={group.id}
-                  type="button"
-                  onClick={() => toggleGroup(group.id)}
-                  className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                    selected
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-foreground/20"
-                  }`}
-                >
-                  <div
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+          <Textarea
+            id="guide"
+            value={interviewGuide}
+            onChange={(e) => setInterviewGuide(e.target.value)}
+            placeholder={`Questions or topics to cover, e.g.:\n- What was your first impression of the onboarding?\n- Where did you get confused?\n- What would make you come back?`}
+            rows={5}
+          />
+          <p className="text-xs text-muted-foreground">
+            These guide the AI interviewer. Leave blank for open-ended
+            conversation.
+          </p>
+        </div>
+
+        {/* Persona Groups */}
+        <div className="space-y-2">
+          <Label>Persona Groups *</Label>
+          {personaGroups.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                No persona groups yet. Create one first in the Personas section.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {personaGroups.map((group) => {
+                const selected = selectedGroups.includes(group.id);
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => toggleGroup(group.id)}
+                    className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
                       selected
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-muted-foreground/30"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-foreground/20"
                     }`}
                   >
-                    {selected && <Check className="h-3 w-3" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{group.name}</p>
-                    {group.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {group.description}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant="secondary" className="text-xs shrink-0">
-                    {group._count.personas} personas
-                  </Badge>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                    <div
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                        selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-muted-foreground/30"
+                      }`}
+                    >
+                      {selected && <Check className="h-3 w-3" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{group.name}</p>
+                      {group.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {group.description}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant="secondary" className="text-xs shrink-0">
+                      {group._count.personas} personas
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-      {/* Submit */}
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={loading || !title.trim() || selectedGroups.length === 0}
-      >
-        {loading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Creating...
-          </>
-        ) : (
-          "Create Study"
-        )}
-      </Button>
-    </form>
+        {/* Submit */}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loading || !title.trim() || selectedGroups.length === 0}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            "Create Study"
+          )}
+        </Button>
+      </form>
+    </div>
   );
 }

@@ -50,8 +50,19 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 - Persona Detail View (Big Five, Archetype, Interview Modifiers, 60+ Felder)
 - Data Provenance: DomainKnowledge trackt Quellen, PersonaDataSource verlinkt Personas zu Daten
 
+### Sprint 3: Study & Interview System ✅
+- **Study Creation UX** (`/studies/new`) — Method Picker mit 2 Pfaden:
+  - **Quick Start** (volle Breite, Recommended) → Freitext eingeben → `/api/studies/setup` generiert Titel + Interview Guide + schlaegt Persona-Gruppen vor → Review (alles editierbar) → Create
+  - **Interview** → Manuelles Formular (Titel, Beschreibung, Guide mit AI-Generate, Persona-Gruppen) → Create
+  - **Survey** — Coming Soon (disabled, Lock Icon)
+  - **Discussion** — Coming Soon (disabled, Lock Icon) — Gruppen-Diskussion zwischen Personas
+- Multi-turn Streaming Chat mit Persona (nutzt `llmSystemPrompt`)
+- Persona bleibt in-character (Big Five, Communication Style, Directness)
+- Session Transcript Viewer
+- Message Persistence (Interviewer + Respondent)
+
 ### Sprint 4: Team Onboarding & Admin ✅
-- **Invite System**: Copy-Link Invites → `/accept-invite/[token]` → acceptInvitation (upsert, kein Crash bei Duplicate)
+- **Invite System**: Copy-Link Invites → `/accept-invite/[token]` → `acceptInvitation` (upsert, kein Crash bei Duplicate)
 - **Members Page** (`/settings/members`): Member-List, Role-Change, Remove, Pending Invites, Invite-Link Generator
 - **Dashboard Onboarding Checklist**: 4 Steps (workspace → product context → persona group → study)
 - **Admin Panel** (`/admin`): Gated via `GOTOFU_ADMIN_EMAILS` env var — Orgs erstellen, Invite-Links generieren, Übersicht
@@ -60,13 +71,17 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 - **CSV Export**: `/api/studies/[id]/export`
 - **Session Compare**: `/studies/[id]/compare`
 - **Env Var**: `GOTOFU_ADMIN_EMAILS=email1@...,email2@...` für Admin-Zugriff
+- **Sidebar UX Fix**: Aktiver Workspace-Name steht jetzt prominent im Sidebar-Header (unter der kleinen "GoTofu" Brand-Zeile) — vorher war er nur unten im OrgSwitcher versteckt
 
-### Sprint 3: Study & Interview System ✅
-- Study Creation (Typ, Titel, Interview Guide, Persona-Gruppen zuweisen)
-- Multi-turn Streaming Chat mit Persona (nutzt `llmSystemPrompt`)
-- Persona bleibt in-character (Big Five, Communication Style, Directness)
-- Session Transcript Viewer
-- Message Persistence (Interviewer + Respondent)
+### Sprint 5: Landing Page & Study UX ✅
+- **Landing Page** (`/`) — Vollstaendige component-basierte Landing Page:
+  - 7 Komponenten in `src/components/landing/`: Navbar, Hero, HowItWorks, Features, Roadmap, CtaSection, Footer
+  - Scroll-smooth Navigation
+- **Study Creation Redesign** (`/studies/new`):
+  - Method Picker (wie Persona Creation) mit Quick Start + 3 Study-Type-Karten
+  - AI-powered Quick Start: Freitext → automatisches Setup (Titel, Guide, Persona-Gruppen)
+  - Survey + Discussion als "Coming Soon" gelabelt
+  - Neuer Endpoint: `POST /api/studies/setup`
 
 ## Alle Routes
 
@@ -76,18 +91,18 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 | `/` | Landing Page |
 | `/login`, `/signup` | Auth |
 | `/callback` | OAuth Callback |
-| `/dashboard` | Dashboard mit Stats |
+| `/dashboard` | Dashboard mit Stats + Onboarding Checklist |
 | `/personas` | Persona Groups Grid |
-| `/personas/new` | Multi-Method Creation Flow |
+| `/personas/new` | Multi-Method Creation Flow (6 Methoden) |
 | `/personas/[groupId]` | Group Detail + Persona Cards |
 | `/personas/[groupId]/[personaId]` | Persona Profil (Big Five, Backstory, etc.) |
 | `/studies` | Studies Liste |
-| `/studies/new` | Study erstellen |
+| `/studies/new` | Study erstellen (Quick Start + Method Picker) |
 | `/studies/[studyId]` | Study Detail + Sessions |
 | `/studies/[studyId]/[sessionId]` | Interview Chat |
 | `/settings` | Workspace Settings + Product Context Chat |
 | `/settings/members` | Member Management (Invite-Links, Rollen, Remove) |
-| `/accept-invite/[token]` | Invite-Link Landing Page |
+| `/accept-invite/[token]` | Invite-Link Landing Page (public, auth group) |
 | `/admin` | GoTofu Admin Panel (gated via GOTOFU_ADMIN_EMAILS) |
 | `/uploads` | Upload Manager (Placeholder) |
 
@@ -104,6 +119,7 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 | `POST /api/research/quick` | Quick Auto-Research (1-2 Queries) |
 | `GET /api/accept-invite` | Invite-Token akzeptieren + activeOrgId Cookie setzen |
 | `GET /api/studies/[studyId]/status` | Batch-Interview Live Status (Polling) |
+| `POST /api/studies/setup` | AI Study Setup (Freetext → Titel + Guide + Persona-Gruppen) |
 | `GET /api/studies/[studyId]/export` | CSV Transcript Export |
 
 ## Wichtige Dateien
@@ -120,9 +136,11 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 | `src/lib/db/queries/organizations.ts` | Org Management + `getOrgProductContext()` |
 | `src/lib/db/queries/studies.ts` | Study + Session Queries |
 | `src/lib/validation/schemas.ts` | Zod Schemas (persona, quickPrompt, manualForm, etc.) |
+| `src/lib/constants/source-labels.ts` | Source Label Badge Config (PROMPT_GENERATED / DATA_BASED / UPLOAD_BASED) |
 | `src/components/personas/creation/` | Multi-Method Creation Flow (7 Components) |
 | `src/components/org/org-setup-chat.tsx` | AI Org Setup Chat |
-| `src/components/studies/` | Interview Chat, Study Forms |
+| `src/components/studies/` | Interview Chat, Study Forms, Study Creation (Quick Start + Manual) |
+| `src/components/landing/` | Landing Page Components (7 Dateien: Navbar, Hero, HowItWorks, Features, Roadmap, CTA, Footer) |
 | `src/components/layout/` | Sidebar, Topbar, OrgSwitcher |
 
 ## Dev-Setup
@@ -141,20 +159,52 @@ Beide Dateien (`.env` und `.env.local`) mit denselben Werten fuellen:
 - `.env.local` → Next.js Runtime
 - `.env` → Prisma CLI (`prisma db push`, `prisma generate`)
 
-Siehe `.env.example` fuer alle Variablen.
+Alle Variablen:
+```
+DATABASE_URL=...
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+OPENAI_API_KEY=...        # oder ANTHROPIC_API_KEY / GOOGLE_GENERATIVE_AI_API_KEY
+LLM_PROVIDER=openai       # oder anthropic / google
+TAVILY_API_KEY=...         # optional — ohne Key nur prompt-basierte Personas
+GOTOFU_ADMIN_EMAILS=daniel@...,other@...   # Komma-getrennt, kein Leerzeichen
+```
 
-## Naechste Schritte
+## Org-System & Kunden-Onboarding
 
-### Sprint 4: Template Marketplace & Admin Tool
-- Internes Admin Panel (GoTofu Team Org = Platform Admin)
-- Templates erstellen, kuratieren, publishen
-- Visibility: Public / bestimmte Orgs / bestimmte User
-- User-Facing Template Gallery + Clone-Logik
+**Architektur ist korrekt — Orgs bleiben.** Für 3 Startups × 6-10 Members ist das genau das Richtige.
 
-### Sprint 5-6: Uploads, Analysis, Scale
-- CSV/PDF Upload → Personas
-- Theme Extraction, Sentiment Analysis
-- Billing, Monitoring, Performance
+### Wie man einen neuen Kunden onboardet:
+
+1. **GoTofu Admin** geht zu `/admin` (Email muss in `GOTOFU_ADMIN_EMAILS` stehen)
+2. Im Admin Panel: **"Create Organization"** → Name eingeben → Org wird erstellt
+3. **"Generate Invite Link"** für die erstellte Org → Link kopieren
+4. Link an den Kunden schicken
+5. **Erster Kunde** klickt Link → Account erstellen (Signup) oder einloggen → landet in der neuen Org als Member
+6. **Weitere Team-Members**: Kunde geht zu `/settings/members` → eigene Invite-Links generieren → an Kollegen schicken
+
+### Wie Orgs funktionieren:
+- Jeder User hat automatisch eine **Personal Org** (isPersonal=true) die bei Signup erstellt wird
+- **Aktive Org** wird als Cookie gespeichert (`activeOrgId`) — sichtbar im Sidebar-Header
+- **OrgSwitcher** (unten in der Sidebar) wechselt zwischen Workspaces
+- Roles: OWNER | ADMIN | MEMBER | VIEWER
+- Personas, Studies, DomainKnowledge sind alle an eine Org gebunden
+
+### Aktuelle Sidebar-UX:
+```
+┌──────────────────────────┐
+│ GoTofu           ← mini  │
+│ Startup ABC      ← fett  │  ← aktiver Workspace-Name prominent sichtbar
+├──────────────────────────┤
+│ Dashboard                │
+│ Personas                 │
+│ Studies                  │
+│ ...                      │
+├──────────────────────────┤
+│ [Avatar] user@email.com  │  ← OrgSwitcher zum Wechseln
+└──────────────────────────┘
+```
 
 ## Gotchas
 
@@ -166,3 +216,31 @@ Siehe `.env.example` fuer alle Variablen.
 - **`.env` vs `.env.local`**: Beide brauchen `DATABASE_URL`
 - **Tavily optional**: Ohne Key werden Personas nur prompt-basiert generiert
 - **Organization hat Product Context**: productName, productDescription, targetAudience, industry, competitors — wird von Persona Creation automatisch genutzt
+- **pdf-parse CJS**: Muss mit `require()` importiert werden, nicht ESM `import` — `Property 'default'` error sonst
+- **Supabase Email Confirmation**: Ist DEAKTIVIERT (Authentication → Email → Confirm email → OFF) — wichtig für Invite-Flow
+- **acceptInvitation**: Nutzt `upsert` (nicht `create`) um P2002-Crash zu vermeiden wenn User schon Member ist
+- **activeOrgId Cookie**: Wird Client-seitig im Sidebar `useEffect` gesetzt, Server-seitig in `src/lib/auth.ts` gelesen
+- **Study Types**: Nur INTERVIEW ist voll implementiert — Survey + Discussion sind im Prisma Schema aber UI-seitig "Coming Soon" (disabled)
+
+## Naechste Schritte
+
+### Templates Marketplace
+- Template-Personas erstellen + kuratieren (GoTofu Team)
+- Visibility: Public / bestimmte Orgs / bestimmte User
+- User-Facing Template Gallery + Clone-Logik
+- `/personas/new` → "Templates" Card (aktuell disabled, Coming Soon)
+
+### Survey & Discussion implementieren
+- Survey-Logik: Strukturierte Fragen, kein Multi-Turn Chat sondern Fragebogen-Flow
+- Discussion-Logik: Mehrere Personas diskutieren untereinander ueber ein Thema
+- Aktuell beides "Coming Soon" in `/studies/new`
+
+### Sprint 6-7: Uploads, Analysis, Scale
+- CSV/PDF Upload → Personas (Upload Manager bei `/uploads` ist Placeholder)
+- Theme Extraction verbessern, Sentiment Analysis
+- Billing, Monitoring, Performance
+- Persona Quality Score Improvements
+
+### Nice-to-haves
+- Persona-Export (PDF Report)
+- Org Analytics Dashboard
