@@ -121,14 +121,14 @@ export function StepSources({
         <input
           type="range"
           min={3}
-          max={50}
+          max={500}
           value={personaCount}
           onChange={(e) => onPersonaCountChange(Number(e.target.value))}
           className="w-full accent-primary"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>3</span>
-          <span>50</span>
+          <span>500</span>
         </div>
       </div>
 

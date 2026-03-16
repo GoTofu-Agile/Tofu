@@ -1,26 +1,26 @@
-import { Globe, Users, MessageSquare } from "lucide-react";
+import { Users, Sparkles, MessageSquare } from "lucide-react";
 
 const steps = [
   {
     step: "01",
-    icon: Globe,
-    title: "Describe your product",
+    icon: Users,
+    title: "Define your audience",
     description:
-      "Tell us about your product and target audience. Our AI researches your market from Reddit, app reviews, and forums to understand real user pain points.",
+      "Describe the people you want to talk to — by prompt, LinkedIn profile, company URL, or deep web research. GoTofu finds real-world context from Reddit, forums, and reviews.",
   },
   {
     step: "02",
-    icon: Users,
+    icon: Sparkles,
     title: "Generate personas",
     description:
-      "Get realistic user profiles with unique personalities, backstories, and perspectives — including skeptics who challenge your assumptions.",
+      "Get psychologically rich user profiles with unique personalities, backstories, and honest perspectives — including skeptics who challenge your thinking.",
   },
   {
     step: "03",
     icon: MessageSquare,
-    title: "Run interviews",
+    title: "Run studies",
     description:
-      "Conduct multi-turn interviews where AI personas respond naturally. Extract patterns and insights across sessions automatically.",
+      "Conduct multi-turn interviews, surveys, or focus groups where personas respond naturally. Extract patterns and insights across sessions automatically.",
   },
 ];
 

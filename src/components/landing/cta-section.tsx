@@ -18,13 +18,13 @@ export function CtaSection() {
 
           <div className="relative z-10">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Ready to talk to your
+              Stop guessing.
               <br />
-              future users?
+              Start understanding.
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-lg text-primary-foreground/70">
-              Start running synthetic interviews today. No recruitment, no
-              scheduling, no waiting — just insights.
+              Run synthetic interviews today. No recruitment, no scheduling,
+              no waiting — just honest, unfiltered feedback.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
