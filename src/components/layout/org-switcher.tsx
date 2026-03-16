@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronsUpDown, Plus, LogOut } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,9 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
-import { signOut } from "@/app/(auth)/actions";
 
 interface OrgSwitcherProps {
   organizations: Array<{
@@ -25,15 +21,13 @@ interface OrgSwitcherProps {
     _count: { members: number };
   }>;
   activeOrgId: string;
-  user: { id: string; name: string | null; email: string; avatarUrl: string | null };
 }
 
-export function OrgSwitcher({ organizations, activeOrgId, user }: OrgSwitcherProps) {
+export function OrgSwitcher({ organizations, activeOrgId }: OrgSwitcherProps) {
   const router = useRouter();
 
   const activeOrg = organizations.find((org) => org.id === activeOrgId);
   const displayName = activeOrg?.isPersonal ? "Personal" : activeOrg?.name ?? "Select workspace";
-  const initials = displayName.slice(0, 2).toUpperCase();
 
   function switchOrg(orgId: string) {
     document.cookie = `activeOrgId=${orgId}; path=/; max-age=31536000`;
@@ -45,22 +39,17 @@ export function OrgSwitcher({ organizations, activeOrgId, user }: OrgSwitcherPro
       <DropdownMenuTrigger
         className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left hover:bg-accent transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <Avatar className="h-7 w-7">
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium truncate max-w-[120px]">
-              {displayName}
-            </span>
-            <span className="text-xs text-muted-foreground truncate max-w-[120px]">
-              {user.email}
-            </span>
-          </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">
+            Workspace
+          </span>
+          <span className="text-sm font-semibold truncate leading-tight mt-0.5">
+            {displayName}
+          </span>
         </div>
-        <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+        <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={8}>
+      <DropdownMenuContent align="start" sideOffset={8} className="w-[220px]">
         <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
         {organizations.map((org) => (
           <DropdownMenuItem
@@ -83,15 +72,6 @@ export function OrgSwitcher({ organizations, activeOrgId, user }: OrgSwitcherPro
         >
           <Plus className="mr-2 h-4 w-4" />
           Create workspace
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => signOut()}
-          className={cn("cursor-pointer text-destructive")}
-          variant="destructive"
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

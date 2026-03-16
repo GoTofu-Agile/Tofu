@@ -31,7 +31,7 @@ export default async function StudiesPage() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Studies</h2>
           <p className="text-muted-foreground">
-            Run interviews, surveys, and focus groups with synthetic users.
+            Run interviews with your synthetic personas to gather insights.
           </p>
         </div>
         <Link

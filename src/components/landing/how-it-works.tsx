@@ -20,7 +20,7 @@ const steps = [
     icon: MessageSquare,
     title: "Run studies",
     description:
-      "Conduct multi-turn interviews, surveys, or focus groups where personas respond naturally. Extract patterns and insights across sessions automatically.",
+      "Run in-depth interviews where personas respond naturally based on their personality and backstory. Extract patterns and insights across sessions automatically.",
   },
 ];
 

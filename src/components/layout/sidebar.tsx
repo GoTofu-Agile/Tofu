@@ -8,18 +8,21 @@ import {
   Users,
   UserPlus,
   FlaskConical,
-  Upload,
   Settings,
   ShieldCheck,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrgSwitcher } from "./org-switcher";
+import { signOut } from "@/app/(auth)/actions";
 
-const navigation = [
+const mainNav = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Personas", href: "/personas", icon: Users },
   { name: "Studies", href: "/studies", icon: FlaskConical },
-  { name: "Uploads", href: "/uploads", icon: Upload },
+];
+
+const adminNav = [
   { name: "Members", href: "/settings/members", icon: UserPlus },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
@@ -40,38 +43,55 @@ interface SidebarProps {
 
 export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarProps) {
   const pathname = usePathname();
-  const activeOrg = organizations.find((o) => o.id === activeOrgId);
-  const activeOrgName = activeOrg?.isPersonal ? "Personal" : (activeOrg?.name ?? "Workspace");
 
   // Persist activeOrgId to cookie so server actions can read it
   useEffect(() => {
     document.cookie = `activeOrgId=${activeOrgId}; path=/; max-age=31536000`;
   }, [activeOrgId]);
 
+  function isActive(href: string) {
+    if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/settings") return pathname === "/settings";
+    return pathname.startsWith(href);
+  }
+
   return (
     <aside className="flex h-screen w-60 flex-col border-r bg-background">
-      <div className="flex h-14 items-center border-b px-4">
-        <Link href="/dashboard" className="flex flex-col gap-0.5">
-          <span className="text-[10px] text-muted-foreground leading-none">GoTofu</span>
-          <span className="text-sm font-semibold truncate max-w-[170px] leading-tight">{activeOrgName}</span>
-        </Link>
+      {/* Workspace Switcher — top */}
+      <div className="border-b px-3 py-3">
+        <OrgSwitcher
+          organizations={organizations}
+          activeOrgId={activeOrgId}
+        />
       </div>
 
+      {/* Main navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {[...navigation, ...(isAdmin ? [{ name: "Admin", href: "/admin", icon: ShieldCheck }] : [])].map((item) => {
-          const isActive =
-            item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : item.href === "/settings"
-              ? pathname === "/settings"
-              : pathname.startsWith(item.href);
-          return (
+        {mainNav.map((item) => (
+          <Link
+            key={item.name}
+            href={item.href}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              isActive(item.href)
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+            )}
+          >
+            <item.icon className="h-4 w-4" />
+            {item.name}
+          </Link>
+        ))}
+
+        {/* Separator */}
+        <div className="!mt-4 border-t pt-4">
+          {adminNav.map((item) => (
             <Link
               key={item.name}
               href={item.href}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
+                isActive(item.href)
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
               )}
@@ -79,16 +99,39 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
               <item.icon className="h-4 w-4" />
               {item.name}
             </Link>
-          );
-        })}
+          ))}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/admin")
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Admin
+            </Link>
+          )}
+        </div>
       </nav>
 
-      <div className="border-t p-3">
-        <OrgSwitcher
-          organizations={organizations}
-          activeOrgId={activeOrgId}
-          user={user}
-        />
+      {/* User section — bottom */}
+      <div className="border-t px-3 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">{user.name || "User"}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+          </div>
+          <button
+            onClick={() => signOut()}
+            className="ml-2 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </aside>
   );

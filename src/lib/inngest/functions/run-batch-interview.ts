@@ -20,7 +20,7 @@ function parseInterviewGuide(guide: string): string[] {
   return guide
     .split(/\n/)
     .map((line) => line.replace(/^[\d]+[.)]\s*/, "").replace(/^[-•*]\s*/, "").trim())
-    .filter((line) => line.length > 5 && line.endsWith("?") || line.length > 20);
+    .filter((line) => line.length > 10);
 }
 
 /**
@@ -167,11 +167,8 @@ export const runBatchInterview = inngest.createFunction(
               study.interviewGuide || "",
               remainingQuestions
             );
-            // Remove the closest matching question from remaining
-            const used = remainingQuestions.findIndex((q) =>
-              question.toLowerCase().includes(q.slice(0, 20).toLowerCase())
-            );
-            if (used >= 0) remainingQuestions.splice(used, 1);
+            // Remove the first remaining question (already used as context for follow-up)
+            remainingQuestions.shift();
           } else {
             question = await generateFollowUp(
               persona,

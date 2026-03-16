@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Play, Loader2, CheckCircle2 } from "lucide-react";
+import { Play, Loader2, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
 import { runBatchInterviews } from "@/app/(dashboard)/studies/actions";
+
+const POLL_INTERVAL = 3000;
+const POLL_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 interface BatchRunButtonProps {
   studyId: string;
@@ -31,38 +34,68 @@ export function BatchRunButton({
   const [starting, setStarting] = useState(false);
   const [polling, setPolling] = useState(false);
   const [status, setStatus] = useState<BatchStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const pollingStartTime = useRef<number>(0);
+  const consecutiveErrors = useRef(0);
 
   const completed = status?.completed ?? initialCompleted;
   const pending = totalCount - completed;
   const currentPersona = status?.running?.personaName;
   const allDone = status?.done ?? (initialPending === 0);
 
+  const stopPolling = useCallback(() => {
+    setPolling(false);
+    pollingStartTime.current = 0;
+    consecutiveErrors.current = 0;
+  }, []);
+
   const pollStatus = useCallback(async () => {
+    // Check timeout
+    if (pollingStartTime.current > 0 && Date.now() - pollingStartTime.current > POLL_TIMEOUT) {
+      stopPolling();
+      setError("Batch interviews are taking longer than expected. Check back later or try again.");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/studies/${studyId}/status`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        consecutiveErrors.current++;
+        if (consecutiveErrors.current >= 5) {
+          stopPolling();
+          setError("Lost connection to the server. Please refresh and try again.");
+        }
+        return;
+      }
+
+      consecutiveErrors.current = 0;
       const data: BatchStatus = await res.json();
       setStatus(data);
 
       if (data.done) {
-        setPolling(false);
+        stopPolling();
         toast.success(`All ${data.completed} interviews completed!`);
         router.refresh();
       }
     } catch {
-      // Silently continue polling
+      consecutiveErrors.current++;
+      if (consecutiveErrors.current >= 5) {
+        stopPolling();
+        setError("Lost connection to the server. Please refresh and try again.");
+      }
     }
-  }, [studyId, router]);
+  }, [studyId, router, stopPolling]);
 
   useEffect(() => {
     if (!polling) return;
-    const interval = setInterval(pollStatus, 3000);
+    const interval = setInterval(pollStatus, POLL_INTERVAL);
     pollStatus(); // Immediate first poll
     return () => clearInterval(interval);
   }, [polling, pollStatus]);
 
   async function handleRun() {
     setStarting(true);
+    setError(null);
     const result = await runBatchInterviews(studyId);
 
     if (result.error) {
@@ -73,7 +106,25 @@ export function BatchRunButton({
 
     toast.success(`Batch started for ${result.pendingCount} personas!`);
     setStarting(false);
+    pollingStartTime.current = Date.now();
+    consecutiveErrors.current = 0;
     setPolling(true);
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+        <Button variant="outline" size="sm" onClick={handleRun}>
+          <RotateCcw className="mr-2 h-3 w-3" />
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   // All done state

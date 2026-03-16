@@ -73,7 +73,7 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 - **Env Var**: `GOTOFU_ADMIN_EMAILS=email1@...,email2@...` für Admin-Zugriff
 - **Sidebar UX Fix**: Aktiver Workspace-Name steht jetzt prominent im Sidebar-Header (unter der kleinen "GoTofu" Brand-Zeile) — vorher war er nur unten im OrgSwitcher versteckt
 
-### Sprint 5: Landing Page & Study UX ✅
+### Sprint 5: Landing Page, Study UX & AI Assistant ✅
 - **Landing Page** (`/`) — Vollstaendige component-basierte Landing Page:
   - 7 Komponenten in `src/components/landing/`: Navbar, Hero, HowItWorks, Features, Roadmap, CtaSection, Footer
   - Scroll-smooth Navigation
@@ -82,6 +82,33 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
   - AI-powered Quick Start: Freitext → automatisches Setup (Titel, Guide, Persona-Gruppen)
   - Survey + Discussion als "Coming Soon" gelabelt
   - Neuer Endpoint: `POST /api/studies/setup`
+- **AI Assistant Sidebar** (rechtes Panel, 380px, collapsible):
+  - Toggle via "Ask AI" Button in der Topbar
+  - Streaming-Chat mit 8 Tools (Vercel AI SDK Tool Use):
+    - `createPersonaGroup`, `createStudy`, `setupStudyFromDescription`
+    - `listPersonaGroups`, `listStudies`, `runBatchInterviews`
+    - `getWorkspaceInfo`, `navigateTo`
+  - Quick-Action Chips im Empty State
+  - Tool-Results als klickbare Cards (Links zu erstellten Ressourcen)
+  - Workspace-Kontext im System-Prompt (Org-Name, Product Context)
+  - Komponenten: `src/components/assistant/assistant-provider.tsx` (Context), `assistant-chat.tsx` (UI)
+  - Endpoint: `POST /api/assistant`
+- **Sidebar Redesign**:
+  - OrgSwitcher nach oben verschoben (Workspace-Label + Dropdown)
+  - Uploads-Link entfernt (Placeholder-Seite)
+  - Nav gruppiert: Haupt (Dashboard/Personas/Studies) | Admin (Members/Settings/Admin)
+  - User-Bereich unten: Name + Email + Sign-Out Button
+- **Dashboard Redesign**:
+  - Workspace-Name im Welcome-Text
+  - Quick Actions (+ New Persona Group, + New Study)
+  - Stat-Cards klickbar
+  - Recent Studies Sektion
+- **Interview Flow Bugfixes**:
+  - `parseInterviewGuide` Fix (robusterer Filter)
+  - Question Matching Fix (Index-basiert statt Substring)
+  - Batch Polling Timeout (5min) + Error-State + Retry
+  - Duplicate Session Prevention (navigiert zu existierender Session)
+  - Persona-Cards mit Status (Pending/Running/Completed)
 
 ## Alle Routes
 
@@ -120,6 +147,7 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 | `GET /api/accept-invite` | Invite-Token akzeptieren + activeOrgId Cookie setzen |
 | `GET /api/studies/[studyId]/status` | Batch-Interview Live Status (Polling) |
 | `POST /api/studies/setup` | AI Study Setup (Freetext → Titel + Guide + Persona-Gruppen) |
+| `POST /api/assistant` | AI Assistant Chat (Streaming + Tool Use, 8 Tools) |
 | `GET /api/studies/[studyId]/export` | CSV Transcript Export |
 
 ## Wichtige Dateien
@@ -141,7 +169,8 @@ Kopiere alles unterhalb in den naechsten Agent-Chat.
 | `src/components/org/org-setup-chat.tsx` | AI Org Setup Chat |
 | `src/components/studies/` | Interview Chat, Study Forms, Study Creation (Quick Start + Manual) |
 | `src/components/landing/` | Landing Page Components (7 Dateien: Navbar, Hero, HowItWorks, Features, Roadmap, CTA, Footer) |
-| `src/components/layout/` | Sidebar, Topbar, OrgSwitcher |
+| `src/components/assistant/` | AI Assistant Sidebar (Provider + Chat UI) |
+| `src/components/layout/` | Sidebar, Topbar (mit Ask AI Button), OrgSwitcher |
 
 ## Dev-Setup
 
@@ -187,24 +216,34 @@ GOTOFU_ADMIN_EMAILS=daniel@...,other@...   # Komma-getrennt, kein Leerzeichen
 ### Wie Orgs funktionieren:
 - Jeder User hat automatisch eine **Personal Org** (isPersonal=true) die bei Signup erstellt wird
 - **Aktive Org** wird als Cookie gespeichert (`activeOrgId`) — sichtbar im Sidebar-Header
-- **OrgSwitcher** (unten in der Sidebar) wechselt zwischen Workspaces
+- **OrgSwitcher** (oben in der Sidebar) wechselt zwischen Workspaces
 - Roles: OWNER | ADMIN | MEMBER | VIEWER
 - Personas, Studies, DomainKnowledge sind alle an eine Org gebunden
 
 ### Aktuelle Sidebar-UX:
 ```
 ┌──────────────────────────┐
-│ GoTofu           ← mini  │
-│ Startup ABC      ← fett  │  ← aktiver Workspace-Name prominent sichtbar
+│ Workspace         ▾      │  ← OrgSwitcher Dropdown (oben)
+│ Startup ABC              │
 ├──────────────────────────┤
 │ Dashboard                │
 │ Personas                 │
 │ Studies                  │
-│ ...                      │
 ├──────────────────────────┤
-│ [Avatar] user@email.com  │  ← OrgSwitcher zum Wechseln
+│ Members                  │
+│ Settings                 │
+│ Admin (nur fuer Admins)  │
+├──────────────────────────┤
+│ Daniel Kourie            │
+│ daniel@email.com  [↪]    │  ← Sign Out Button
 └──────────────────────────┘
 ```
+
+### AI Assistant:
+- "Ask AI" Button in der Topbar (rechts)
+- Oeffnet 380px Panel rechts neben dem Main Content
+- Streaming-Chat mit Tool Use (kann Personas erstellen, Studies aufsetzen, navigieren)
+- Quick-Action Chips: "Create personas", "Set up a study", etc.
 
 ## Gotchas
 
@@ -222,25 +261,53 @@ GOTOFU_ADMIN_EMAILS=daniel@...,other@...   # Komma-getrennt, kein Leerzeichen
 - **activeOrgId Cookie**: Wird Client-seitig im Sidebar `useEffect` gesetzt, Server-seitig in `src/lib/auth.ts` gelesen
 - **Study Types**: Nur INTERVIEW ist voll implementiert — Survey + Discussion sind im Prisma Schema aber UI-seitig "Coming Soon" (disabled)
 
-## Naechste Schritte
+## Naechste Schritte (Roadmap)
 
-### Templates Marketplace
-- Template-Personas erstellen + kuratieren (GoTofu Team)
-- Visibility: Public / bestimmte Orgs / bestimmte User
-- User-Facing Template Gallery + Clone-Logik
-- `/personas/new` → "Templates" Card (aktuell disabled, Coming Soon)
+### Prioritaet 1: Customer-Ready (fuer die 3 Pilot-Startups)
 
-### Survey & Discussion implementieren
-- Survey-Logik: Strukturierte Fragen, kein Multi-Turn Chat sondern Fragebogen-Flow
-- Discussion-Logik: Mehrere Personas diskutieren untereinander ueber ein Thema
-- Aktuell beides "Coming Soon" in `/studies/new`
+**Survey-Logik implementieren:**
+- Strukturierte Fragebogen statt Multi-Turn Chat
+- Definierte Fragen-Liste, Persona beantwortet jede einzeln
+- Skalierung: 50+ Personas gleichzeitig
+- Ergebnis: Aggregierte Antworten mit Statistiken
+- Aktuell "Coming Soon" in `/studies/new`
 
-### Sprint 6-7: Uploads, Analysis, Scale
-- CSV/PDF Upload → Personas (Upload Manager bei `/uploads` ist Placeholder)
-- Theme Extraction verbessern, Sentiment Analysis
-- Billing, Monitoring, Performance
-- Persona Quality Score Improvements
+**Persona Templates:**
+- GoTofu-kuratierte Template-Sets pro Industrie (z.B. "E-Commerce Shoppers", "Health App Users")
+- Clone-Logik: Template → eigene Gruppe kopieren
+- `/personas/new` → Templates-Card aktivieren (aktuell disabled)
 
-### Nice-to-haves
-- Persona-Export (PDF Report)
-- Org Analytics Dashboard
+**Persona-Export (PDF Report):**
+- PDF mit Persona-Profil, Big Five Chart, Key Attributes
+- Pro Persona oder pro Gruppe exportierbar
+- Kunden wollen Personas mit Stakeholdern teilen
+
+### Prioritaet 2: Scale & Polish
+
+**Discussion/Focus Group:**
+- Multi-Persona Chat wo 3-5 Personas ein Thema besprechen
+- Moderator (AI oder User) stellt Fragen
+- Insights aus der Gruppen-Dynamik
+- Aktuell "Coming Soon" in `/studies/new`
+
+**CSV/PDF Upload → Personas:**
+- CSV mit User-Daten → Personas generieren
+- Interview-Transkripte hochladen → Personas ableiten
+- Upload Manager bei `/uploads` aktivieren (aktuell Placeholder)
+
+**Analysis Dashboard:**
+- Sentiment-Trends ueber Zeit
+- Theme-Heatmap ueber Personas
+- Interaktive Charts statt nur Text
+
+### Prioritaet 3: Business
+
+**Billing/Pricing:**
+- Freemium: 1 Persona Group, 1 Study kostenlos
+- Pro: Unlimited Groups, Batch Interviews, Insights
+- Team: Multi-User, Admin Features
+
+**Usage Analytics:**
+- Welche Features werden genutzt?
+- Wie viele Personas/Studies pro Org?
+- Conversion-Tracking

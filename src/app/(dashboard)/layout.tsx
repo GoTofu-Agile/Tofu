@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { requireAuthWithOrgs } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { AssistantProvider } from "@/components/assistant/assistant-provider";
+import { AssistantChat } from "@/components/assistant/assistant-chat";
 
 export default async function DashboardLayout({
   children,
@@ -19,8 +21,6 @@ export default async function DashboardLayout({
   const { user, organizations } = authData;
 
   if (organizations.length === 0) {
-    // This should never happen — requireAuth auto-creates a personal workspace.
-    // If it does, something is seriously wrong with the DB connection.
     throw new Error(
       "No organizations found. Please try logging out and back in, or contact support."
     );
@@ -33,21 +33,28 @@ export default async function DashboardLayout({
     organizations.find((org) => org.id === cookieOrgId)?.id ??
     organizations[0].id;
 
-  const adminEmails = (process.env.GOTOFU_ADMIN_EMAILS ?? "").split(",").map((e) => e.trim());
+  const adminEmails = (process.env.GOTOFU_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim());
   const isAdmin = adminEmails.includes(user.email);
 
   return (
-    <div className="flex h-screen">
-      <Sidebar
-        user={user}
-        organizations={organizations}
-        activeOrgId={activeOrgId}
-        isAdmin={isAdmin}
-      />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+    <AssistantProvider>
+      <div className="flex h-screen">
+        <Sidebar
+          user={user}
+          organizations={organizations}
+          activeOrgId={activeOrgId}
+          isAdmin={isAdmin}
+        />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <Topbar />
+          <div className="flex flex-1 overflow-hidden">
+            <main className="flex-1 overflow-y-auto p-6">{children}</main>
+            <AssistantChat />
+          </div>
+        </div>
       </div>
-    </div>
+    </AssistantProvider>
   );
 }

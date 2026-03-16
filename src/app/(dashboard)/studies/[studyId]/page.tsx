@@ -7,7 +7,12 @@ import { StudyPersonaList } from "@/components/studies/study-persona-list";
 import { StudySessionList } from "@/components/studies/study-session-list";
 import { BatchRunButton } from "@/components/studies/batch-run-button";
 import { InsightsPanel } from "@/components/studies/insights-panel";
-import { Download, GitCompareArrows } from "lucide-react";
+import {
+  Download,
+  GitCompareArrows,
+  ChevronDown,
+  ArrowLeft,
+} from "lucide-react";
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -49,13 +54,26 @@ export default async function StudyDetailPage({
     }))
   );
 
-  // Track which personas already have sessions
-  const personasWithSessions = new Set(
-    study.sessions.map((s) => s.personaId)
-  );
+  // Build persona → session mapping (personaId → { sessionId, status })
+  const personaSessionMap: Record<
+    string,
+    { sessionId: string; status: string }
+  > = {};
+  for (const session of study.sessions) {
+    // Keep the latest session per persona
+    if (
+      !personaSessionMap[session.personaId] ||
+      session.status === "COMPLETED"
+    ) {
+      personaSessionMap[session.personaId] = {
+        sessionId: session.id,
+        status: session.status,
+      };
+    }
+  }
 
   const pendingCount = allPersonas.filter(
-    (p) => !personasWithSessions.has(p.id)
+    (p) => !personaSessionMap[p.id]
   ).length;
   const completedCount = study.sessions.filter(
     (s) => s.status === "COMPLETED"
@@ -65,6 +83,13 @@ export default async function StudyDetailPage({
     <div className="space-y-8">
       {/* Header */}
       <div>
+        <Link
+          href="/studies"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Studies
+        </Link>
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-semibold tracking-tight">
             {study.title}
@@ -80,54 +105,77 @@ export default async function StudyDetailPage({
         {study.description && (
           <p className="mt-1 text-muted-foreground">{study.description}</p>
         )}
-        {study.interviewGuide && (
-          <div className="mt-4 rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs font-medium uppercase text-muted-foreground mb-2">
-              Interview Guide
+      </div>
+
+      {/* Interview Guide — collapsible */}
+      {study.interviewGuide && (
+        <details className="group rounded-lg border">
+          <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium">
+            Interview Guide
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t px-4 py-3">
+            <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+              {study.interviewGuide}
             </p>
-            <p className="text-sm whitespace-pre-wrap">{study.interviewGuide}</p>
+          </div>
+        </details>
+      )}
+
+      {/* Action Bar */}
+      <div className="flex items-center justify-between gap-4">
+        {allPersonas.length > 0 && (
+          <BatchRunButton
+            studyId={study.id}
+            pendingCount={pendingCount}
+            totalCount={allPersonas.length}
+            completedCount={completedCount}
+          />
+        )}
+        {completedCount > 0 && (
+          <div className="flex items-center gap-2">
+            {completedCount >= 2 && (
+              <Link
+                href={`/studies/${study.id}/compare`}
+                className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+              >
+                <GitCompareArrows className="h-3 w-3" />
+                Compare
+              </Link>
+            )}
+            <Link
+              href={`/api/studies/${study.id}/export`}
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+            >
+              <Download className="h-3 w-3" />
+              Export CSV
+            </Link>
           </div>
         )}
       </div>
 
-      {/* Batch Interview Button */}
-      {allPersonas.length > 0 && (
-        <BatchRunButton
+      {/* Personas with session status */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-medium">
+          Personas ({allPersonas.length})
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Click a persona to start or continue an interview, or use &quot;Run
+          All&quot; for automatic batch interviews.
+        </p>
+        <StudyPersonaList
+          personas={allPersonas}
           studyId={study.id}
-          pendingCount={pendingCount}
-          totalCount={allPersonas.length}
-          completedCount={completedCount}
+          personaSessionMap={personaSessionMap}
         />
-      )}
+      </div>
 
-      {/* Sessions + Export */}
+      {/* Sessions */}
       {study.sessions.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">
-              Sessions ({study.sessions.length})
-            </h3>
-            {completedCount > 0 && (
-              <div className="flex items-center gap-2">
-                {completedCount >= 2 && (
-                  <Link
-                    href={`/studies/${study.id}/compare`}
-                    className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-                  >
-                    <GitCompareArrows className="h-3 w-3" />
-                    Compare
-                  </Link>
-                )}
-                <Link
-                  href={`/api/studies/${study.id}/export`}
-                  className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-                >
-                  <Download className="h-3 w-3" />
-                  Export CSV
-                </Link>
-              </div>
-            )}
-          </div>
+          <h3 className="text-lg font-medium">
+            Sessions ({study.sessions.length})
+          </h3>
           <StudySessionList sessions={study.sessions} studyId={study.id} />
         </div>
       )}
@@ -138,21 +186,6 @@ export default async function StudyDetailPage({
         report={analysisReport}
         hasCompletedSessions={completedCount > 0}
       />
-
-      {/* Personas to interview */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-medium">
-          Personas ({allPersonas.length})
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Click a persona to start a manual interview, or use &quot;Run All&quot; above for automatic batch interviews.
-        </p>
-        <StudyPersonaList
-          personas={allPersonas}
-          studyId={study.id}
-          personasWithSessions={Array.from(personasWithSessions)}
-        />
-      </div>
     </div>
   );
 }

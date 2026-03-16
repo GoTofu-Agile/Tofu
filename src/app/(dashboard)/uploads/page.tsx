@@ -4,7 +4,7 @@ export default function UploadsPage() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Uploads</h2>
         <p className="text-muted-foreground">
-          Upload surveys, transcripts, and datasets to generate personas.
+          Upload transcripts and datasets to generate personas.
         </p>
       </div>
       <div className="rounded-lg border border-dashed p-12 text-center">
