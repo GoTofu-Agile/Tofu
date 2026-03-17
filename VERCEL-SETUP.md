@@ -1,44 +1,29 @@
 # Vercel Deployment Setup
 
-## Status (Stand: 17.03.2026)
+## Aktueller Stand (Stand: 17.03.2026) — ALLES LIVE ✅
 
-| Schritt | Status | Notizen |
+| Schritt | Status | Details |
 |---|---|---|
-| GitHub Repo (`habibidani/gotofu`) | ✅ | Branch `feat/results-dashboard-landing-split` gepusht |
-| Vercel Account | ✅ | Neuer Account: `admin-42578282`, Team: `gotofus-projects` |
-| `gotofu-app` Projekt erstellt + mit GitHub verlinkt | ✅ | Via `vercel link` erledigt |
-| Environment Variables gesetzt | ⏳ | **Naechster Schritt** — manuell im Vercel Dashboard |
-| Build Command auf `prisma generate && next build` setzen | ⏳ | Nach Env Vars |
-| Erster Deploy | ⏳ | — |
-| `gotofu-landing` Projekt erstellen | ⏳ | Root Dir: `apps/landing` |
-| Domains (`app.gotofu.io`, `gotofu.io`) | ⏳ | — |
-| Supabase Auth Redirect URLs | ⏳ | — |
+| GitHub Repo (`habibidani/gotofu`) | ✅ | `main` branch ist production |
+| Vercel Account | ✅ | Account: `admin-42578282`, Team: `gotofus-projects` |
+| `gotofu-app` Projekt | ✅ | Live auf `https://app.gotofu.io` |
+| `gotofu-landing` Projekt | ✅ | Live auf `https://gotofu.io` |
+| Environment Variables (`gotofu-app`) | ✅ | Alle 12 Vars gesetzt |
+| Environment Variables (`gotofu-landing`) | ✅ | `NEXT_PUBLIC_APP_URL=https://app.gotofu.io` |
+| Build Command (`prisma generate && next build`) | ✅ | In `package.json` build script |
+| Domain `app.gotofu.io` → `gotofu-app` | ✅ | Verifiziert, SSL aktiv |
+| Domain `gotofu.io` → `gotofu-landing` | ✅ | Verifiziert, SSL aktiv |
+| DNS (Hostinger → Vercel Nameservers) | ✅ | Hostinger NS auf Vercel gesetzt |
+| Supabase Auth Redirect URLs | ✅ | Manuell im Supabase Dashboard gesetzt |
 
-### Naechster Schritt: Environment Variables im Dashboard setzen
+### Live-URLs
 
-1. Gehe zu [vercel.com/gotofus-projects/gotofu-app/settings/environment-variables](https://vercel.com/gotofus-projects/gotofu-app/settings/environment-variables)
-2. Trage folgende Werte ein (alle fuer `Production`):
-
-| Key | Value |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://cgkgolnccyuqjlvcazov.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | *(aus `.env.local`)* |
-| `SUPABASE_SERVICE_ROLE_KEY` | *(aus `.env.local`)* |
-| `DATABASE_URL` | `postgresql://postgres.cgkgolnccyuqjlvcazov:...@aws-1-eu-west-1.pooler.supabase.com:5432/postgres` |
-| `LLM_PROVIDER` | `openai` |
-| `OPENAI_API_KEY` | *(aus `.env.local`)* |
-| `OPENAI_MODEL` | `gpt-4o` |
-| `TAVILY_API_KEY` | *(aus `.env.local`)* |
-| `INNGEST_EVENT_KEY` | *(aus `.env.local`)* |
-| `INNGEST_SIGNING_KEY` | *(aus `.env.local`)* |
-| `NEXT_PUBLIC_APP_URL` | `https://app.gotofu.io` |
-| `GOTOFU_ADMIN_EMAILS` | `daniel.kourie@code.berlin` |
-
-3. Danach: Settings → General → Build Command setzen auf:
-   ```
-   npx prisma generate && next build
-   ```
-4. Deploy ausloesen: Deployments → Redeploy
+| URL | Projekt | Was |
+|---|---|---|
+| `https://gotofu.io` | `gotofu-landing` | Landing Page |
+| `https://app.gotofu.io` | `gotofu-app` | Haupt-App (Login, Dashboard, etc.) |
+| `https://gotofu-app.vercel.app` | `gotofu-app` | Vercel Preview-URL (immer verfügbar) |
+| `https://gotofu-landing.vercel.app` | `gotofu-landing` | Vercel Preview-URL (immer verfügbar) |
 
 ---
 
@@ -51,104 +36,98 @@ Ein GitHub Repo, zwei Vercel-Projekte:
 | `gotofu-landing` | `gotofu.io` | `apps/landing` | Statische Landing Page |
 | `gotofu-app` | `app.gotofu.io` | `/` (Root) | Die Haupt-App |
 
-## Schritt-fuer-Schritt Setup
+**Wichtig:** Das `.vercel/project.json` im Repo-Root verlinkt auf `gotofu-landing`. Das bedeutet `vercel deploy` aus dem Root-Verzeichnis deployt die Landing Page. Um die App zu deployen, muss explizit `--project gotofu-app` angegeben werden.
 
-### 1. GitHub Repo verbinden
+---
 
-Falls noch nicht geschehen:
-```bash
-git remote add origin https://github.com/habibidani/gotofu.git
-git push -u origin main
-```
+## Environment Variables (gotofu-app)
 
-### 2. Vercel Projekt 1: Landing Page (`gotofu.io`)
+Alle über Vercel CLI oder Dashboard gesetzt. Werte aus `.env.local`:
 
-1. Gehe zu https://vercel.com/new
-2. Importiere das GitHub Repo `habibidani/gotofu`
-3. **Project Name:** `gotofu-landing`
-4. **Framework Preset:** Next.js (auto-detected)
-5. **Root Directory:** `apps/landing` ← WICHTIG
-6. **Environment Variables:** Nur eine:
-   - `NEXT_PUBLIC_APP_URL` = `https://app.gotofu.io`
-7. Deploy klicken
+| Key | Beschreibung |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://cgkgolnccyuqjlvcazov.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase public anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only) |
+| `DATABASE_URL` | Supabase PostgreSQL connection string (pooler) |
+| `LLM_PROVIDER` | `openai` |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `OPENAI_MODEL` | `gpt-4o` |
+| `TAVILY_API_KEY` | Tavily web research key |
+| `INNGEST_EVENT_KEY` | Inngest event key |
+| `INNGEST_SIGNING_KEY` | Inngest signing key |
+| `NEXT_PUBLIC_APP_URL` | `https://app.gotofu.io` |
+| `GOTOFU_ADMIN_EMAILS` | `daniel.kourie@code.berlin` |
 
-### 3. Vercel Projekt 2: App (`app.gotofu.io`)
+## Environment Variables (gotofu-landing)
 
-1. Gehe zu https://vercel.com/new
-2. Importiere **dasselbe** GitHub Repo `habibidani/gotofu`
-3. **Project Name:** `gotofu-app`
-4. **Framework Preset:** Next.js
-5. **Root Directory:** `/` (leer lassen = Root)
-6. **Environment Variables:**
-   - `DATABASE_URL` — Supabase Connection String
-   - `NEXT_PUBLIC_SUPABASE_URL` — Supabase Project URL
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase Anon Key
-   - `SUPABASE_SERVICE_ROLE_KEY` — Supabase Service Role Key
-   - `OPENAI_API_KEY` — (oder `ANTHROPIC_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY`)
-   - `LLM_PROVIDER` — `openai` (oder `anthropic` / `google`)
-   - `TAVILY_API_KEY` — Tavily API Key (optional)
-   - `GOTOFU_ADMIN_EMAILS` — Komma-getrennte Admin-Emails
-7. Deploy klicken
+| Key | Value |
+|---|---|
+| `NEXT_PUBLIC_APP_URL` | `https://app.gotofu.io` |
 
-### 4. Domains einrichten
+---
 
-Fuer **beide** Projekte: Settings → Domains
+## Supabase Auth Redirect URLs
 
-**gotofu-landing:**
-- Fuege `gotofu.io` hinzu
-- Fuege `www.gotofu.io` hinzu (redirect zu `gotofu.io`)
+Im Supabase Dashboard → Authentication → URL Configuration:
 
-**gotofu-app:**
-- Fuege `app.gotofu.io` hinzu
-
-### 5. DNS Records bei Domain-Provider
-
-Bei deinem Domain-Registrar (wo du `gotofu.io` gekauft hast):
-
-| Type | Name | Value |
-|---|---|---|
-| A | `@` | `76.76.21.21` |
-| CNAME | `www` | `cname.vercel-dns.com` |
-| CNAME | `app` | `cname.vercel-dns.com` |
-
-(Vercel zeigt dir die genauen Records im Dashboard an)
-
-### 6. Supabase Auth Redirect URLs
-
-In Supabase Dashboard → Authentication → URL Configuration:
 - **Site URL:** `https://app.gotofu.io`
 - **Redirect URLs:**
   - `https://app.gotofu.io/callback`
   - `https://app.gotofu.io/accept-invite/*`
-  - `http://localhost:3004/callback` (fuer local dev)
+  - `http://localhost:3004/callback` (local dev)
 
-### 7. Prisma auf Vercel
+---
 
-Vercel baut automatisch mit `next build`. Prisma Client muss vorher generiert werden:
+## DNS (Hostinger → Vercel)
 
-Gehe zu **gotofu-app** Settings → General → Build & Development Settings:
-- **Build Command:** `npx prisma generate && next build`
+Hostinger Nameservers wurden auf Vercel gesetzt. Vercel verwaltet jetzt die gesamte DNS-Zone `gotofu.io`. Im Vercel DNS-Dashboard sind automatisch gesetzt:
+
+| Type | Name | Value |
+|---|---|---|
+| ALIAS | `@` | `cname.vercel-dns-017.com.` |
+| ALIAS | `*` | `cname.vercel-dns-017.com.` |
+| TXT | `_vercel` | `vc-domain-verify=app.gotofu.io,...` |
+| TXT | `_vercel` | `vc-domain-verify=gotofu.io,...` |
+
+---
 
 ## Wie Deploys funktionieren
 
-- Push auf `main` → **beide** Projekte deployen automatisch
-- Landing Page: ~3 Sekunden Build (static site)
-- App: ~30-60 Sekunden Build (prisma generate + next build)
-- Vercel nutzt "Ignored Build Step" um unnoetige Deploys zu vermeiden
+- Push auf `main` → **beide** Projekte deployen automatisch (GitHub Integration)
+- Landing Page: ~15 Sekunden Build (static site, no DB)
+- App: ~45 Sekunden Build (`prisma generate` + `next build`)
 
-### Nur Landing deployen wenn Landing-Dateien geaendert:
+### Build-Isolation (empfohlen, noch nicht gesetzt)
 
-In **gotofu-landing** Settings → Git → Ignored Build Step:
+Um unnötige Deploys zu vermeiden, in den Vercel Projekt-Settings unter **Git → Ignored Build Step**:
+
+**gotofu-landing:**
 ```bash
 git diff HEAD^ HEAD --quiet apps/landing
 ```
 
-### Nur App deployen wenn App-Dateien geaendert:
-
-In **gotofu-app** Settings → Git → Ignored Build Step:
+**gotofu-app:**
 ```bash
 git diff HEAD^ HEAD --quiet -- . ':!apps/landing'
 ```
+
+---
+
+## CLI — Projekte deployen
+
+```bash
+# Für gotofu-landing (aktueller Standard weil .vercel/project.json darauf zeigt)
+vercel deploy --prod --scope gotofus-projects
+
+# Für gotofu-app (explizit angeben)
+vercel link --project gotofu-app --scope gotofus-projects
+vercel deploy --prod --scope gotofus-projects
+```
+
+**Achtung:** Nach `vercel link` ändert sich `.vercel/project.json` — committen oder revertieren.
+
+---
 
 ## Lokale Entwicklung
 
@@ -159,3 +138,67 @@ npm run dev
 # Landing (Port 3005)
 cd apps/landing && npm run dev
 ```
+
+---
+
+## Bekannte Probleme & Fixes (aus der Ersteinrichtung)
+
+### Problem 1: Prisma Client nicht generiert auf Vercel
+
+**Fehler:** `PrismaClientInitializationError: Prisma has detected that this project was built on Vercel, which caches dependencies.`
+
+**Fix:** Build Command muss `prisma generate && next build` sein. In `package.json` bereits eingetragen:
+```json
+"build": "prisma generate && next build"
+```
+Vercel nutzt automatisch `npm run build`, also ist der Fix permanent.
+
+### Problem 2: Monorepo — Middleware vom Root wird in Landing-Build gefunden
+
+**Fehler:** `Module not found: Can't resolve '@/lib/supabase/middleware'` beim Build von `gotofu-landing`
+
+**Ursache:** Vercel setzt `outputFileTracingRoot` auf den Monorepo-Root, Turbopack scannt dann die gesamte Repo-Struktur und findet `src/middleware.ts` aus der Haupt-App.
+
+**Fix:** `apps/landing/src/middleware.ts` mit simplem Passthrough erstellt, damit Next.js diese lokale Datei nimmt statt der Root-Datei:
+```typescript
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+export function middleware(_request: NextRequest) {
+  return NextResponse.next();
+}
+```
+
+### Problem 3: TypeScript-Fehler bei Prisma JSON-Feldern
+
+**Fehler:** `Conversion of type 'JsonValue' to type 'Theme[]' may be a mistake`
+
+**Fix:** Doppelter Cast über `unknown`:
+```typescript
+const themes = (report.themes as unknown as Theme[]) || [];
+```
+
+### Problem 4: Domain-Verifizierung schlägt fehl
+
+**Fehler:** `"Domain gotofu.io was added to a different project. Please complete verification"`
+
+**Fix:** TXT-Records müssen zuerst gesetzt werden, dann Verifizierung per Vercel API triggern:
+```bash
+curl -X POST "https://api.vercel.com/v10/projects/gotofu-landing/domains/gotofu.io/verify?teamId=team_AvpwnQStzhAHcqA0GGs4e3pS" \
+  -H "Authorization: Bearer $VERCEL_TOKEN"
+```
+
+### Problem 5: app.gotofu.io zeigt Landing Page statt App
+
+**Ursache:** `src/app/page.tsx` (Root) hatte noch Landing Page Inhalt aus der Zeit vor dem Monorepo-Split.
+
+**Fix:** `src/app/page.tsx` auf Redirect geändert:
+```typescript
+import { redirect } from "next/navigation";
+export default function RootPage() { redirect("/login"); }
+```
+
+### Problem 6: Sign-In Button auf Landing Page zeigt auf localhost
+
+**Ursache:** `NEXT_PUBLIC_APP_URL` war nicht als Env Var in `gotofu-landing` gesetzt. Der Fallback ist `http://localhost:3004`.
+
+**Fix:** `NEXT_PUBLIC_APP_URL=https://app.gotofu.io` zu `gotofu-landing` Environment Variables hinzugefügt. Da es eine `NEXT_PUBLIC_` Variable ist, muss nach dem Setzen neu deployed werden.
