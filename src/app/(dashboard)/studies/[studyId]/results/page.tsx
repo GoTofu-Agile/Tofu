@@ -87,10 +87,10 @@ export default async function StudyResultsPage({
     );
   }
 
-  const themes = (report.themes as Theme[]) || [];
-  const quotes = (report.keyFindings as KeyQuote[]) || [];
-  const sentiment = report.sentimentBreakdown as SentimentBreakdown | null;
-  const recommendations = (report.recommendations as Recommendation[]) || [];
+  const themes = (report.themes as unknown as Theme[]) || [];
+  const quotes = (report.keyFindings as unknown as KeyQuote[]) || [];
+  const sentiment = report.sentimentBreakdown as unknown as SentimentBreakdown | null;
+  const recommendations = (report.recommendations as unknown as Recommendation[]) || [];
 
   // Extract unique persona names and theme names for filters
   const personaNames = [...new Set(quotes.map((q) => q.personaName))];
