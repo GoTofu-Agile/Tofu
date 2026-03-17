@@ -23,11 +23,11 @@ export default async function NewStudyPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-8">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">New Study</h2>
-        <p className="text-muted-foreground">
-          Run interviews with your synthetic personas to gather insights.
+        <p className="text-sm text-muted-foreground mt-1">
+          Set up a study to gather insights from your synthetic personas.
         </p>
       </div>
       <CreateStudyForm personaGroups={groups} orgContext={productContext} />

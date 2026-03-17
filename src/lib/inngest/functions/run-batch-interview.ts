@@ -216,8 +216,15 @@ export const runBatchInterview = inngest.createFunction(
       });
     }
 
-    // Auto-trigger insights generation after batch completion
+    // Mark study as COMPLETED and trigger insights generation
     if (completedCount > 0) {
+      await step.run("complete-study", async () => {
+        await prisma.study.update({
+          where: { id: studyId },
+          data: { status: "COMPLETED" },
+        });
+      });
+
       await inngest.send({
         name: "study/generate-insights",
         data: { studyId },

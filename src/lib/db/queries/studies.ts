@@ -67,13 +67,15 @@ export async function createStudy(data: {
   description?: string;
   studyType: StudyType;
   interviewGuide?: string;
+  surveyQuestions?: unknown[];
   personaGroupIds: string[];
 }) {
-  const { personaGroupIds, ...studyData } = data;
+  const { personaGroupIds, surveyQuestions, ...studyData } = data;
 
   return prisma.study.create({
     data: {
       ...studyData,
+      ...(surveyQuestions ? { surveyQuestions: surveyQuestions as never } : {}),
       status: "DRAFT",
       personaGroups: {
         create: personaGroupIds.map((pgId) => ({
@@ -181,6 +183,59 @@ export async function createAnalysisReport(data: {
       recommendations: data.recommendations as never,
     },
   });
+}
+
+// ─── Results Dashboard ───
+
+export async function getStudyResults(studyId: string) {
+  const [study, report, sessions] = await Promise.all([
+    prisma.study.findUnique({
+      where: { id: studyId },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        studyType: true,
+        status: true,
+        interviewGuide: true,
+        organizationId: true,
+        researchObjectives: true,
+      },
+    }),
+    prisma.analysisReport.findFirst({
+      where: { studyId },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.session.findMany({
+      where: { studyId, status: "COMPLETED" },
+      select: {
+        id: true,
+        durationMs: true,
+        persona: {
+          select: { name: true, archetype: true, occupation: true, age: true },
+        },
+      },
+    }),
+  ]);
+
+  if (!study) return null;
+
+  const totalInterviews = sessions.length;
+  const avgDurationMs =
+    totalInterviews > 0
+      ? sessions.reduce((sum, s) => sum + (s.durationMs || 0), 0) /
+        totalInterviews
+      : 0;
+
+  return {
+    study,
+    report,
+    metrics: {
+      totalInterviews,
+      avgDurationMs,
+      personas: sessions.map((s) => s.persona),
+    },
+  };
 }
 
 export async function getStudyTranscripts(studyId: string) {

@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { requireAuthWithOrgs } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { AppFrame } from "@/components/layout/app-frame";
 import { AssistantProvider } from "@/components/assistant/assistant-provider";
 import { AssistantChat } from "@/components/assistant/assistant-chat";
+
 
 export default async function DashboardLayout({
   children,
@@ -40,20 +42,20 @@ export default async function DashboardLayout({
 
   return (
     <AssistantProvider>
-      <div className="flex h-screen">
-        <Sidebar
-          user={user}
-          organizations={organizations}
-          activeOrgId={activeOrgId}
-          isAdmin={isAdmin}
-        />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <Topbar />
-          <div className="flex flex-1 overflow-hidden">
-            <main className="flex-1 overflow-y-auto p-6">{children}</main>
-            <AssistantChat />
+      <div className="relative h-screen w-screen bg-stone-100 overflow-hidden">
+        <AppFrame>
+          <Sidebar
+            user={user}
+            organizations={organizations}
+            activeOrgId={activeOrgId}
+            isAdmin={isAdmin}
+          />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <Topbar />
+            <main className="flex-1 overflow-y-auto px-8 py-6">{children}</main>
           </div>
-        </div>
+        </AppFrame>
+        <AssistantChat />
       </div>
     </AssistantProvider>
   );

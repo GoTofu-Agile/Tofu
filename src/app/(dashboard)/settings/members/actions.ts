@@ -11,12 +11,22 @@ import {
   updateMemberRole,
   revokeInvitation,
 } from "@/lib/db/queries/organizations";
+import { prisma } from "@/lib/db/prisma";
 
 async function getActiveOrgWithRole() {
   const user = await requireAuth();
   const cookieStore = await cookies();
   const activeOrgId = cookieStore.get("activeOrgId")?.value;
   if (!activeOrgId) return { error: "No active organization" as const };
+
+  // Block member actions on personal workspaces
+  const org = await prisma.organization.findUnique({
+    where: { id: activeOrgId },
+    select: { isPersonal: true },
+  });
+  if (org?.isPersonal) {
+    return { error: "Cannot manage members in a personal workspace. Create a team workspace instead." as const };
+  }
 
   const role = await getUserRole(activeOrgId, user.id);
   if (role !== "OWNER" && role !== "ADMIN") {
