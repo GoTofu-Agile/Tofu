@@ -1,5 +1,47 @@
 # Vercel Deployment Setup
 
+## Status (Stand: 17.03.2026)
+
+| Schritt | Status | Notizen |
+|---|---|---|
+| GitHub Repo (`habibidani/gotofu`) | ✅ | Branch `feat/results-dashboard-landing-split` gepusht |
+| Vercel Account | ✅ | Neuer Account: `admin-42578282`, Team: `gotofus-projects` |
+| `gotofu-app` Projekt erstellt + mit GitHub verlinkt | ✅ | Via `vercel link` erledigt |
+| Environment Variables gesetzt | ⏳ | **Naechster Schritt** — manuell im Vercel Dashboard |
+| Build Command auf `prisma generate && next build` setzen | ⏳ | Nach Env Vars |
+| Erster Deploy | ⏳ | — |
+| `gotofu-landing` Projekt erstellen | ⏳ | Root Dir: `apps/landing` |
+| Domains (`app.gotofu.io`, `gotofu.io`) | ⏳ | — |
+| Supabase Auth Redirect URLs | ⏳ | — |
+
+### Naechster Schritt: Environment Variables im Dashboard setzen
+
+1. Gehe zu [vercel.com/gotofus-projects/gotofu-app/settings/environment-variables](https://vercel.com/gotofus-projects/gotofu-app/settings/environment-variables)
+2. Trage folgende Werte ein (alle fuer `Production`):
+
+| Key | Value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://cgkgolnccyuqjlvcazov.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | *(aus `.env.local`)* |
+| `SUPABASE_SERVICE_ROLE_KEY` | *(aus `.env.local`)* |
+| `DATABASE_URL` | `postgresql://postgres.cgkgolnccyuqjlvcazov:...@aws-1-eu-west-1.pooler.supabase.com:5432/postgres` |
+| `LLM_PROVIDER` | `openai` |
+| `OPENAI_API_KEY` | *(aus `.env.local`)* |
+| `OPENAI_MODEL` | `gpt-4o` |
+| `TAVILY_API_KEY` | *(aus `.env.local`)* |
+| `INNGEST_EVENT_KEY` | *(aus `.env.local`)* |
+| `INNGEST_SIGNING_KEY` | *(aus `.env.local`)* |
+| `NEXT_PUBLIC_APP_URL` | `https://app.gotofu.io` |
+| `GOTOFU_ADMIN_EMAILS` | `daniel.kourie@code.berlin` |
+
+3. Danach: Settings → General → Build Command setzen auf:
+   ```
+   npx prisma generate && next build
+   ```
+4. Deploy ausloesen: Deployments → Redeploy
+
+---
+
 ## Architektur
 
 Ein GitHub Repo, zwei Vercel-Projekte:
