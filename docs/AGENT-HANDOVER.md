@@ -1,81 +1,81 @@
 # GoTofu — Agent Handover Document
 
-> **Lies dieses Dokument zuerst.** Es ist der einzige Einstiegspunkt den du brauchst.
-> Stand: 18.03.2026
+> **Read this document first.** It's the only entry point you need.
+> Last updated: 2026-03-18
 
 ---
 
-## 1. Was ist GoTofu?
+## 1. What is GoTofu?
 
-GoTofu ist eine **B2B SaaS Plattform für synthetische Nutzerforschung**. Kunden erstellen KI-generierte Personas aus echten Daten (Web Research, Reviews, Foren), führen damit simulierte Interviews und Surveys durch und erhalten automatisch ausgewertete Insights — als schneller, günstiger Ersatz oder Vorbereitung für echte Nutzerforschung.
+GoTofu is a **B2B SaaS platform for synthetic user research**. Customers create AI-generated personas from real data (web research, reviews, forums), run simulated interviews and surveys, and receive automatically analyzed insights — as a faster, cheaper alternative or preparation for real user research.
 
-**Founder:** Daniel Kourie (daniel.kourie@code.berlin) — CODE Berlin Student, nicht-technisch, produktfokussiert.
+**Founder:** Daniel Kourie (daniel.kourie@code.berlin) — CODE Berlin student, non-technical, product-focused.
 
-**Aktueller Status:** Production deployed, erste Kunden aktiv. Platform funktioniert end-to-end: Personas erstellen → Study aufsetzen → Batch-Interviews laufen lassen → Results Dashboard anschauen.
+**Current status:** Production deployed, first customers active. Platform works end-to-end: Create personas → Set up study → Run batch interviews → View results dashboard.
 
 ---
 
-## 2. Deployment — Was läuft wo
+## 2. Deployment — What Runs Where
 
-### Live-Umgebungen
+### Live Environments
 
-| URL | Zweck | Vercel Projekt |
+| URL | Purpose | Vercel Project |
 |---|---|---|
 | `https://gotofu.io` | Landing Page | `gotofu-landing` |
 | `https://app.gotofu.io` | App (Login, Dashboard, Studies, Personas) | `gotofu-app` |
 
-### Infrastruktur
+### Infrastructure
 
 | Service | Details |
 |---|---|
 | **Vercel** | Team: `gotofus-projects`, Account: `admin-42578282` |
-| **GitHub** | App: `github.com/habibidani/gotofu` (privat), Landing: `github.com/GoTofu-Agile/LandingPage` (privat) |
-| **Supabase** | Projekt: `SyntheticTofu`, URL: `https://cgkgolnccyuqjlvcazov.supabase.co` |
-| **Inngest** | Background Jobs (Batch-Interviews, Insights-Generierung) |
-| **OpenAI** | Standard LLM Provider (`gpt-4o`), aber austauschbar |
-| **Tavily** | Web Research für Persona-Datenbeschaffung |
-| **Zoho Mail** | `admin@gotofu.io` — Vercel Account Login, Team-Kommunikation |
-| **Domain-Registrar** | Hostinger — Nameservers auf Vercel delegiert, DNS bei Vercel (MX für Zoho, SPF) |
+| **GitHub** | App: `github.com/habibidani/gotofu` (private), Landing: `github.com/GoTofu-Agile/LandingPage` (private) |
+| **Supabase** | Project: `SyntheticTofu`, URL: `https://cgkgolnccyuqjlvcazov.supabase.co` |
+| **Inngest** | Background Jobs (Batch Interviews, Insights Generation) |
+| **OpenAI** | Default LLM Provider (`gpt-4o`), but swappable |
+| **Tavily** | Web Research for persona data sourcing |
+| **Zoho Mail** | `admin@gotofu.io` — Vercel Account Login, team communication |
+| **Domain Registrar** | Hostinger — Nameservers delegated to Vercel, DNS managed at Vercel (MX for Zoho, SPF) |
 
-### Repo-Architektur (Zwei Repos)
+### Repo Architecture (Two Repos)
 
 ```
 habibidani/gotofu (GitHub)         → gotofu-app (app.gotofu.io)
 GoTofu-Agile/LandingPage (GitHub)  → gotofu-landing (gotofu.io)
 ```
 
-Jedes Repo deployt unabhängig auf sein Vercel-Projekt. Push auf `main` → automatisches Deployment.
+Each repo deploys independently to its Vercel project. Push to `main` → automatic deployment.
 
-**Hinweis:** Das lokale Verzeichnis `apps/landing/` existiert noch, wird aber NICHT für das Vercel `gotofu-landing` Projekt genutzt. Die Landing Page kommt aus dem separaten Repo `GoTofu-Agile/LandingPage`.
+**Note:** The local directory `apps/landing/` still exists but is NOT used for the Vercel `gotofu-landing` project. The landing page comes from the separate repo `GoTofu-Agile/LandingPage`.
 
-Details: siehe `VERCEL-SETUP.md`
+Details: see `VERCEL-SETUP.md`
 
 ---
 
-## 3. Lokal starten
+## 3. Local Setup
 
 ```bash
-# Repo klonen
+# Clone repo
 git clone https://github.com/habibidani/gotofu.git
 cd gotofu
 
 # Dependencies
 npm install
 
-# .env.local anlegen (Werte von Daniel holen)
+# Create .env.local (get values from Daniel)
 cp .env.example .env.local
-# → DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, etc. eintragen
+# → Fill in DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, etc.
 
-# WICHTIG: Prisma braucht .env (nicht .env.local)
+# IMPORTANT: Prisma needs .env (not .env.local)
 cp .env.local .env
 
-# Prisma Client generieren
+# Generate Prisma Client
 npx prisma generate
 
-# App starten (Port 3004)
+# Start app (Port 3004)
 npm run dev
 
-# Landing Page starten (Port 3005, separates Fenster)
+# Start Landing Page (Port 3005, separate terminal)
 cd apps/landing && npm run dev
 ```
 
@@ -89,7 +89,7 @@ SUPABASE_SERVICE_ROLE_KEY=...           # Supabase service role (server-only)
 LLM_PROVIDER=openai                     # "openai" | "anthropic" | "google"
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-4o
-TAVILY_API_KEY=...                      # Optional — ohne: keine Web Research
+TAVILY_API_KEY=...                      # Optional — without it: no web research
 INNGEST_EVENT_KEY=...
 INNGEST_SIGNING_KEY=...
 NEXT_PUBLIC_APP_URL=http://localhost:3004
@@ -100,7 +100,7 @@ GOTOFU_ADMIN_EMAILS=daniel.kourie@code.berlin
 
 ## 4. Tech Stack & Gotchas
 
-| Layer | Technologie | Version |
+| Layer | Technology | Version |
 |---|---|---|
 | Framework | Next.js (App Router, Turbopack) | 16.1.6 |
 | Runtime | React | 19.2.3 |
@@ -110,7 +110,7 @@ GOTOFU_ADMIN_EMAILS=daniel.kourie@code.berlin
 | Auth | Supabase Auth | via `@supabase/ssr` |
 | LLM | Vercel AI SDK | 6.x (LLM-agnostic) |
 | Background Jobs | Inngest | 3.52.6 |
-| UI Components | shadcn/ui v4 (**base-ui**, nicht Radix) | 4.x |
+| UI Components | shadcn/ui v4 (**base-ui**, not Radix) | 4.x |
 | Styling | Tailwind CSS | 4.x |
 | Icons | Lucide React | 0.577.0 |
 | Validation | Zod | 4.x |
@@ -118,44 +118,44 @@ GOTOFU_ADMIN_EMAILS=daniel.kourie@code.berlin
 | Toasts | Sonner | 2.x |
 | Web Research | Tavily SDK | 0.7.x |
 
-### Kritische Gotchas (Dinge die Agents immer wieder falsch machen)
+### Critical Gotchas (Things agents keep getting wrong)
 
-1. **shadcn/ui v4 nutzt base-ui, NICHT Radix** — kein `asChild` Prop. Wenn du `asChild` schreibst, gibt es keinen Compile-Fehler aber das Rendering bricht.
+1. **shadcn/ui v4 uses base-ui, NOT Radix** — no `asChild` prop. Writing `asChild` won't cause a compile error but breaks rendering.
 
-2. **Zod v4: `error.issues` nicht `error.errors`** — `error.errors` existiert nicht mehr.
+2. **Zod v4: `error.issues` not `error.errors`** — `error.errors` no longer exists.
 
-3. **Port 3004** (nicht 3000) — in `package.json` konfiguriert.
+3. **Port 3004** (not 3000) — configured in `package.json`.
 
-4. **Beide `.env` Dateien nötig** — `.env.local` für Next.js Runtime, `.env` für Prisma CLI. Beide müssen `DATABASE_URL` enthalten.
+4. **Both `.env` files needed** — `.env.local` for Next.js runtime, `.env` for Prisma CLI. Both must contain `DATABASE_URL`.
 
-5. **Prisma v5 auf Node 20.11.1** — NICHT auf Prisma v6 updaten, das erfordert Node 20.19+.
+5. **Prisma v5 on Node 20.11.1** — do NOT upgrade to Prisma v6, it requires Node 20.19+.
 
-6. **`pdf-parse` muss mit `require()` importiert werden** — ESM Import wirft `Property 'default'` Fehler.
+6. **`pdf-parse` must be imported with `require()`** — ESM import throws `Property 'default'` error.
 
-7. **Tailwind CSS v4: kein `tailwind.config.js`** — alle CSS-Variablen in `src/app/globals.css`.
+7. **Tailwind CSS v4: no `tailwind.config.js`** — all CSS variables in `src/app/globals.css`.
 
-8. **Next.js 16 Middleware Warning** — `"middleware" file convention is deprecated` in Build-Logs ist ein Warning, kein Fehler. Funktioniert noch.
+8. **Next.js 16 Middleware Warning** — `"middleware" file convention is deprecated` in build logs is a warning, not an error. Still works.
 
-9. **`DropdownMenuLabel` muss in `DropdownMenuGroup`** — base-ui Requirement.
+9. **`DropdownMenuLabel` must be inside `DropdownMenuGroup`** — base-ui requirement.
 
-10. **Multi-Tenant** — JEDE DB-Query und API-Route muss `organizationId` prüfen. Immer über `requireAuthWithOrgs()` (`src/lib/auth.ts`) authentifizieren.
+10. **Multi-tenant** — EVERY DB query and API route must check `organizationId`. Always authenticate via `requireAuthWithOrgs()` (`src/lib/auth.ts`).
 
-11. **Vercel Env Vars: Trailing Newlines** — Beim Setzen via CLI **immer** `printf '%s' "value" | vercel env add` statt `echo`. `echo` fügt ein `\n` am Ende an, das unsichtbar API-Keys, DB-URLs etc. kaputt macht. Wurde am 18.03.2026 für alle 12 Vars gefixt.
+11. **Vercel Env Vars: Trailing Newlines** — When setting via CLI **always** use `printf '%s' "value" | vercel env add` instead of `echo`. `echo` appends a `\n` that silently breaks API keys, DB URLs, etc. Fixed on 2026-03-18 for all 12 vars.
 
-12. **DATABASE_URL: Transaction Pooler (Port 6543)** — Supabase bietet Session Pooler (5432) und Transaction Pooler (6543). Serverless (Vercel) **muss** Transaction Pooler nutzen: `...pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10`. Session Pooler hat zu niedriges Connection-Limit → `MaxClientsInSessionMode` Error.
+12. **DATABASE_URL: Transaction Pooler (Port 6543)** — Supabase offers Session Pooler (5432) and Transaction Pooler (6543). Serverless (Vercel) **must** use Transaction Pooler: `...pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10`. Session Pooler has too low connection limit → `MaxClientsInSessionMode` error.
 
 ---
 
-## 5. Repo-Struktur
+## 5. Repo Structure
 
 ```
 /
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/          # Login, Signup, OAuth Callback
-│   │   ├── (dashboard)/     # Alle geschützten Seiten
+│   │   ├── (dashboard)/     # All protected pages
 │   │   │   ├── dashboard/   # Home
-│   │   │   ├── personas/    # Persona Groups + einzelne Personas
+│   │   │   ├── personas/    # Persona Groups + individual Personas
 │   │   │   ├── studies/     # Studies + Sessions + Results
 │   │   │   ├── settings/    # Workspace + Members
 │   │   │   ├── uploads/     # File Upload Manager
@@ -183,104 +183,105 @@ GOTOFU_ADMIN_EMAILS=daniel.kourie@code.berlin
 │   │   └── validation/      # Zod Schemas
 │   └── middleware.ts        # Supabase Session Refresh
 ├── prisma/
-│   └── schema.prisma        # Vollständiges Datenmodell
+│   └── schema.prisma        # Complete data model
 ├── apps/
 │   └── landing/             # Separate Next.js App (gotofu.io)
 ├── docs/
-│   ├── AGENT-HANDOVER.md    # Dieses Dokument
-│   ├── ENGINEERING-VISION.md # Architektur Deep-Dive
-│   └── PERSONA-FRAMEWORK.md # Persona Framework Design Doc
-├── VERCEL-SETUP.md          # Deployment Details + Troubleshooting
-└── FRONTEND-HANDOFF.md      # UI/UX Richtlinien für Frontend-Agents
+│   ├── AGENT-HANDOVER.md    # This document
+│   ├── ENGINEERING-VISION.md # Architecture deep-dive
+│   └── PERSONA-FRAMEWORK.md # Persona Framework design doc
+├── VERCEL-SETUP.md          # Deployment details + troubleshooting
+└── FRONTEND-HANDOFF.md      # UI/UX guidelines for frontend agents
 ```
 
 ---
 
-## 6. Vollständige Route-Map
+## 6. Complete Route Map
 
 ### Auth (public)
-| Route | Zweck |
+| Route | Purpose |
 |---|---|
 | `/login` | Email/Password + OAuth Login |
-| `/signup` | Registrierung |
+| `/signup` | Registration |
 | `/callback` | OAuth Redirect Handler |
-| `/accept-invite/[token]` | Team-Einladung annehmen |
+| `/accept-invite/[token]` | Accept team invitation |
 
-### Dashboard (geschützt — erfordert Auth + Org)
-| Route | Zweck |
+### Dashboard (protected — requires Auth + Org)
+| Route | Purpose |
 |---|---|
-| `/dashboard` | Home — Feature-Übersicht + Onboarding Checklist |
+| `/dashboard` | Home — feature overview + onboarding checklist |
 | `/personas` | Persona Groups Grid |
-| `/personas/new` | Neuen Persona Group erstellen (6 Methoden) |
-| `/personas/[groupId]` | Group-Detail + Persona Cards |
-| `/personas/[groupId]/[personaId]` | Vollständiges Persona-Profil |
-| `/studies` | Studies Listing |
-| `/studies/new` | Study erstellen (multi-step Form) |
-| `/studies/[studyId]` | Study Detail + Session Management |
+| `/personas/new` | Create new Persona Group (6 methods) |
+| `/personas/[groupId]` | Group detail + Persona Cards |
+| `/personas/[groupId]/[personaId]` | Full Persona profile |
+| `/studies` | Studies listing |
+| `/studies/new` | Create study (multi-step form) |
+| `/studies/[studyId]` | Study detail + session management |
 | `/studies/[studyId]/results` | Results Dashboard (Themes, Quotes, Recs) |
-| `/studies/[studyId]/compare` | Cross-Session Vergleich |
-| `/studies/[studyId]/[sessionId]` | Interview-Transcript |
+| `/studies/[studyId]/compare` | Cross-session comparison |
+| `/studies/[studyId]/[sessionId]` | Interview transcript |
 | `/settings` | Workspace Settings + AI Product Context |
-| `/settings/members` | Team Management + Einladungen |
+| `/settings/members` | Team management + invitations |
 | `/uploads` | File Upload Manager |
-| `/admin` | Admin Panel (nur `GOTOFU_ADMIN_EMAILS`) |
+| `/admin` | Admin Panel (`GOTOFU_ADMIN_EMAILS` only) |
 
 ### API Routes
-| Route | Zweck |
+| Route | Purpose |
 |---|---|
 | `POST /api/inngest` | Inngest Webhook Endpoint |
 | `POST /api/chat` | Streaming Single-Interview Chat |
 | `POST /api/personas/generate` | NDJSON Streaming Persona Generation |
-| `POST /api/personas/extract` | Freetext → strukturierter Kontext |
-| `POST /api/personas/extract-pdf` | LinkedIn PDF → Kontext |
-| `POST /api/personas/extract-url` | Company URL → Tavily Research → Kontext |
-| `POST /api/studies/setup` | AI Quick-Setup (Freetext → Study-Felder) |
-| `POST /api/studies/generate-guide` | Interview Guide generieren |
-| `POST /api/studies/[studyId]/run-batch` | Batch-Interviews starten (→ Inngest) |
-| `GET /api/studies/[studyId]/status` | Batch-Fortschritt polling |
+| `POST /api/personas/extract` | Freetext → structured context |
+| `POST /api/personas/extract-pdf` | LinkedIn PDF → context |
+| `POST /api/personas/extract-url` | Company URL → Tavily Research → context |
+| `POST /api/studies/setup` | AI Quick-Setup (freetext → study fields) |
+| `POST /api/studies/generate-guide` | Generate interview guide |
+| `POST /api/studies/[studyId]/run-batch` | Start batch interviews (→ Inngest) |
+| `GET /api/studies/[studyId]/status` | Batch progress polling |
 | `GET /api/studies/[studyId]/export` | CSV Transcript Export |
 | `POST /api/research` | Streaming Web Research (Tavily) |
 | `POST /api/assistant` | AI Assistant Chat |
-| `GET /api/assistant/history` | Chat-History Liste |
+| `GET /api/assistant/history` | Chat history list |
 
 ---
 
-## 7. Schlüssel-Workflows
+## 7. Key Workflows
 
-### Workflow 1: Personas erstellen (AI-Generate Methode)
+### Workflow 1: Create Personas (AI-Generate Method)
 
 ```
-1. /personas/new → Methode wählen (AI Generate)
-2. Context eingeben (optional: Tavily URL-Research)
+1. /personas/new → Choose method (AI Generate)
+2. Enter context (optional: Tavily URL research)
 3. POST /api/personas/generate → NDJSON Stream
    → src/lib/ai/generate-personas.ts
    → buildPrompt() → 5-Layer Prompt (Identity, Psychology, Behavior, Communication, Research)
-   → RAG: DomainKnowledge-Embedding-Lookup (pgvector)
-   → Anti-Sycophancy: ~30% Skeptiker-Typen
-   → qualityScore: 22-Punkte-System
-4. Persona-Cards erscheinen streaming
-5. Speichern → Prisma Persona + PersonalityProfile
+   → RAG: DomainKnowledge embedding lookup (pgvector)
+   → Anti-sycophancy: ~30% skeptic types
+   → qualityScore: 22-point system
+4. Persona cards appear via streaming
+5. Save → Prisma Persona + PersonalityProfile
 ```
 
-### Workflow 2: Study + Batch-Interview
+### Workflow 2: Study + Batch Interview
 
 ```
-1. /studies/new → Multi-Step Form
+1. /studies/new → Multi-step form
    → Study Type, Research Objectives, Interview Guide
-   → Persona Groups zuweisen + Sample Size
-2. /studies/[id] → "Run Batch Interviews" Button
+   → Assign Persona Groups + Sample Size
+2. /studies/[id] → "Run Batch Interviews" button
 3. POST /api/studies/[id]/run-batch
    → Inngest Event: study/run-batch
 4. src/lib/inngest/functions/run-batch-interview.ts
-   → Für jede Persona: Session erstellen
-   → 5-8 Gesprächs-Turns (LLM als Interviewer + LLM als Persona)
+   → For each persona: create session
+   → 5-8 conversation turns (LLM as interviewer + LLM as persona)
+   → Runs in parallel batches of 3
    → Session → COMPLETED
    → Study → COMPLETED
    → Inngest Event: study/generate-insights
 5. src/lib/inngest/functions/generate-insights.ts
-   → Alle Transkripte laden
+   → Load all transcripts
    → LLM generateObject → insightsSchema
-   → AnalysisReport in DB speichern
+   → Save AnalysisReport to DB
 6. /studies/[id]/results → Results Dashboard
 ```
 
@@ -288,18 +289,18 @@ GOTOFU_ADMIN_EMAILS=daniel.kourie@code.berlin
 
 ```
 Login/Signup → Supabase Auth
-→ /callback (OAuth) oder direkt
-→ src/middleware.ts → updateSession() auf jeder Request
-→ requireAuthWithOrgs() prüft: User existiert + hat Org
-→ Falls keine Org: Onboarding
-→ Dashboard Layout liest activeOrgId aus Cookie
+→ /callback (OAuth) or direct
+→ src/middleware.ts → updateSession() on every request
+→ requireAuthWithOrgs() checks: user exists + has org
+→ If no org: Onboarding
+→ Dashboard Layout reads activeOrgId from cookie
 ```
 
 ---
 
-## 8. Datenmodell (Überblick)
+## 8. Data Model (Overview)
 
-Vollständiges Schema in `prisma/schema.prisma`. Kernmodelle:
+Full schema in `prisma/schema.prisma`. Core models:
 
 ```
 Organization (Multi-Tenant Root)
@@ -321,166 +322,169 @@ Organization (Multi-Tenant Root)
 ```
 
 **Enums:**
-- `StudyType`: INTERVIEW (live), SURVEY / FOCUS_GROUP / USABILITY_TEST / CARD_SORT (geplant)
+- `StudyType`: INTERVIEW (live), SURVEY / FOCUS_GROUP / USABILITY_TEST / CARD_SORT (planned)
 - `StudyStatus`: DRAFT → ACTIVE → COMPLETED → ARCHIVED
 - `SessionStatus`: PENDING → RUNNING → COMPLETED | FAILED
 - `OrgRole`: OWNER / ADMIN / MEMBER / VIEWER
 
 ---
 
-## 9. Feature-Status
+## 9. Feature Status
 
-### Implementiert ✅
+### Implemented ✅
 
-- Multi-Tenant Auth (Supabase, Einladungs-System, Rollen)
-- Persona Groups + 6 Erstellungsmethoden (AI Generate, Deep Search, LinkedIn PDF, Company URL, Manual, Templates)
-- Persona-Profile mit 5-Layer Framework (Identity, Psychology, Behavior, Communication, Research)
-- Study-Erstellung (multi-step Form, AI Quick-Setup)
-- Single-Interview (manuell, Streaming)
-- Batch-Interviews (Inngest Background Jobs)
-- AI Insights-Generierung (Themes, Quotes, Sentiments, Recommendations)
+- Multi-tenant Auth (Supabase, invitation system, roles)
+- Persona Groups + 6 creation methods (AI Generate, Deep Search, LinkedIn PDF, Company URL, Manual, Templates)
+- Persona profiles with 5-layer framework (Identity, Psychology, Behavior, Communication, Research)
+- Study creation (multi-step form, AI Quick-Setup)
+- Single Interview (manual, streaming)
+- Batch Interviews (Inngest background jobs, 3-parallel batches)
+- AI Insights generation (Themes, Quotes, Sentiments, Recommendations)
 - Results Dashboard (`/studies/[id]/results`)
 - CSV Export
-- AI Assistant Sidebar (Chat mit Plattform-Kontext)
+- AI Assistant Sidebar (chat with platform context)
 - Admin Panel
-- Workspace-Settings mit AI Product Context
+- Workspace Settings with AI Product Context
 
-### Geplant / Noch nicht gebaut ⏳
+### Planned / Not Yet Built ⏳
 
-- **Study Types:** SURVEY, FOCUS_GROUP, USABILITY_TEST, CARD_SORT (nur INTERVIEW ist live)
-- **Kuratierte Persona Library** (1M+ vorberechnete Personas, Semantic Search via pgvector)
-- **Automatische Datenpipeline** (Tavily scraping → DomainKnowledge → Persona RAG, aktuell manuell)
-- **Persona Framework v1.1** (Felder: `adoptionCurvePosition`, `incomeBracket`, `confidenceScore`, etc. — Design in `AGENT-HANDOVER-PERSONA-FRAMEWORK.md`)
-- **pgvector Semantic Search** (Embedding-Felder existieren, werden aber noch nicht genutzt)
-- **Transcript Analytics** (Compare-Seite `/studies/[id]/compare` rudimentär)
-- **Survey-Flow** (UI für Survey-Type-Studies)
+- **Study Types:** SURVEY, FOCUS_GROUP, USABILITY_TEST, CARD_SORT (only INTERVIEW is live)
+- **Curated Persona Library** (1M+ precomputed personas, semantic search via pgvector)
+- **Automatic Data Pipeline** (Tavily scraping → DomainKnowledge → Persona RAG, currently manual)
+- **Persona Framework v1.1** (fields: `adoptionCurvePosition`, `incomeBracket`, `confidenceScore`, etc. — design in `docs/PERSONA-FRAMEWORK.md`)
+- **pgvector Semantic Search** (embedding fields exist but are not yet used)
+- **Transcript Analytics** (compare page `/studies/[id]/compare` is rudimentary)
+- **Survey Flow** (UI for survey-type studies)
 
 ---
 
-## 10. Key Files — Was du für welche Aufgabe lesen musst
+## 10. Key Files — What to Read for Each Task
 
-| Aufgabe | Dateien lesen |
+| Task | Files to read |
 |---|---|
-| Auth verstehen | `src/lib/auth.ts`, `src/lib/supabase/`, `src/app/(auth)/actions.ts` |
-| Persona-Generierung ändern | `src/lib/ai/generate-personas.ts`, `src/lib/validation/schemas.ts` |
-| Neuen Study-Type hinzufügen | `prisma/schema.prisma`, `src/app/(dashboard)/studies/new/`, `src/components/studies/steps/` |
-| Interview-Logik ändern | `src/lib/inngest/functions/run-batch-interview.ts`, `src/app/api/chat/route.ts` |
-| Insights-Logik ändern | `src/lib/inngest/functions/generate-insights.ts` |
-| UI/Layout ändern | `src/components/layout/sidebar.tsx`, `src/app/(dashboard)/layout.tsx`, `src/app/globals.css` |
-| Neue API-Route | Muster aus `src/app/api/personas/extract-url/route.ts` |
-| Neue Inngest-Funktion | Muster aus `src/lib/inngest/functions/run-batch-interview.ts` |
-| DB-Queries | `src/lib/db/queries/` (studies.ts, personas.ts, chat.ts) |
-| LLM-Provider wechseln | `src/lib/ai/provider.ts`, `.env.local` (`LLM_PROVIDER` + Key) |
-| Landing Page | Separates Repo: `GoTofu-Agile/LandingPage` (nicht in diesem Repo) |
+| Understand auth | `src/lib/auth.ts`, `src/lib/supabase/`, `src/app/(auth)/actions.ts` |
+| Modify persona generation | `src/lib/ai/generate-personas.ts`, `src/lib/validation/schemas.ts` |
+| Add new study type | `prisma/schema.prisma`, `src/app/(dashboard)/studies/new/`, `src/components/studies/steps/` |
+| Modify interview logic | `src/lib/inngest/functions/run-batch-interview.ts`, `src/app/api/chat/route.ts` |
+| Modify insights logic | `src/lib/inngest/functions/generate-insights.ts` |
+| Change UI/Layout | `src/components/layout/sidebar.tsx`, `src/app/(dashboard)/layout.tsx`, `src/app/globals.css` |
+| New API route | Pattern from `src/app/api/personas/extract-url/route.ts` |
+| New Inngest function | Pattern from `src/lib/inngest/functions/run-batch-interview.ts` |
+| DB queries | `src/lib/db/queries/` (studies.ts, personas.ts, chat.ts) |
+| Switch LLM provider | `src/lib/ai/provider.ts`, `.env.local` (`LLM_PROVIDER` + key) |
+| Landing Page | Separate repo: `GoTofu-Agile/LandingPage` (not in this repo) |
 | Deployment | `VERCEL-SETUP.md` |
-| Frontend/UI Guidelines | `FRONTEND-HANDOFF.md` |
-| Persona Framework Design | `docs/PERSONA-FRAMEWORK.md` |
-| Architektur Deep-Dive | `docs/ENGINEERING-VISION.md` |
+| Frontend/UI guidelines | `FRONTEND-HANDOFF.md` |
+| Persona Framework design | `docs/PERSONA-FRAMEWORK.md` |
+| Architecture deep-dive | `docs/ENGINEERING-VISION.md` |
 
 ---
 
-## 11. Was du NICHT anfassen sollst
+## 11. Do NOT Touch Without Asking Daniel
 
-- **`prisma/schema.prisma`** ohne Daniel zu fragen — Breaking Changes betreffen Produktionsdaten
-- **`src/lib/supabase/`** — Auth-Middleware, sehr sensibel
-- **`apps/landing/`** — lokales Verzeichnis, wird NICHT für Production genutzt. Die Live-Landing-Page kommt aus dem separaten Repo `GoTofu-Agile/LandingPage`
-- **Environment Variables** in `.env.local` für Produktion — Vercel-Secrets gehen über Dashboard oder CLI
-- **Vercel Nameserver / DNS** — Hostinger → Vercel, jede Änderung könnte Domain down bringen
+- **`prisma/schema.prisma`** — breaking changes affect production data
+- **`src/lib/supabase/`** — auth middleware, very sensitive
+- **`apps/landing/`** — local directory, NOT used for production. The live landing page comes from the separate repo `GoTofu-Agile/LandingPage`
+- **Environment Variables** in `.env.local` for production — Vercel secrets go through Dashboard or CLI
+- **Vercel Nameservers / DNS** — Hostinger → Vercel, any change could bring the domain down
 
 ---
 
-## 12. Development-Workflow
+## 12. Development Workflow
 
-### Branch-basiertes Arbeiten (seit 18.03.2026)
+### Branch-Based Workflow (since 2026-03-18)
 
-**Grundregel:** Nicht direkt auf `main` pushen. Feature-Branches nutzen.
+**Golden rule:** Never push directly to `main`. Use feature branches.
 
 ```bash
-# 1. Neuen Branch erstellen
-git checkout -b feat/mein-feature
+# 1. Start from fresh main
+git checkout main && git pull origin main
 
-# 2. Änderungen committen
-git add -A && git commit -m "feat: beschreibung"
+# 2. Create new branch
+git checkout -b feat/my-feature
 
-# 3. Branch pushen + PR öffnen
-git push -u origin feat/mein-feature
-gh pr create --title "feat: beschreibung" --body "Was und warum"
+# 3. Commit changes
+git add <files> && git commit -m "feat: description"
 
-# 4. CI abwarten (lint + build), Vercel Preview URL testen
-# 5. PR mergen → Production Deploy auf app.gotofu.io
+# 4. Push branch + open PR
+git push -u origin feat/my-feature
+gh pr create --title "feat: description" --body "What and why"
+
+# 5. Wait for CI (lint + build), test Vercel Preview URL
+# 6. Merge PR → Production deploy to app.gotofu.io
 ```
 
-### Was passiert automatisch
+### What Happens Automatically
 
-| Event | Aktion |
+| Event | Action |
 |---|---|
-| PR auf `main` öffnen | GitHub Actions CI: `npm run lint` + `npm run build` |
-| PR auf `main` öffnen | Vercel erstellt Preview Deployment mit eigener URL |
-| PR mergen → `main` | Vercel deployt auf `app.gotofu.io` (Production) |
+| Open PR to `main` | GitHub Actions CI: `npm run lint` + `npm run build` |
+| Open PR to `main` | Vercel creates Preview Deployment with unique URL |
+| Merge PR → `main` | Vercel deploys to `app.gotofu.io` (Production) |
 
-### CI-Pipeline (`.github/workflows/ci.yml`)
+### CI Pipeline (`.github/workflows/ci.yml`)
 
-Läuft bei jedem PR auf `main`:
-1. `npm ci` — Dependencies installieren
-2. `npx prisma generate` — Prisma Client generieren
+Runs on every PR to `main`:
+1. `npm ci` — install dependencies
+2. `npx prisma generate` — generate Prisma Client
 3. `npm run lint` — ESLint
-4. `npm run build` — Next.js Build (TypeScript-Fehler werden hier gefunden)
+4. `npm run build` — Next.js Build (TypeScript errors are caught here)
 
 ### Branch Protection
 
-Branch Protection Rules erfordern GitHub Pro (privates Repo). Solange wir auf Free-Tier sind: CI + Vercel Previews als Safety Net, Disziplin bei Merges. Bei Upgrade auf Pro: Branch Protection auf `main` aktivieren (Require PR, Require CI pass).
+Branch Protection Rules require GitHub Pro (private repo). While on Free tier: CI + Vercel Previews as safety net, discipline with merges. On upgrade to Pro: enable Branch Protection on `main` (Require PR, Require CI pass).
 
 ---
 
-## 13. Offene TODOs / Bekannte Issues
+## 13. Open TODOs / Known Issues
 
-1. **Persona Framework v1.1 noch nicht implementiert** — Schema-Erweiterungen (`adoptionCurvePosition`, `incomeBracket`, etc.) sind in `docs/AGENT-HANDOVER-PERSONA-FRAMEWORK.md` vollständig spezifiziert aber noch nicht deployed. Benötigt Prisma Migration.
+1. **Persona Framework v1.1 not yet implemented** — Schema extensions (`adoptionCurvePosition`, `incomeBracket`, etc.) are fully specified in `docs/PERSONA-FRAMEWORK.md` but not yet deployed. Requires Prisma migration.
 
-2. **Vercel Build-Isolation** (Ignored Build Step) noch nicht gesetzt — jeder Push deployt beide Projekte, auch wenn nur eines sich geändert hat. Zu setzen in Vercel Projekt-Settings → Git → Ignored Build Step. Befehle in `VERCEL-SETUP.md`.
+2. **Vercel Build Isolation** (Ignored Build Step) not yet set — every push deploys both projects even if only one changed. To set in Vercel Project Settings → Git → Ignored Build Step. Commands in `VERCEL-SETUP.md`.
 
-3. ~~**Alte Vercel-Projekte**~~ ✅ ERLEDIGT — `gotofu`, `tofu`, `tofu-u2t4` wurden gelöscht (18.03.2026).
+3. ~~**Old Vercel projects**~~ ✅ DONE — `gotofu`, `tofu`, `tofu-u2t4` deleted (2026-03-18).
 
-4. ~~**Altes Vercel Projekt**~~ ✅ ERLEDIGT — alte Projekte bereinigt.
+4. ~~**Old Vercel project**~~ ✅ DONE — old projects cleaned up.
 
-5. **pgvector nicht genutzt** — `embedding` Felder auf `Persona` und `DomainKnowledge` existieren, aber Semantic Search ist noch nicht implementiert.
+5. **pgvector not used** — `embedding` fields on `Persona` and `DomainKnowledge` exist, but semantic search is not yet implemented.
 
-6. ~~**Inngest Webhook URL**~~ ✅ ERLEDIGT (18.03.2026) — Inngest via Vercel Integration verbunden, Auto-Sync bei jedem Deploy. App: `https://app.gotofu.io/api/inngest`, Functions: `run-batch-interview`, `generate-insights`.
+6. ~~**Inngest Webhook URL**~~ ✅ DONE (2026-03-18) — Inngest connected via Vercel Integration, auto-sync on every deploy. App: `https://app.gotofu.io/api/inngest`, Functions: `run-batch-interview`, `generate-insights`.
 
-7. **`www.gotofu.io`** ist im `gotofu-landing` Projekt als Redirect zu `gotofu.io` eingetragen aber noch nicht verifiziert.
+7. **`www.gotofu.io`** is registered in the `gotofu-landing` project as redirect to `gotofu.io` but not yet verified.
 
-8. ~~**Batch-Interview-Parallelisierung**~~ ✅ ERLEDIGT (18.03.2026) — Interviews laufen jetzt in 3er-Batches parallel via `Promise.all` + `step.run()`. ~3x schneller.
+8. ~~**Batch interview parallelization**~~ ✅ DONE (2026-03-18) — Interviews now run in parallel batches of 3 via `Promise.all` + `step.run()`. ~3x faster.
 
-9. ~~**Development-Workflow**~~ ✅ ERLEDIGT (18.03.2026) — Branch-basierter Workflow mit GitHub Actions CI eingerichtet. Siehe Abschnitt 12.
+9. ~~**Development workflow**~~ ✅ DONE (2026-03-18) — Branch-based workflow with GitHub Actions CI established. See Section 12.
 
-10. ~~**Login-Feedback verbessern**~~ ✅ ERLEDIGT (18.03.2026) — Fullscreen Loading Overlay auf Login/Signup + Dashboard `loading.tsx`.
+10. ~~**Login feedback improvement**~~ ✅ DONE (2026-03-18) — Fullscreen loading overlay on Login/Signup + Dashboard `loading.tsx`.
 
 ---
 
-## 14. Debugging-Checkliste
+## 14. Debugging Checklist
 
-Falls etwas nicht funktioniert:
+If something isn't working:
 
-**Login geht nicht:**
-1. **Env Vars prüfen:** `vercel env pull` und nach trailing `\n` suchen — häufigste Ursache!
-2. Supabase Auth Redirect URLs — enthält `https://app.gotofu.io/callback`?
-3. `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_ANON_KEY` korrekt gesetzt?
-4. Vercel Deployment erfolgreich? (Vercel Dashboard → Deployments)
+**Login not working:**
+1. **Check env vars:** `vercel env pull` and look for trailing `\n` — most common cause!
+2. Supabase Auth Redirect URLs — contains `https://app.gotofu.io/callback`?
+3. `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` set correctly?
+4. Vercel deployment successful? (Vercel Dashboard → Deployments)
 
-**Batch-Interview startet nicht:**
-1. Inngest Dashboard — Event angekommen?
-2. `INNGEST_EVENT_KEY` und `INNGEST_SIGNING_KEY` gesetzt?
-3. `https://app.gotofu.io/api/inngest` als Webhook in Inngest eingetragen?
+**Batch interview not starting:**
+1. Inngest Dashboard — event received?
+2. `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` set?
+3. `https://app.gotofu.io/api/inngest` registered as webhook in Inngest?
 
-**Personas werden nicht generiert:**
-1. `OPENAI_API_KEY` gültig?
-2. `LLM_PROVIDER=openai` gesetzt?
-3. Browser DevTools Network → `/api/personas/generate` Response ansehen
+**Personas not generating:**
+1. `OPENAI_API_KEY` valid?
+2. `LLM_PROVIDER=openai` set?
+3. Browser DevTools Network → check `/api/personas/generate` response
 
-**Build schlägt fehl (Prisma):**
-→ `build` Script in `package.json` muss `prisma generate && next build` sein
+**Build failing (Prisma):**
+→ `build` script in `package.json` must be `prisma generate && next build`
 
-**Build schlägt fehl (TypeScript JSON-Felder):**
-→ Prisma JSON-Felder brauchen doppelten Cast: `(value as unknown as MyType[])`
+**Build failing (TypeScript JSON fields):**
+→ Prisma JSON fields need double cast: `(value as unknown as MyType[])`
 
-**Landing Page Sign-In zeigt auf localhost:**
-→ `NEXT_PUBLIC_APP_URL` in `gotofu-landing` Env Vars auf `https://app.gotofu.io` setzen, dann redeploy
+**Landing Page Sign-In points to localhost:**
+→ Set `NEXT_PUBLIC_APP_URL` in `gotofu-landing` env vars to `https://app.gotofu.io`, then redeploy

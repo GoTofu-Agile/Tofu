@@ -1,58 +1,58 @@
 # Vercel Deployment Setup
 
-## Aktueller Stand (Stand: 18.03.2026) — ALLES LIVE ✅
+## Current Status (as of 2026-03-18) — ALL LIVE ✅
 
-| Schritt | Status | Details |
+| Step | Status | Details |
 |---|---|---|
-| GitHub Repo App (`habibidani/gotofu`) | ✅ | `main` branch ist production |
-| GitHub Repo Landing (`GoTofu-Agile/LandingPage`) | ✅ | `main` branch ist production |
+| GitHub Repo App (`habibidani/gotofu`) | ✅ | `main` branch is production |
+| GitHub Repo Landing (`GoTofu-Agile/LandingPage`) | ✅ | `main` branch is production |
 | Vercel Account | ✅ | Account: `admin-42578282`, Team: `gotofus-projects` |
-| `gotofu-app` Projekt | ✅ | Live auf `https://app.gotofu.io` |
-| `gotofu-landing` Projekt | ✅ | Live auf `https://gotofu.io` |
-| Environment Variables (`gotofu-app`) | ✅ | Alle 12 Vars gesetzt |
+| `gotofu-app` Project | ✅ | Live at `https://app.gotofu.io` |
+| `gotofu-landing` Project | ✅ | Live at `https://gotofu.io` |
+| Environment Variables (`gotofu-app`) | ✅ | All 12 vars set |
 | Environment Variables (`gotofu-landing`) | ✅ | `NEXT_PUBLIC_APP_URL=https://app.gotofu.io` |
 | Build Command (`prisma generate && next build`) | ✅ | In `package.json` build script |
-| Domain `app.gotofu.io` → `gotofu-app` | ✅ | Verifiziert, SSL aktiv |
-| Domain `gotofu.io` → `gotofu-landing` | ✅ | Verifiziert, SSL aktiv |
-| DNS (Hostinger → Vercel Nameservers) | ✅ | Hostinger NS auf Vercel gesetzt |
-| Supabase Auth Redirect URLs | ✅ | Manuell im Supabase Dashboard gesetzt |
+| Domain `app.gotofu.io` → `gotofu-app` | ✅ | Verified, SSL active |
+| Domain `gotofu.io` → `gotofu-landing` | ✅ | Verified, SSL active |
+| DNS (Hostinger → Vercel Nameservers) | ✅ | Hostinger NS set to Vercel |
+| Supabase Auth Redirect URLs | ✅ | Manually set in Supabase Dashboard |
 
-### Live-URLs
+### Live URLs
 
-| URL | Projekt | Was |
+| URL | Project | What |
 |---|---|---|
 | `https://gotofu.io` | `gotofu-landing` | Landing Page |
-| `https://app.gotofu.io` | `gotofu-app` | Haupt-App (Login, Dashboard, etc.) |
-| `https://gotofu-app.vercel.app` | `gotofu-app` | Vercel Preview-URL (immer verfügbar) |
-| `https://gotofu-landing.vercel.app` | `gotofu-landing` | Vercel Preview-URL (immer verfügbar) |
+| `https://app.gotofu.io` | `gotofu-app` | Main App (Login, Dashboard, etc.) |
+| `https://gotofu-app.vercel.app` | `gotofu-app` | Vercel Preview URL (always available) |
+| `https://gotofu-landing.vercel.app` | `gotofu-landing` | Vercel Preview URL (always available) |
 
 ---
 
-## Architektur
+## Architecture
 
-Zwei GitHub Repos, zwei Vercel-Projekte:
+Two GitHub repos, two Vercel projects:
 
-| Vercel Project | Domain | GitHub Repo | Beschreibung |
+| Vercel Project | Domain | GitHub Repo | Description |
 |---|---|---|---|
-| `gotofu-app` | `app.gotofu.io` | `habibidani/gotofu` | Die Haupt-App |
-| `gotofu-landing` | `gotofu.io` | `GoTofu-Agile/LandingPage` | Statische Landing Page |
+| `gotofu-app` | `app.gotofu.io` | `habibidani/gotofu` | The main app |
+| `gotofu-landing` | `gotofu.io` | `GoTofu-Agile/LandingPage` | Static landing page |
 
-Jedes Repo deployt unabhängig auf sein Vercel-Projekt. Push auf `main` → automatisches Deployment.
+Each repo deploys independently to its Vercel project. Push to `main` → automatic deployment.
 
-**Hinweis:** Das `.vercel/project.json` im `habibidani/gotofu` Repo verlinkt auf `gotofu-landing` (historisch). Das lokale Verzeichnis `apps/landing/` wird NICHT für Production genutzt.
+**Note:** The `.vercel/project.json` in the `habibidani/gotofu` repo points to `gotofu-landing` (historical). The local directory `apps/landing/` is NOT used for production.
 
-### Alte Projekte (gelöscht am 18.03.2026)
-- `gotofu` (gotofu.vercel.app) — Duplikat
-- `tofu` (tofu-xi.vercel.app) — altes Repo
-- `tofu-u2t4` (tofu-u2t4.vercel.app) — altes Repo
+### Old Projects (deleted 2026-03-18)
+- `gotofu` (gotofu.vercel.app) — duplicate
+- `tofu` (tofu-xi.vercel.app) — old repo
+- `tofu-u2t4` (tofu-u2t4.vercel.app) — old repo
 
 ---
 
 ## Environment Variables (gotofu-app)
 
-Alle über Vercel CLI oder Dashboard gesetzt. Werte aus `.env.local`:
+All set via Vercel CLI or Dashboard. Values from `.env.local`:
 
-| Key | Beschreibung |
+| Key | Description |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://cgkgolnccyuqjlvcazov.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase public anon key |
@@ -77,7 +77,7 @@ Alle über Vercel CLI oder Dashboard gesetzt. Werte aus `.env.local`:
 
 ## Supabase Auth Redirect URLs
 
-Im Supabase Dashboard → Authentication → URL Configuration:
+In Supabase Dashboard → Authentication → URL Configuration:
 
 - **Site URL:** `https://app.gotofu.io`
 - **Redirect URLs:**
@@ -89,7 +89,7 @@ Im Supabase Dashboard → Authentication → URL Configuration:
 
 ## DNS (Hostinger → Vercel)
 
-Hostinger Nameservers wurden auf Vercel gesetzt. Vercel verwaltet jetzt die gesamte DNS-Zone `gotofu.io`. Im Vercel DNS-Dashboard sind automatisch gesetzt:
+Hostinger nameservers were set to Vercel. Vercel now manages the entire DNS zone for `gotofu.io`. Automatically set in Vercel DNS Dashboard:
 
 | Type | Name | Priority | Value |
 |---|---|---|---|
@@ -102,19 +102,19 @@ Hostinger Nameservers wurden auf Vercel gesetzt. Vercel verwaltet jetzt die gesa
 | MX | `@` | 50 | `mx3.zoho.eu` |
 | TXT | `@` | — | `v=spf1 include:zohomail.eu ~all` |
 
-Die MX + SPF Records sind für **Zoho Mail** (`admin@gotofu.io`). Ohne diese Records kann kein Mail an `@gotofu.io` zugestellt werden. Der Vercel Account läuft auf `admin@gotofu.io` — wenn die MX Records fehlen, ist man aus Vercel ausgesperrt!
+The MX + SPF records are for **Zoho Mail** (`admin@gotofu.io`). Without these records, no mail can be delivered to `@gotofu.io`. The Vercel account runs on `admin@gotofu.io` — if MX records are missing, you'll be locked out of Vercel!
 
 ---
 
-## Wie Deploys funktionieren
+## How Deploys Work
 
-- Push auf `main` → **beide** Projekte deployen automatisch (GitHub Integration)
-- Landing Page: ~15 Sekunden Build (static site, no DB)
-- App: ~45 Sekunden Build (`prisma generate` + `next build`)
+- Push to `main` → **both** projects deploy automatically (GitHub Integration)
+- Landing Page: ~15 seconds build (static site, no DB)
+- App: ~45 seconds build (`prisma generate` + `next build`)
 
-### Build-Isolation (empfohlen, noch nicht gesetzt)
+### Build Isolation (recommended, not yet set)
 
-Um unnötige Deploys zu vermeiden, in den Vercel Projekt-Settings unter **Git → Ignored Build Step**:
+To avoid unnecessary deploys, set in Vercel Project Settings → **Git → Ignored Build Step**:
 
 **gotofu-landing:**
 ```bash
@@ -128,22 +128,22 @@ git diff HEAD^ HEAD --quiet -- . ':!apps/landing'
 
 ---
 
-## CLI — Projekte deployen
+## CLI — Deploy Projects
 
 ```bash
-# Für gotofu-landing (aktueller Standard weil .vercel/project.json darauf zeigt)
+# For gotofu-landing (current default because .vercel/project.json points to it)
 vercel deploy --prod --scope gotofus-projects
 
-# Für gotofu-app (explizit angeben)
+# For gotofu-app (specify explicitly)
 vercel link --project gotofu-app --scope gotofus-projects
 vercel deploy --prod --scope gotofus-projects
 ```
 
-**Achtung:** Nach `vercel link` ändert sich `.vercel/project.json` — committen oder revertieren.
+**Warning:** After `vercel link`, `.vercel/project.json` changes — commit or revert.
 
 ---
 
-## Lokale Entwicklung
+## Local Development
 
 ```bash
 # App (Port 3004)
@@ -155,25 +155,25 @@ cd apps/landing && npm run dev
 
 ---
 
-## Bekannte Probleme & Fixes (aus der Ersteinrichtung)
+## Known Problems & Fixes (from initial setup)
 
-### Problem 1: Prisma Client nicht generiert auf Vercel
+### Problem 1: Prisma Client not generated on Vercel
 
-**Fehler:** `PrismaClientInitializationError: Prisma has detected that this project was built on Vercel, which caches dependencies.`
+**Error:** `PrismaClientInitializationError: Prisma has detected that this project was built on Vercel, which caches dependencies.`
 
-**Fix:** Build Command muss `prisma generate && next build` sein. In `package.json` bereits eingetragen:
+**Fix:** Build command must be `prisma generate && next build`. Already set in `package.json`:
 ```json
 "build": "prisma generate && next build"
 ```
-Vercel nutzt automatisch `npm run build`, also ist der Fix permanent.
+Vercel automatically uses `npm run build`, so the fix is permanent.
 
-### Problem 2: Monorepo — Middleware vom Root wird in Landing-Build gefunden
+### Problem 2: Monorepo — Root middleware found in landing build
 
-**Fehler:** `Module not found: Can't resolve '@/lib/supabase/middleware'` beim Build von `gotofu-landing`
+**Error:** `Module not found: Can't resolve '@/lib/supabase/middleware'` when building `gotofu-landing`
 
-**Ursache:** Vercel setzt `outputFileTracingRoot` auf den Monorepo-Root, Turbopack scannt dann die gesamte Repo-Struktur und findet `src/middleware.ts` aus der Haupt-App.
+**Cause:** Vercel sets `outputFileTracingRoot` to the monorepo root, Turbopack scans the entire repo structure and finds `src/middleware.ts` from the main app.
 
-**Fix:** `apps/landing/src/middleware.ts` mit simplem Passthrough erstellt, damit Next.js diese lokale Datei nimmt statt der Root-Datei:
+**Fix:** Created `apps/landing/src/middleware.ts` with simple passthrough so Next.js uses this local file instead of the root file:
 ```typescript
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -182,63 +182,63 @@ export function middleware(_request: NextRequest) {
 }
 ```
 
-### Problem 3: TypeScript-Fehler bei Prisma JSON-Feldern
+### Problem 3: TypeScript errors with Prisma JSON fields
 
-**Fehler:** `Conversion of type 'JsonValue' to type 'Theme[]' may be a mistake`
+**Error:** `Conversion of type 'JsonValue' to type 'Theme[]' may be a mistake`
 
-**Fix:** Doppelter Cast über `unknown`:
+**Fix:** Double cast via `unknown`:
 ```typescript
 const themes = (report.themes as unknown as Theme[]) || [];
 ```
 
-### Problem 4: Domain-Verifizierung schlägt fehl
+### Problem 4: Domain verification failing
 
-**Fehler:** `"Domain gotofu.io was added to a different project. Please complete verification"`
+**Error:** `"Domain gotofu.io was added to a different project. Please complete verification"`
 
-**Fix:** TXT-Records müssen zuerst gesetzt werden, dann Verifizierung per Vercel API triggern:
+**Fix:** TXT records must be set first, then trigger verification via Vercel API:
 ```bash
 curl -X POST "https://api.vercel.com/v10/projects/gotofu-landing/domains/gotofu.io/verify?teamId=team_AvpwnQStzhAHcqA0GGs4e3pS" \
   -H "Authorization: Bearer $VERCEL_TOKEN"
 ```
 
-### Problem 5: app.gotofu.io zeigt Landing Page statt App
+### Problem 5: app.gotofu.io shows landing page instead of app
 
-**Ursache:** `src/app/page.tsx` (Root) hatte noch Landing Page Inhalt aus der Zeit vor dem Monorepo-Split.
+**Cause:** `src/app/page.tsx` (root) still had landing page content from before the monorepo split.
 
-**Fix:** `src/app/page.tsx` auf Redirect geändert:
+**Fix:** Changed `src/app/page.tsx` to redirect:
 ```typescript
 import { redirect } from "next/navigation";
 export default function RootPage() { redirect("/login"); }
 ```
 
-### Problem 6: Sign-In Button auf Landing Page zeigt auf localhost
+### Problem 6: Sign-In button on landing page points to localhost
 
-**Ursache:** `NEXT_PUBLIC_APP_URL` war nicht als Env Var in `gotofu-landing` gesetzt. Der Fallback ist `http://localhost:3004`.
+**Cause:** `NEXT_PUBLIC_APP_URL` was not set as env var in `gotofu-landing`. The fallback is `http://localhost:3004`.
 
-**Fix:** `NEXT_PUBLIC_APP_URL=https://app.gotofu.io` zu `gotofu-landing` Environment Variables hinzugefügt. Da es eine `NEXT_PUBLIC_` Variable ist, muss nach dem Setzen neu deployed werden.
+**Fix:** Added `NEXT_PUBLIC_APP_URL=https://app.gotofu.io` to `gotofu-landing` environment variables. Since it's a `NEXT_PUBLIC_` variable, a redeploy is required after setting it.
 
-### Problem 7: Trailing Newlines in Vercel Env Vars
+### Problem 7: Trailing newlines in Vercel env vars
 
-**Ursache:** `echo "value" | vercel env add` fügt ein unsichtbares `\n` am Ende des Werts an. Das bricht API-Keys, DB-URLs, etc.
+**Cause:** `echo "value" | vercel env add` appends an invisible `\n` to the value. This breaks API keys, DB URLs, etc.
 
-**Symptome:** Alles kaputt — Login, AI Features, DB Connections. Env Vars sehen im Dashboard korrekt aus, aber der Wert hat ein unsichtbares Newline.
+**Symptoms:** Everything broken — login, AI features, DB connections. Env vars look correct in the dashboard, but the value has an invisible newline.
 
-**Diagnose:** `vercel env pull .env.check --environment production` → prüfe ob Werte mit `\n"` enden.
+**Diagnosis:** `vercel env pull .env.check --environment production` → check if values end with `\n"`.
 
-**Fix:** Immer `printf '%s'` statt `echo` nutzen:
+**Fix:** Always use `printf '%s'` instead of `echo`:
 ```bash
-# RICHTIG:
+# CORRECT:
 printf '%s' "sk-proj-..." | npx vercel env add OPENAI_API_KEY production --scope gotofus-projects
 
-# FALSCH:
+# WRONG:
 echo "sk-proj-..." | npx vercel env add OPENAI_API_KEY production --scope gotofus-projects
 ```
 
-### Problem 8: MaxClientsInSessionMode (DB Connection Limit)
+### Problem 8: MaxClientsInSessionMode (DB connection limit)
 
-**Ursache:** `DATABASE_URL` nutzte Session Pooler (Port 5432) statt Transaction Pooler (Port 6543). Session Pooler hat sehr niedriges Connection-Limit für Serverless.
+**Cause:** `DATABASE_URL` used Session Pooler (Port 5432) instead of Transaction Pooler (Port 6543). Session Pooler has very low connection limit for serverless.
 
-**Fix:** Port auf 6543 ändern + `?pgbouncer=true&connection_limit=10`:
+**Fix:** Change port to 6543 + add `?pgbouncer=true&connection_limit=10`:
 ```
 postgresql://postgres.XXX:PASSWORD@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10
 ```

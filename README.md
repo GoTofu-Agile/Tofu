@@ -68,72 +68,72 @@ prisma/schema.prisma       # Database schema
 
 ## Development Workflow
 
-### Goldene Regel
+### Golden Rule
 
-**Nie direkt auf `main` pushen.** Jeder Push auf main deployt sofort auf Production (`app.gotofu.io`). Immer Feature-Branches + Pull Requests nutzen.
+**Never push directly to `main`.** Every push to main deploys immediately to production (`app.gotofu.io`). Always use feature branches + pull requests.
 
-### Branch-Benennung
+### Branch Naming
 
-Ein Branch pro Task — **nicht** pro Person. Jede Aufgabe bekommt einen eigenen Branch. Nach dem Merge wird der Branch gelöscht.
+One branch per task — **not** per person. Each task gets its own branch. After merge, the branch is deleted.
 
-| Prefix | Wann | Beispiel |
+| Prefix | When | Example |
 |---|---|---|
-| `feat/` | Neues Feature | `feat/login-loading-overlay` |
-| `fix/` | Bugfix | `fix/persona-generation-null-error` |
-| `chore/` | Maintenance, Config, Dependencies | `chore/update-dependencies` |
-| `docs/` | Nur Dokumentation | `docs/update-readme` |
+| `feat/` | New feature | `feat/login-loading-overlay` |
+| `fix/` | Bug fix | `fix/persona-generation-null-error` |
+| `chore/` | Maintenance, config, dependencies | `chore/update-dependencies` |
+| `docs/` | Documentation only | `docs/update-readme` |
 
-Format: `prefix/kurze-beschreibung-mit-bindestrichen` (lowercase, keine Leerzeichen).
+Format: `prefix/short-description-with-hyphens` (lowercase, no spaces).
 
-### Schritt für Schritt
+### Step by Step
 
 ```bash
-# 1. Auf aktuellen main wechseln
+# 1. Switch to current main
 git checkout main
 git pull origin main
 
-# 2. Neuen Branch erstellen
-git checkout -b feat/mein-feature
+# 2. Create new branch
+git checkout -b feat/my-feature
 
-# 3. Arbeiten + committen (so oft wie nötig)
+# 3. Work + commit (as many times as needed)
 git add src/app/api/new-route/route.ts
 git commit -m "feat: add new API route for X"
 
-# 4. Branch pushen + Pull Request erstellen
-git push -u origin feat/mein-feature
+# 4. Push branch + create Pull Request
+git push -u origin feat/my-feature
 gh pr create --title "feat: add new API route for X" --body "What and why"
 
-# 5. CI läuft automatisch (lint + build) — abwarten bis grün
-# 6. Vercel Preview URL testen (Link erscheint im PR)
-# 7. PR mergen (Squash and Merge empfohlen → saubere History)
-# 8. Branch wird nach Merge automatisch gelöscht
+# 5. CI runs automatically (lint + build) — wait until green
+# 6. Test Vercel Preview URL (link appears in the PR)
+# 7. Merge PR (Squash and Merge recommended → clean history)
+# 8. Branch is automatically deleted after merge
 ```
 
-### Was passiert automatisch
+### What Happens Automatically
 
-| Event | Was passiert |
+| Event | What happens |
 |---|---|
-| PR auf `main` öffnen | GitHub Actions CI: lint + build |
-| PR auf `main` öffnen | Vercel erstellt Preview Deployment mit eigener URL |
-| PR mergen → `main` | Vercel deployt auf Production (`app.gotofu.io`) |
+| Open PR to `main` | GitHub Actions CI: lint + build |
+| Open PR to `main` | Vercel creates Preview Deployment with unique URL |
+| Merge PR → `main` | Vercel deploys to production (`app.gotofu.io`) |
 
-### Wer darf mergen?
+### Who Can Merge?
 
-Aktuell: **Jeder mit Repo-Zugriff** kann PRs mergen — GitHub Free erlaubt keine Branch Protection auf privaten Repos. Die Sicherheit kommt von:
+Currently: **Anyone with repo access** can merge PRs — GitHub Free doesn't allow Branch Protection on private repos. Safety comes from:
 
-1. **CI muss grün sein** — lint + build müssen bestehen
-2. **Vercel Preview testen** — vor dem Merge die Preview URL prüfen
-3. **Disziplin** — nie direkt auf main pushen, immer PR
+1. **CI must be green** — lint + build must pass
+2. **Test Vercel Preview** — check the preview URL before merging
+3. **Discipline** — never push directly to main, always use a PR
 
-> Bei Upgrade auf GitHub Pro: Branch Protection Rules aktivieren (CI required, optional Review required).
+> On upgrade to GitHub Pro: Enable Branch Protection Rules (CI required, optional review required).
 
 ### Commit Convention
 
 ```
-feat: neues Feature
-fix:  Bugfix
-chore: Maintenance (Dependencies, Config)
-docs: nur Dokumentation
+feat: new feature
+fix:  bug fix
+chore: maintenance (dependencies, config)
+docs: documentation only
 ```
 
 ---

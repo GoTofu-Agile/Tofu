@@ -1,56 +1,56 @@
 # GoTofu Persona Framework — Research & Design Document
 
-> **Status**: Research & Evaluation Phase — kein Code wird geschrieben, bis die offenen Fragen am Ende dieses Dokuments beantwortet sind.
+> **Status**: Research & Evaluation Phase — no code will be written until the open questions at the end of this document are answered.
 
 ---
 
-## 1. Das GoTofu Persona Framework
+## 1. The GoTofu Persona Framework
 
-### Was eine GoTofu Persona ist
+### What a GoTofu Persona Is
 
-Eine GoTofu Persona ist kein demografischer Steckbrief — sie ist ein **psychologisch konsistentes Verhaltenssimulationsmodell**. Der entscheidende Unterschied zu flachen Personas: Demografie erklärt nur ~1.5% der Verhaltensvarianz. Was wirklich zählt, sind psychografische Tiefe, Narrative und interne Widersprüche.
+A GoTofu persona is not a demographic profile — it's a **psychologically consistent behavioral simulation model**. The key difference from flat personas: demographics explain only ~1.5% of behavioral variance. What really matters is psychographic depth, narratives, and internal contradictions.
 
-Das Framework ist in 5 Schichten aufgebaut:
+The framework is built in 5 layers:
 
 ---
 
-### Layer 1: Identity (Wer sie sind)
+### Layer 1: Identity (Who they are)
 
-Demographische Grunddaten — bewusst *nicht* übergewichtet, da sie allein keine Verhaltensprognosen erlauben.
+Basic demographic data — deliberately *not* overweighted, since demographics alone don't enable behavioral predictions.
 
-| Feld | Typ | Beispiele |
+| Field | Type | Examples |
 |------|-----|-----------|
-| name, age, gender, location | string / int | ✅ bereits implementiert |
+| name, age, gender, location | string / int | ✅ already implemented |
 | occupation | string | ✅ |
 | `incomeBracket` | enum | `<25k | 25-50k | 50-100k | 100-250k | 250k+` |
 | `educationLevel` | enum | `high_school | vocational | bachelor | master | phd` |
 | `companySizePreference` | enum | `solo | startup | smb | enterprise` |
-| `yearsExperience` | int | Jahre Berufserfahrung |
+| `yearsExperience` | int | Years of professional experience |
 
 ---
 
-### Layer 2: Psychology (Wie sie denken)
+### Layer 2: Psychology (How they think)
 
-Das Herzstück. Hier liegt die Differenzierung von GoTofu.
+The core differentiator. This is where GoTofu stands out.
 
-**Big Five / OCEAN** *(alle 0–1 Floats, bereits implementiert)*:
+**Big Five / OCEAN** *(all 0–1 floats, already implemented)*:
 - `openness`, `conscientiousness`, `extraversion`, `agreeableness`, `neuroticism`
 
-**Entscheidungsverhalten** *(bereits implementiert)*:
+**Decision-making behavior** *(already implemented)*:
 - `decisionMakingStyle`: analytical | intuitive | dependent | avoidant | spontaneous
 - `riskTolerance`, `trustPropensity`, `emotionalExpressiveness`
 
-**Neu hinzufügen**:
-- `adoptionCurvePosition`: `INNOVATOR | EARLY_ADOPTER | EARLY_MAJORITY | LATE_MAJORITY | LAGGARD` — positioniert die Persona auf Rogers' Technology Adoption Curve, extrem nützlich für Produktforschung
-- `changeReadiness` (0–1): wie offen ist die Persona für Verhaltensänderungen / Produktwechsel
+**To be added**:
+- `adoptionCurvePosition`: `INNOVATOR | EARLY_ADOPTER | EARLY_MAJORITY | LATE_MAJORITY | LAGGARD` — positions the persona on Rogers' Technology Adoption Curve, extremely useful for product research
+- `changeReadiness` (0–1): how open the persona is to behavioral changes / product switches
 
-**Forschungshintergrund**: Das SCOPE-Framework (2025) zeigt, dass volle psychologische Konditionierung die Vorhersagekorrelation von 0.624 auf 0.667 erhöht gegenüber demografie-only Ansätzen. Persönlichkeits-Vektoren (Big Five) können via Prompt-Engineering in LLMs zuverlässig kodiert werden.
+**Research background**: The SCOPE Framework (2025) shows that full psychological conditioning increases prediction correlation from 0.624 to 0.667 compared to demographics-only approaches. Personality vectors (Big Five) can be reliably encoded in LLMs via prompt engineering.
 
 ---
 
-### Layer 3: Behavior (Was sie tun)
+### Layer 3: Behavior (What they do)
 
-| Feld | Typ | Status |
+| Field | Type | Status |
 |------|-----|--------|
 | `goals` | string[] | ✅ |
 | `frustrations` | string[] | ✅ |
@@ -62,9 +62,9 @@ Das Herzstück. Hier liegt die Differenzierung von GoTofu.
 
 ---
 
-### Layer 4: Communication (Wie sie sprechen)
+### Layer 4: Communication (How they speak)
 
-| Feld | Typ | Status |
+| Field | Type | Status |
 |------|-----|--------|
 | `communicationStyle` | direct/verbose/analytical/empathetic | ✅ |
 | `vocabularyLevel` | casual/professional/academic/technical | ✅ |
@@ -77,283 +77,283 @@ Das Herzstück. Hier liegt die Differenzierung von GoTofu.
 
 ---
 
-### Layer 5: Research Behavior (Wie sie sich in Studien verhalten)
+### Layer 5: Research Behavior (How they behave in studies)
 
-Wird *nicht* separat gespeichert — wird aus Layer 2+4 berechnet und in der UI angezeigt:
+Not stored separately — computed from Layer 2+4 and displayed in the UI:
 
 **Predicted Sycophancy Score** = `(agreeableness + (1 - criticalFeedbackTendency)) / 2`
 
-- Score > 0.65 → "Agreeable" (Vorsicht: hohes Sycophancy-Risiko)
+- Score > 0.65 → "Agreeable" (Caution: high sycophancy risk)
 - Score 0.35–0.65 → "Balanced"
-- Score < 0.35 → "Skeptic" (wertvollste Personas für ehrliches Feedback)
+- Score < 0.35 → "Skeptic" (most valuable personas for honest feedback)
 
-**Forschungshintergrund**: Sycophancy ist das größte Risiko in AI-gestützter Forschung. LLMs tendieren dazu, zustimmend und positiv zu sein. GoTofu bekämpft das bereits mit dem 30%-Skeptiker-Mechanismus im Prompt. Der Predicted Sycophancy Score macht das für Nutzer sichtbar und filterbar.
+**Research background**: Sycophancy is the biggest risk in AI-powered research. LLMs tend to be agreeable and positive. GoTofu already combats this with the 30% skeptic mechanism in the prompt. The Predicted Sycophancy Score makes this visible and filterable for users.
 
 ---
 
-### Framework-Metadaten (Neue Felder für Validierung)
+### Framework Metadata (New fields for validation)
 
-Diese Felder sind besonders kritisch für die **temporale Validierungsstrategie** (Studie mit Daten vor 2025 simulieren, dann mit echten Post-2025-Ergebnissen vergleichen):
+These fields are especially critical for the **temporal validation strategy** (simulate a study with pre-2025 data, then compare with real post-2025 results):
 
-| Feld | Typ | Zweck |
+| Field | Type | Purpose |
 |------|-----|-------|
-| `dataTemporalRangeStart` | DateTime | Frühestes verwendetes Source-Datum |
-| `dataTemporalRangeEnd` | DateTime | Spätestes verwendetes Source-Datum |
-| `dataSourceTypes` | String[] | Welche Quellen genutzt (REDDIT, G2_REVIEW, etc.) |
-| `confidenceScore` | Float 0–1 | Wie viel echte Daten vs. Halluzination |
-| `geographicCoverage` | String[] | Länder/Regionen der Source-Daten |
-| `frameworkVersion` | String | Version des GoTofu Frameworks bei Generierung |
+| `dataTemporalRangeStart` | DateTime | Earliest source date used |
+| `dataTemporalRangeEnd` | DateTime | Latest source date used |
+| `dataSourceTypes` | String[] | Which sources were used (REDDIT, G2_REVIEW, etc.) |
+| `confidenceScore` | Float 0–1 | How much real data vs. hallucination |
+| `geographicCoverage` | String[] | Countries/regions of source data |
+| `frameworkVersion` | String | GoTofu framework version at generation time |
 
-Der `confidenceScore` ergibt sich aus: Anzahl DomainKnowledge-Einträge / erwartete Mindestanzahl × Qualitätsscore der Quellen. Bei 0 DomainKnowledge = 0.0 (reine Halluzination). Bei 20 hochwertigen Quellen → 1.0.
+The `confidenceScore` is derived from: Number of DomainKnowledge entries / expected minimum count × source quality score. At 0 DomainKnowledge = 0.0 (pure hallucination). At 20 high-quality sources → 1.0.
 
 ---
 
 ### Quality Scoring (Extended)
 
-Aktuell hat GoTofu ein 16-Punkte System in `computeQualityScore()`. Erweiterung um 6 neue Checks:
+Currently GoTofu has a 16-point system in `computeQualityScore()`. Extension with 6 new checks:
 
-| Check | Was er prüft | Warum wichtig |
+| Check | What it checks | Why it matters |
 |-------|-------------|---------------|
-| **Personality Extremity** | Mind. 3 von 5 Big Five mit `|trait - 0.5| > 0.2` | Verhindert "mittelmäßige" Personas |
-| **Trait Coherence** | Agreeableness < 0.4 wenn CriticalFeedback > 0.6 | Interne Konsistenz Skeptiker |
-| **Backstory Specificity** | Enthält Eigennamen / konkrete Orte | Spezifische Events, nicht generisch |
-| **Values Uniqueness** | Keine doppelten Strings in coreValues | Qualitätskontrolle |
-| **Internal Contradiction** | Backstory enthält "but/however/despite/although" | CRITICAL RULE aus dem Prompt-Framework |
-| **Data Grounding** | `confidenceScore > 0` | Data-Based > Prompt-Generated |
+| **Personality Extremity** | At least 3 of 5 Big Five with `|trait - 0.5| > 0.2` | Prevents "mediocre" personas |
+| **Trait Coherence** | Agreeableness < 0.4 when CriticalFeedback > 0.6 | Internal consistency for skeptics |
+| **Backstory Specificity** | Contains proper nouns / specific locations | Specific events, not generic |
+| **Values Uniqueness** | No duplicate strings in coreValues | Quality control |
+| **Internal Contradiction** | Backstory contains "but/however/despite/although" | CRITICAL RULE from the prompt framework |
+| **Data Grounding** | `confidenceScore > 0` | Data-based > prompt-generated |
 
-**Post-Interview Quality Validation** (nach Batch-Interviews):
-- `sycophancyActualScore`: Sentiment-Ratio der RESPONDENT-Nachrichten
-- Wenn > 85% positive Sätze: Persona als "sycophancy risk" flaggen
-- Rückmeldung ans Framework für zukünftige Generierungen
+**Post-Interview Quality Validation** (after batch interviews):
+- `sycophancyActualScore`: Sentiment ratio of RESPONDENT messages
+- If > 85% positive sentences: flag persona as "sycophancy risk"
+- Feedback to framework for future generations
 
 ---
 
-### Gewichtung im Prompt (5-Layer Architektur)
+### Prompt Weighting (5-Layer Architecture)
 
-Die aktuelle 5-Layer Prompt-Architektur in `generate-personas.ts` ist bereits State-of-the-Art. Explizite Gewichtung, die ins Prompt eingebaut werden sollte:
+The current 5-layer prompt architecture in `generate-personas.ts` is already state-of-the-art. Explicit weighting to build into the prompt:
 
 ```
-Psychological Depth:     30%  (Persönlichkeit, Motivation, Werte)
-Behavioral Specificity:  25%  (Konkrete Verhaltensweisen, Jobs-to-be-done)
-Narrative Authenticity:  20%  (Backstory mit echten Ereignissen)
-Communication Realism:   15%  (Sprachstil, Vokabular, Tonalität)
-Demographic Grounding:   10%  (Nur zur Verortung — nicht stereotypisieren)
+Psychological Depth:     30%  (Personality, motivation, values)
+Behavioral Specificity:  25%  (Concrete behaviors, jobs-to-be-done)
+Narrative Authenticity:  20%  (Backstory with real events)
+Communication Realism:   15%  (Speech style, vocabulary, tonality)
+Demographic Grounding:   10%  (Only for positioning — don't stereotype)
 ```
 
 ---
 
-## 2. Die Kuratierte Persona Library
+## 2. The Curated Persona Library
 
-### Konzept
+### Concept
 
-Ein globaler, vorberechneter Pool von synthetischen Personas — von GoTofu kuriert, nicht vom Kunden erstellt. Kunden können filtern und importieren.
+A global, precomputed pool of synthetic personas — curated by GoTofu, not created by the customer. Customers can filter and import.
 
-**Ziel**: 1M+ Personas mit systematischer Abdeckung der Weltwirtschaft.
+**Goal**: 1M+ personas with systematic coverage of the global economy.
 
-**Generierungsstrategie** (iterativ aufbauen):
-- Phase 1: ~200 Branchen × 10 Job Functions × 5 Personas = 10.000 Personas
-- Phase 2: Ausweitung auf 100.000 durch automatisierte Pipelines
-- Phase 3: 1M+ durch kontinuierliche Anreicherung
+**Generation strategy** (build iteratively):
+- Phase 1: ~200 industries × 10 job functions × 5 personas = 10,000 personas
+- Phase 2: Expand to 100,000 via automated pipelines
+- Phase 3: 1M+ through continuous enrichment
 
-**Technische Grundlage**: Das Feld `isPrebuilt: Boolean` auf `PersonaGroup` ist *bereits im Schema* — die Library wurde also beim initialen Design bereits antizipiert.
+**Technical foundation**: The field `isPrebuilt: Boolean` on `PersonaGroup` is *already in the schema* — the library was anticipated in the initial design.
 
 ---
 
-### Filter-Dimensionen
+### Filter Dimensions
 
-Was Nutzer in der Library filtern können sollen:
+What users should be able to filter in the library:
 
-**Demographisch**:
-- Altersgruppe (18–25, 26–35, 36–45, 46–55, 56+)
-- Geschlecht
-- Geografie / Region
-- Income Bracket
-- Education Level
+**Demographic**:
+- Age group (18–25, 26–35, 36–45, 46–55, 56+)
+- Gender
+- Geography / Region
+- Income bracket
+- Education level
 
-**Professionell**:
-- Branche (SaaS, Healthcare, Finance, Retail, Education, etc.)
-- Job Function (Engineering, Marketing, Sales, Operations, etc.)
-- Seniority / Berufserfahrung
-- Unternehmensgröße
+**Professional**:
+- Industry (SaaS, Healthcare, Finance, Retail, Education, etc.)
+- Job function (Engineering, Marketing, Sales, Operations, etc.)
+- Seniority / years of experience
+- Company size
 
-**Psychografisch** *(das ist die Differenzierung)*:
+**Psychographic** *(this is the differentiator)*:
 - Adoption Curve Position (Innovator → Laggard)
 - Decision Making Style
-- Research Personality (Skeptiker / Balanced / Agreeable)
+- Research Personality (Skeptic / Balanced / Agreeable)
 - Tech Literacy (1–5)
 - Domain Expertise
 
-**Daten-Provenienz** *(für Validierungsstudien)*:
-- Quell-Plattformen (Reddit, G2, App Store, etc.)
-- Zeitraum der Source-Daten (für temporale Validierung)
-- Geographic Coverage der Daten
-- Confidence Score (min. threshold)
+**Data Provenance** *(for validation studies)*:
+- Source platforms (Reddit, G2, App Store, etc.)
+- Time range of source data (for temporal validation)
+- Geographic coverage of data
+- Confidence score (min. threshold)
 
-**Semantic Search**: "Finde Personas, die frustriert mit Enterprise-Software-Onboarding sind" → pgvector-Ähnlichkeitssuche auf dem `embedding`-Feld (das bereits in beiden Tabellen existiert, aber noch nicht genutzt wird).
-
----
-
-### Import-Flow
-
-1. Nutzer sucht/filtert in der Library
-2. Wählt N Personas aus
-3. "In mein Workspace importieren" → erstellt neue PersonaGroup im Nutzer-Org
-4. Kopiert Persona-Records mit PersonalityProfile
-5. Verlinkt auf Original via `sourceReference`-JSON (bereits im Schema)
-6. Nutzer kann sofort Studien damit starten
+**Semantic Search**: "Find personas frustrated with enterprise software onboarding" → pgvector similarity search on the `embedding` field (which already exists in both tables but is not yet used).
 
 ---
 
-## 3. Die Datenbeschaffungs-Pipeline
+### Import Flow
 
-### Übergeordnetes Prinzip
-
-Das Ziel ist **datenbegründete Personas** (hoher `confidenceScore`) statt reiner LLM-Halluzination. Die Qualität der Personas ist direkt proportional zur Qualität und Relevanz der Source-Daten.
-
-Die vorhandene `DomainKnowledge`-Tabelle ist bereits perfekt dafür ausgelegt — mit `sourceType`, `publishedAt`, `relevanceScore`, `sentiment`, `embedding` und allen notwendigen Provenienz-Feldern.
+1. User searches/filters in the library
+2. Selects N personas
+3. "Import to my workspace" → creates new PersonaGroup in user's org
+4. Copies Persona records with PersonalityProfile
+5. Links to original via `sourceReference` JSON (already in schema)
+6. User can immediately start studies with them
 
 ---
 
-### Datenquellen — Bewertung und Prioritisierung
+## 3. The Data Sourcing Pipeline
 
-**Tier 1: Sofort verfügbar, hohe Qualität**
+### Overarching Principle
 
-| Quelle | Stärke | Tool | Kosten | Bias |
+The goal is **data-grounded personas** (high `confidenceScore`) rather than pure LLM hallucination. Persona quality is directly proportional to the quality and relevance of source data.
+
+The existing `DomainKnowledge` table is already perfectly designed for this — with `sourceType`, `publishedAt`, `relevanceScore`, `sentiment`, `embedding` and all necessary provenance fields.
+
+---
+
+### Data Sources — Evaluation and Prioritization
+
+**Tier 1: Immediately available, high quality**
+
+| Source | Strength | Tool | Cost | Bias |
 |--------|--------|------|--------|------|
-| **Reddit** | Community-Diskussionen, authentische Sprache, Meinungstiefe | Reddit Official API | Kostenlos (100 req/min) | Tech-skewed |
-| **G2 Reviews** | B2B-Käufer, Entscheidungsprozesse, Vergleiche | Apify Actor | ~$5/1k | B2B/SaaS |
-| **Trustpilot** | Consumer-Sentiment, klare Pain Points | Apify Actor | ~$5/1k | Konsumgüter |
-| **Tavily** | News, Blogs, Branchenkontext | Bereits integriert | 1k free/mo | English-heavy |
+| **Reddit** | Community discussions, authentic language, opinion depth | Reddit Official API | Free (100 req/min) | Tech-skewed |
+| **G2 Reviews** | B2B buyers, decision processes, comparisons | Apify Actor | ~$5/1k | B2B/SaaS |
+| **Trustpilot** | Consumer sentiment, clear pain points | Apify Actor | ~$5/1k | Consumer goods |
+| **Tavily** | News, blogs, industry context | Already integrated | 1k free/mo | English-heavy |
 
-**Tier 2: Mittelfristig**
+**Tier 2: Medium-term**
 
-| Quelle | Stärke | Tool | Kosten |
+| Source | Strength | Tool | Cost |
 |--------|--------|------|--------|
-| **App Store / Play Store** | Mobile-Nutzer, kurze direkte Aussagen | Apify Actor | ~$3/1k |
-| **Pew Research** | Repräsentative Surveys, validierte Daten | CSV-Download | Kostenlos |
-| **Product Hunt Comments** | Early Adopters, Maker-Mindset | Apify Actor | ~$3/1k |
-| **Hacker News** | Entwickler, technische Tiefen-Analysen | Public API | Kostenlos |
+| **App Store / Play Store** | Mobile users, short direct statements | Apify Actor | ~$3/1k |
+| **Pew Research** | Representative surveys, validated data | CSV download | Free |
+| **Product Hunt Comments** | Early adopters, maker mindset | Apify Actor | ~$3/1k |
+| **Hacker News** | Developers, deep technical analysis | Public API | Free |
 
-**Tier 3: Langfristig**
+**Tier 3: Long-term**
 
-| Quelle | Hindernis |
+| Source | Obstacle |
 |--------|-----------|
-| LinkedIn | ToS-Problem, hohe Kosten für zuverlässigen Zugang |
-| Twitter/X | API extrem teuer ($100/mo+ für nennenswerte Volumina) |
-| Bluesky / Mastodon | Wachsend, liberale APIs — gut für die Zukunft |
+| LinkedIn | ToS issues, high cost for reliable access |
+| Twitter/X | API extremely expensive ($100/mo+ for meaningful volume) |
+| Bluesky / Mastodon | Growing, liberal APIs — good for the future |
 
 ---
 
-### Pipeline-Architektur (Konzept)
+### Pipeline Architecture (Concept)
 
 ```
-Nutzer-Input (Zielgruppe beschreiben)
+User Input (describe target audience)
         ↓
 Source Selection Engine
-(Welche Quellen sind relevant für diese Zielgruppe?)
+(Which sources are relevant for this audience?)
         ↓
-Parallele Scraping-Jobs (Inngest Fan-out)
-    ├── Reddit: relevante Subreddits + Keywords
-    ├── Reviews: G2/Trustpilot für Branche/Produkt
-    ├── News: Tavily für Kontext + Trends
-    └── Custom URLs: bestehende Implementierung
+Parallel Scraping Jobs (Inngest fan-out)
+    ├── Reddit: relevant subreddits + keywords
+    ├── Reviews: G2/Trustpilot for industry/product
+    ├── News: Tavily for context + trends
+    └── Custom URLs: existing implementation
         ↓
 NLP Processing Layer
-    ├── Deduplication (SHA-256 Content-Hash)
-    ├── Relevance Scoring (Embedding-Ähnlichkeit zur Zielgruppe)
-    ├── Sentiment Tagging (positiv / negativ / neutral)
-    ├── Embedding Generation (text-embedding-3-small, bereits in provider.ts)
+    ├── Deduplication (SHA-256 content hash)
+    ├── Relevance Scoring (embedding similarity to target audience)
+    ├── Sentiment Tagging (positive / negative / neutral)
+    ├── Embedding Generation (text-embedding-3-small, already in provider.ts)
     └── Temporal Tagging (publishedAt, scrapedAt)
         ↓
-DomainKnowledge Storage (Schema bereits vollständig bereit)
+DomainKnowledge Storage (schema already fully ready)
         ↓
-Persona Generation (bestehende Pipeline — jetzt mit reicherem RAG)
+Persona Generation (existing pipeline — now with richer RAG)
 ```
 
 ---
 
-### NLP-Verarbeitung: Was aus Texten extrahierbar ist
+### NLP Processing: What Can Be Extracted from Text
 
-| Signal | Extraktionsmethode | Output |
+| Signal | Extraction Method | Output |
 |--------|-------------------|--------|
-| **Pain Points** | Aspect-Based Sentiment Analysis (BERT) | Geordnete Pain-Point-Liste |
-| **Goals** | Topic Modeling (LDA / BERTopic) | Job-to-be-done Cluster |
-| **Persönlichkeitssignale** | LIWC-Mapping oder LLM-Extraktion | Big Five Tendenzen |
-| **Vocabulary Level** | Syntaktische Komplexität, Fachbegriff-Häufigkeit | casual/professional/technical |
-| **Decision Making** | Daten-Sprache vs. Bauchgefühl-Sprache | analytical vs. intuitive |
+| **Pain Points** | Aspect-Based Sentiment Analysis (BERT) | Ranked pain point list |
+| **Goals** | Topic Modeling (LDA / BERTopic) | Job-to-be-done clusters |
+| **Personality Signals** | LIWC mapping or LLM extraction | Big Five tendencies |
+| **Vocabulary Level** | Syntactic complexity, technical term frequency | casual/professional/technical |
+| **Decision Making** | Data-language vs. gut-feeling-language | analytical vs. intuitive |
 
-Für GoTofu ist ein **LLM-basierter Extraktions-Schritt** (bereits für URL+Text implementiert) der pragmatischste Ansatz. Das bestehende `extractedContextSchema` gibt bereits die richtige Ausgabestruktur vor.
+For GoTofu, an **LLM-based extraction step** (already implemented for URL+text) is the most pragmatic approach. The existing `extractedContextSchema` already provides the correct output structure.
 
 ---
 
-### Datenqualitätskontrolle
+### Data Quality Control
 
-| Control | Implementierungsidee |
+| Control | Implementation Idea |
 |---------|---------------------|
-| Mindest-Content-Länge | `content.length < 100` → verwerfen |
-| Deduplication | SHA-256 Hash des normalisierten Texts |
-| Sprache | Nur `language: 'en'` initial, multilingual später |
-| Relevanz-Threshold | Cosine Similarity zur Zielgruppe > 0.3 (pgvector) |
-| Temporal Tagging | `publishedAt` immer speichern — kritisch für Validierung |
-| Quell-Qualitätsscore | Reddit: Upvote-Ratio; Reviews: Verified-Purchase-Flag |
+| Minimum content length | `content.length < 100` → discard |
+| Deduplication | SHA-256 hash of normalized text |
+| Language | Only `language: 'en'` initially, multilingual later |
+| Relevance threshold | Cosine similarity to target audience > 0.3 (pgvector) |
+| Temporal tagging | Always save `publishedAt` — critical for validation |
+| Source quality score | Reddit: upvote ratio; Reviews: verified purchase flag |
 
 ---
 
-### Wichtige Bias-Warnung
+### Important Bias Warning
 
-Die Forschung zeigt: LLMs haben einen starken **WEIRD-Bias** (Western, Educated, Industrialized, Rich, Democratic):
-- Weiße Personen werden mit 88–99% überrepräsentiert
-- Starke Häufung in Tech/Finance/Creative-Berufen
-- Geographische Konzentration auf NYC, SF, London
+Research shows: LLMs have a strong **WEIRD bias** (Western, Educated, Industrialized, Rich, Democratic):
+- White persons overrepresented at 88–99%
+- Strong concentration in tech/finance/creative professions
+- Geographic concentration on NYC, SF, London
 
-**GoTofu-Strategie**: Durch datenbegründete Generierung (hoher `confidenceScore`) wird dieser Bias reduziert — aber nicht eliminiert. Die `geographicCoverage`-Metadaten erlauben es Nutzern, bewusst zu entscheiden, welche Quellen ihr Persona-Set prägen.
+**GoTofu strategy**: Data-grounded generation (high `confidenceScore`) reduces this bias — but doesn't eliminate it. The `geographicCoverage` metadata allows users to consciously decide which sources shape their persona set.
 
 ---
 
-## 4. Validierungsstrategie (Wie wir Qualität beweisen)
+## 4. Validation Strategy (How We Prove Quality)
 
-### Die zwei Kern-Methoden (bereits geplant)
+### Two Core Methods (already planned)
 
-1. **Concurrent Validity**: 500 reale Studierende vs. 500 synthetische Personas — gleiche Fragen, Ergebnisvergleich
-2. **Temporal Predictive Validity**: Daten vor 2025 → Studie simulieren → mit echten Post-2025-Ergebnissen vergleichen. Das `dataTemporalRangeEnd`-Feld ist dafür essenziell.
+1. **Concurrent Validity**: 500 real students vs. 500 synthetic personas — same questions, compare results
+2. **Temporal Predictive Validity**: Pre-2025 data → simulate study → compare with real post-2025 results. The `dataTemporalRangeEnd` field is essential for this.
 
-### Weitere Validierungsansätze
+### Additional Validation Approaches
 
-| Methode | Was sie beweist | Aufwand |
+| Method | What It Proves | Effort |
 |---------|----------------|---------|
-| **Replication of Published Studies** | GoTofu reproduziert Ergebnisse aus Peer-Reviewed-Papers | Mittel — öffentliche Datensätze verfügbar |
-| **Turing Test für Transkripte** | UX-Researcher können echte und synthetische Interviews nicht unterscheiden | Niedrig — nur Rekrutierung von Evaluatoren nötig |
-| **Construct Validity** | Skeptiker-Personas sind messbar kritischer als agreeable Personas | Niedrig — rein intern testbar |
-| **A/B Product Decision Tracking** | Partner-Unternehmen nutzen GoTofu-Insights für Produktentscheidungen → Tracking ob richtig | Hoch — braucht engagierte Partner |
-| **WEIRD-Bias Audit** | GoTofu erzeugt weniger Bias als Konkurrenten bei data-grounded Personas | Mittel — vergleichbarer Test |
-| **Inter-Study Reliability** | Gleiche Studie 3× → konsistente Kernthemen und Empfehlungen | Niedrig — vollständig automatisierbar |
+| **Replication of Published Studies** | GoTofu reproduces results from peer-reviewed papers | Medium — public datasets available |
+| **Turing Test for Transcripts** | UX researchers can't distinguish real from synthetic interviews | Low — only need to recruit evaluators |
+| **Construct Validity** | Skeptic personas are measurably more critical than agreeable personas | Low — purely testable internally |
+| **A/B Product Decision Tracking** | Partner companies use GoTofu insights for product decisions → track if correct | High — needs committed partners |
+| **WEIRD Bias Audit** | GoTofu produces less bias than competitors with data-grounded personas | Medium — comparable test |
+| **Inter-Study Reliability** | Same study 3× → consistent core themes and recommendations | Low — fully automatable |
 
 ---
 
-## 5. Offene Fragen (vor Implementierung zu klären)
+## 5. Open Questions (to clarify before implementation)
 
-### Produkt / UX
-1. Wird die Library als separater Bereich in der Sidebar angezeigt, oder als Teil des Personas-Flows?
-2. Ist die Datenbeschaffung automatisch (im Hintergrund) oder ein manueller "Enrich"-Schritt?
-3. Können Free-Tier-Nutzer die Library durchsuchen, oder nur bezahlte Kunden?
+### Product / UX
+1. Will the library be shown as a separate section in the sidebar, or as part of the personas flow?
+2. Is data sourcing automatic (background) or a manual "Enrich" step?
+3. Can free-tier users browse the library, or only paid customers?
 
 ### Business
-4. Wie werden Scraping-Kosten (Apify: ~$5/1k Reviews) dem Kunden gegenüber abgerechnet?
-5. Erste Version nur Englisch — wann kommt Mehrsprachigkeit?
+4. How are scraping costs (Apify: ~$5/1k reviews) billed to the customer?
+5. First version English only — when does multilingual support come?
 
-### Technisch
-6. Welche Scraping-Quellen haben Priorität basierend auf Kundensegment? (B2B → G2 zuerst; Consumer → App Store + Reddit)
-7. Ist Supabase pgvector für 1M+ Personas bei Semantic Search ausreichend performant, oder brauchen wir einen separaten Vektorspeicher?
-8. Inngest-Limits für lang laufende Fan-out-Pipelines evaluieren (Scraping kann 10–60 Minuten dauern)
+### Technical
+6. Which scraping sources have priority based on customer segment? (B2B → G2 first; Consumer → App Store + Reddit)
+7. Is Supabase pgvector performant enough for 1M+ personas with semantic search, or do we need a separate vector store?
+8. Evaluate Inngest limits for long-running fan-out pipelines (scraping can take 10–60 minutes)
 
 ---
 
-## Was im Code bereits existiert (nicht neu bauen)
+## What Already Exists in Code (don't rebuild)
 
-- **DomainKnowledge Schema**: vollständig mit allen sourceTypes (REDDIT, G2_REVIEW, TRUSTPILOT, APP_REVIEW, etc.), Provenienz-Feldern, Embedding-Vektor ✅
-- **PersonaDataSource**: Provenienz-Verknüpfung zwischen Persona und Source ✅
-- **isPrebuilt auf PersonaGroup**: Library-Architektur antizipiert ✅
-- **Tavily-Integration**: Basis für Datenpipeline ✅
-- **5-Layer Prompt-Architektur**: Anti-Sycophancy, RAG, Differenzierung ✅
-- **Embedding-Columns**: auf Persona und DomainKnowledge (brauchen nur aktiviert zu werden) ✅
-- **qualityScore**: 16-Punkt-Scoring bei Generierung ✅
+- **DomainKnowledge Schema**: complete with all sourceTypes (REDDIT, G2_REVIEW, TRUSTPILOT, APP_REVIEW, etc.), provenance fields, embedding vector ✅
+- **PersonaDataSource**: provenance link between Persona and Source ✅
+- **isPrebuilt on PersonaGroup**: library architecture anticipated ✅
+- **Tavily Integration**: basis for data pipeline ✅
+- **5-Layer Prompt Architecture**: anti-sycophancy, RAG, differentiation ✅
+- **Embedding Columns**: on Persona and DomainKnowledge (just need activation) ✅
+- **qualityScore**: 16-point scoring during generation ✅
