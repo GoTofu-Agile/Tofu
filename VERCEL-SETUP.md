@@ -57,7 +57,7 @@ Alle über Vercel CLI oder Dashboard gesetzt. Werte aus `.env.local`:
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://cgkgolnccyuqjlvcazov.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase public anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only) |
-| `DATABASE_URL` | Supabase PostgreSQL connection string (pooler) |
+| `DATABASE_URL` | Supabase PostgreSQL — **Transaction Pooler** (Port 6543) + `?pgbouncer=true&connection_limit=10` |
 | `LLM_PROVIDER` | `openai` |
 | `OPENAI_API_KEY` | OpenAI API key |
 | `OPENAI_MODEL` | `gpt-4o` |
@@ -91,12 +91,18 @@ Im Supabase Dashboard → Authentication → URL Configuration:
 
 Hostinger Nameservers wurden auf Vercel gesetzt. Vercel verwaltet jetzt die gesamte DNS-Zone `gotofu.io`. Im Vercel DNS-Dashboard sind automatisch gesetzt:
 
-| Type | Name | Value |
-|---|---|---|
-| ALIAS | `@` | `cname.vercel-dns-017.com.` |
-| ALIAS | `*` | `cname.vercel-dns-017.com.` |
-| TXT | `_vercel` | `vc-domain-verify=app.gotofu.io,...` |
-| TXT | `_vercel` | `vc-domain-verify=gotofu.io,...` |
+| Type | Name | Priority | Value |
+|---|---|---|---|
+| ALIAS | `@` | — | `cname.vercel-dns-017.com.` |
+| ALIAS | `*` | — | `cname.vercel-dns-017.com.` |
+| TXT | `_vercel` | — | `vc-domain-verify=app.gotofu.io,...` |
+| TXT | `_vercel` | — | `vc-domain-verify=gotofu.io,...` |
+| MX | `@` | 10 | `mx.zoho.eu` |
+| MX | `@` | 20 | `mx2.zoho.eu` |
+| MX | `@` | 50 | `mx3.zoho.eu` |
+| TXT | `@` | — | `v=spf1 include:zohomail.eu ~all` |
+
+Die MX + SPF Records sind für **Zoho Mail** (`admin@gotofu.io`). Ohne diese Records kann kein Mail an `@gotofu.io` zugestellt werden. Der Vercel Account läuft auf `admin@gotofu.io` — wenn die MX Records fehlen, ist man aus Vercel ausgesperrt!
 
 ---
 
@@ -210,3 +216,29 @@ export default function RootPage() { redirect("/login"); }
 **Ursache:** `NEXT_PUBLIC_APP_URL` war nicht als Env Var in `gotofu-landing` gesetzt. Der Fallback ist `http://localhost:3004`.
 
 **Fix:** `NEXT_PUBLIC_APP_URL=https://app.gotofu.io` zu `gotofu-landing` Environment Variables hinzugefügt. Da es eine `NEXT_PUBLIC_` Variable ist, muss nach dem Setzen neu deployed werden.
+
+### Problem 7: Trailing Newlines in Vercel Env Vars
+
+**Ursache:** `echo "value" | vercel env add` fügt ein unsichtbares `\n` am Ende des Werts an. Das bricht API-Keys, DB-URLs, etc.
+
+**Symptome:** Alles kaputt — Login, AI Features, DB Connections. Env Vars sehen im Dashboard korrekt aus, aber der Wert hat ein unsichtbares Newline.
+
+**Diagnose:** `vercel env pull .env.check --environment production` → prüfe ob Werte mit `\n"` enden.
+
+**Fix:** Immer `printf '%s'` statt `echo` nutzen:
+```bash
+# RICHTIG:
+printf '%s' "sk-proj-..." | npx vercel env add OPENAI_API_KEY production --scope gotofus-projects
+
+# FALSCH:
+echo "sk-proj-..." | npx vercel env add OPENAI_API_KEY production --scope gotofus-projects
+```
+
+### Problem 8: MaxClientsInSessionMode (DB Connection Limit)
+
+**Ursache:** `DATABASE_URL` nutzte Session Pooler (Port 5432) statt Transaction Pooler (Port 6543). Session Pooler hat sehr niedriges Connection-Limit für Serverless.
+
+**Fix:** Port auf 6543 ändern + `?pgbouncer=true&connection_limit=10`:
+```
+postgresql://postgres.XXX:PASSWORD@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10
+```

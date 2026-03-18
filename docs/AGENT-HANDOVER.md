@@ -1,7 +1,7 @@
 # GoTofu — Agent Handover Document
 
 > **Lies dieses Dokument zuerst.** Es ist der einzige Einstiegspunkt den du brauchst.
-> Stand: 17.03.2026
+> Stand: 18.03.2026
 
 ---
 
@@ -34,7 +34,8 @@ GoTofu ist eine **B2B SaaS Plattform für synthetische Nutzerforschung**. Kunden
 | **Inngest** | Background Jobs (Batch-Interviews, Insights-Generierung) |
 | **OpenAI** | Standard LLM Provider (`gpt-4o`), aber austauschbar |
 | **Tavily** | Web Research für Persona-Datenbeschaffung |
-| **Domain-Registrar** | Hostinger — Nameservers auf Vercel delegiert |
+| **Zoho Mail** | `admin@gotofu.io` — Vercel Account Login, Team-Kommunikation |
+| **Domain-Registrar** | Hostinger — Nameservers auf Vercel delegiert, DNS bei Vercel (MX für Zoho, SPF) |
 
 ### Repo-Architektur (Zwei Repos)
 
@@ -138,6 +139,10 @@ GOTOFU_ADMIN_EMAILS=daniel.kourie@code.berlin
 9. **`DropdownMenuLabel` muss in `DropdownMenuGroup`** — base-ui Requirement.
 
 10. **Multi-Tenant** — JEDE DB-Query und API-Route muss `organizationId` prüfen. Immer über `requireAuthWithOrgs()` (`src/lib/auth.ts`) authentifizieren.
+
+11. **Vercel Env Vars: Trailing Newlines** — Beim Setzen via CLI **immer** `printf '%s' "value" | vercel env add` statt `echo`. `echo` fügt ein `\n` am Ende an, das unsichtbar API-Keys, DB-URLs etc. kaputt macht. Wurde am 18.03.2026 für alle 12 Vars gefixt.
+
+12. **DATABASE_URL: Transaction Pooler (Port 6543)** — Supabase bietet Session Pooler (5432) und Transaction Pooler (6543). Serverless (Vercel) **muss** Transaction Pooler nutzen: `...pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10`. Session Pooler hat zu niedriges Connection-Limit → `MaxClientsInSessionMode` Error.
 
 ---
 
@@ -396,9 +401,15 @@ Organization (Multi-Tenant Root)
 
 5. **pgvector nicht genutzt** — `embedding` Felder auf `Persona` und `DomainKnowledge` existieren, aber Semantic Search ist noch nicht implementiert.
 
-6. **Inngest Webhook URL** muss in Inngest Dashboard eingetragen sein: `https://app.gotofu.io/api/inngest`
+6. ~~**Inngest Webhook URL**~~ ✅ ERLEDIGT (18.03.2026) — Inngest via Vercel Integration verbunden, Auto-Sync bei jedem Deploy. App: `https://app.gotofu.io/api/inngest`, Functions: `run-batch-interview`, `generate-insights`.
 
 7. **`www.gotofu.io`** ist im `gotofu-landing` Projekt als Redirect zu `gotofu.io` eingetragen aber noch nicht verifiziert.
+
+8. **Batch-Interview-Parallelisierung** — Interviews laufen aktuell sequentiell (10 Personas à 1-2 Min = ~15 Min). Sollte parallelisiert werden (3er-Batches → ~5 Min). Datei: `src/lib/inngest/functions/run-batch-interview.ts`. Achtung: Inngest `step.run()` hat spezielle Retry/Idempotenz-Semantik.
+
+9. **Development-Workflow** — Aktuell wird direkt auf `main` entwickelt und deployed. Sollte auf Branch-basiertes Arbeiten umgestellt werden: Feature-Branches → Vercel Preview Deployments → Review → Merge to main. Verhindert dass ungetestete Änderungen direkt auf Production landen.
+
+10. **Login-Feedback verbessern** — Button zeigt Spinner, aber kein Fullscreen-Loading-State nach erfolgreichem Auth. User sieht "nichts passiert" bis Dashboard erscheint. Fix: Nach Auth-Success Overlay/Transition zum Dashboard zeigen.
 
 ---
 
@@ -407,9 +418,10 @@ Organization (Multi-Tenant Root)
 Falls etwas nicht funktioniert:
 
 **Login geht nicht:**
-1. Supabase Auth Redirect URLs — enthält `https://app.gotofu.io/callback`?
-2. `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_ANON_KEY` korrekt gesetzt?
-3. Vercel Deployment erfolgreich? (Vercel Dashboard → Deployments)
+1. **Env Vars prüfen:** `vercel env pull` und nach trailing `\n` suchen — häufigste Ursache!
+2. Supabase Auth Redirect URLs — enthält `https://app.gotofu.io/callback`?
+3. `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_ANON_KEY` korrekt gesetzt?
+4. Vercel Deployment erfolgreich? (Vercel Dashboard → Deployments)
 
 **Batch-Interview startet nicht:**
 1. Inngest Dashboard — Event angekommen?
