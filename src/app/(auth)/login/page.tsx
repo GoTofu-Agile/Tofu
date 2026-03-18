@@ -35,12 +35,10 @@ function LoginForm() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Signing you in…</p>
-        </CardContent>
-      </Card>
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-sm text-muted-foreground">Signing you in…</p>
+      </div>
     );
   }
 

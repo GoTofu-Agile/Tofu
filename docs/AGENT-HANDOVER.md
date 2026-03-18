@@ -389,7 +389,50 @@ Organization (Multi-Tenant Root)
 
 ---
 
-## 12. Offene TODOs / Bekannte Issues
+## 12. Development-Workflow
+
+### Branch-basiertes Arbeiten (seit 18.03.2026)
+
+**Grundregel:** Nicht direkt auf `main` pushen. Feature-Branches nutzen.
+
+```bash
+# 1. Neuen Branch erstellen
+git checkout -b feat/mein-feature
+
+# 2. Änderungen committen
+git add -A && git commit -m "feat: beschreibung"
+
+# 3. Branch pushen + PR öffnen
+git push -u origin feat/mein-feature
+gh pr create --title "feat: beschreibung" --body "Was und warum"
+
+# 4. CI abwarten (lint + build), Vercel Preview URL testen
+# 5. PR mergen → Production Deploy auf app.gotofu.io
+```
+
+### Was passiert automatisch
+
+| Event | Aktion |
+|---|---|
+| PR auf `main` öffnen | GitHub Actions CI: `npm run lint` + `npm run build` |
+| PR auf `main` öffnen | Vercel erstellt Preview Deployment mit eigener URL |
+| PR mergen → `main` | Vercel deployt auf `app.gotofu.io` (Production) |
+
+### CI-Pipeline (`.github/workflows/ci.yml`)
+
+Läuft bei jedem PR auf `main`:
+1. `npm ci` — Dependencies installieren
+2. `npx prisma generate` — Prisma Client generieren
+3. `npm run lint` — ESLint
+4. `npm run build` — Next.js Build (TypeScript-Fehler werden hier gefunden)
+
+### Branch Protection
+
+Branch Protection Rules erfordern GitHub Pro (privates Repo). Solange wir auf Free-Tier sind: CI + Vercel Previews als Safety Net, Disziplin bei Merges. Bei Upgrade auf Pro: Branch Protection auf `main` aktivieren (Require PR, Require CI pass).
+
+---
+
+## 13. Offene TODOs / Bekannte Issues
 
 1. **Persona Framework v1.1 noch nicht implementiert** — Schema-Erweiterungen (`adoptionCurvePosition`, `incomeBracket`, etc.) sind in `docs/AGENT-HANDOVER-PERSONA-FRAMEWORK.md` vollständig spezifiziert aber noch nicht deployed. Benötigt Prisma Migration.
 
@@ -405,15 +448,15 @@ Organization (Multi-Tenant Root)
 
 7. **`www.gotofu.io`** ist im `gotofu-landing` Projekt als Redirect zu `gotofu.io` eingetragen aber noch nicht verifiziert.
 
-8. **Batch-Interview-Parallelisierung** — Interviews laufen aktuell sequentiell (10 Personas à 1-2 Min = ~15 Min). Sollte parallelisiert werden (3er-Batches → ~5 Min). Datei: `src/lib/inngest/functions/run-batch-interview.ts`. Achtung: Inngest `step.run()` hat spezielle Retry/Idempotenz-Semantik.
+8. ~~**Batch-Interview-Parallelisierung**~~ ✅ ERLEDIGT (18.03.2026) — Interviews laufen jetzt in 3er-Batches parallel via `Promise.all` + `step.run()`. ~3x schneller.
 
-9. **Development-Workflow** — Aktuell wird direkt auf `main` entwickelt und deployed. Sollte auf Branch-basiertes Arbeiten umgestellt werden: Feature-Branches → Vercel Preview Deployments → Review → Merge to main. Verhindert dass ungetestete Änderungen direkt auf Production landen.
+9. ~~**Development-Workflow**~~ ✅ ERLEDIGT (18.03.2026) — Branch-basierter Workflow mit GitHub Actions CI eingerichtet. Siehe Abschnitt 12.
 
-10. **Login-Feedback verbessern** — Button zeigt Spinner, aber kein Fullscreen-Loading-State nach erfolgreichem Auth. User sieht "nichts passiert" bis Dashboard erscheint. Fix: Nach Auth-Success Overlay/Transition zum Dashboard zeigen.
+10. ~~**Login-Feedback verbessern**~~ ✅ ERLEDIGT (18.03.2026) — Fullscreen Loading Overlay auf Login/Signup + Dashboard `loading.tsx`.
 
 ---
 
-## 13. Debugging-Checkliste
+## 14. Debugging-Checkliste
 
 Falls etwas nicht funktioniert:
 
