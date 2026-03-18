@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Sparkles, Loader2, Plus, Trash2, GripVertical } from "lucide-react";
 
 export interface SurveyQuestion {
@@ -53,11 +54,13 @@ export function StepQuestions({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: title || aiPrompt, description: aiPrompt, studyType }),
         });
-        if (res.ok) {
-          const data = await res.json();
-          onGuideChange(data.guide || data.interviewGuide || "");
-          if (!title && data.title) onTitleChange(data.title);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `Generation failed (${res.status})`);
         }
+        const data = await res.json();
+        onGuideChange(data.guide || data.interviewGuide || "");
+        if (!title && data.title) onTitleChange(data.title);
       } else {
         // Survey: generate structured questions
         const res = await fetch("/api/studies/generate-survey", {
@@ -65,14 +68,16 @@ export function StepQuestions({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ description: aiPrompt, orgContext }),
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.questions) onSurveyQuestionsChange(data.questions);
-          if (!title && data.title) onTitleChange(data.title);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `Generation failed (${res.status})`);
         }
+        const data = await res.json();
+        if (data.questions) onSurveyQuestionsChange(data.questions);
+        if (!title && data.title) onTitleChange(data.title);
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate questions");
     } finally {
       setGenerating(false);
     }

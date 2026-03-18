@@ -225,9 +225,11 @@ export const runBatchInterview = inngest.createFunction(
         });
       });
 
-      await inngest.send({
-        name: "study/generate-insights",
-        data: { studyId },
+      await step.run("trigger-insights", async () => {
+        await inngest.send({
+          name: "study/generate-insights",
+          data: { studyId },
+        });
       });
     }
 

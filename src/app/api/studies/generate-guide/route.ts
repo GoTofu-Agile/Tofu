@@ -32,10 +32,11 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const { object } = await generateObject({
-    model: getModel(),
-    schema: guideSchema,
-    prompt: `You are an expert user researcher. Generate an interview guide for this study:
+  try {
+    const { object } = await generateObject({
+      model: getModel(),
+      schema: guideSchema,
+      prompt: `You are an expert user researcher. Generate an interview guide for this study:
 
 Title: "${body.title}"
 ${body.description ? `Description: "${body.description}"` : ""}
@@ -51,7 +52,12 @@ Generate 6-10 open-ended interview questions that:
 - Avoid yes/no questions
 
 Return as an array of question strings.`,
-  });
+    });
 
-  return Response.json({ guide: object.questions.join("\n") });
+    return Response.json({ guide: object.questions.join("\n") });
+  } catch (error) {
+    console.error("[study/generate-guide] AI generation failed:", error);
+    const message = error instanceof Error ? error.message : "AI generation failed";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }
