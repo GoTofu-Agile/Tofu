@@ -1,10 +1,11 @@
 # Vercel Deployment Setup
 
-## Aktueller Stand (Stand: 17.03.2026) — ALLES LIVE ✅
+## Aktueller Stand (Stand: 18.03.2026) — ALLES LIVE ✅
 
 | Schritt | Status | Details |
 |---|---|---|
-| GitHub Repo (`habibidani/gotofu`) | ✅ | `main` branch ist production |
+| GitHub Repo App (`habibidani/gotofu`) | ✅ | `main` branch ist production |
+| GitHub Repo Landing (`GoTofu-Agile/LandingPage`) | ✅ | `main` branch ist production |
 | Vercel Account | ✅ | Account: `admin-42578282`, Team: `gotofus-projects` |
 | `gotofu-app` Projekt | ✅ | Live auf `https://app.gotofu.io` |
 | `gotofu-landing` Projekt | ✅ | Live auf `https://gotofu.io` |
@@ -29,14 +30,21 @@
 
 ## Architektur
 
-Ein GitHub Repo, zwei Vercel-Projekte:
+Zwei GitHub Repos, zwei Vercel-Projekte:
 
-| Vercel Project | Domain | Root Directory | Beschreibung |
+| Vercel Project | Domain | GitHub Repo | Beschreibung |
 |---|---|---|---|
-| `gotofu-landing` | `gotofu.io` | `apps/landing` | Statische Landing Page |
-| `gotofu-app` | `app.gotofu.io` | `/` (Root) | Die Haupt-App |
+| `gotofu-app` | `app.gotofu.io` | `habibidani/gotofu` | Die Haupt-App |
+| `gotofu-landing` | `gotofu.io` | `GoTofu-Agile/LandingPage` | Statische Landing Page |
 
-**Wichtig:** Das `.vercel/project.json` im Repo-Root verlinkt auf `gotofu-landing`. Das bedeutet `vercel deploy` aus dem Root-Verzeichnis deployt die Landing Page. Um die App zu deployen, muss explizit `--project gotofu-app` angegeben werden.
+Jedes Repo deployt unabhängig auf sein Vercel-Projekt. Push auf `main` → automatisches Deployment.
+
+**Hinweis:** Das `.vercel/project.json` im `habibidani/gotofu` Repo verlinkt auf `gotofu-landing` (historisch). Das lokale Verzeichnis `apps/landing/` wird NICHT für Production genutzt.
+
+### Alte Projekte (gelöscht am 18.03.2026)
+- `gotofu` (gotofu.vercel.app) — Duplikat
+- `tofu` (tofu-xi.vercel.app) — altes Repo
+- `tofu-u2t4` (tofu-u2t4.vercel.app) — altes Repo
 
 ---
 

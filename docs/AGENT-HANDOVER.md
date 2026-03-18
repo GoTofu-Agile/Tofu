@@ -29,22 +29,23 @@ GoTofu ist eine **B2B SaaS Plattform für synthetische Nutzerforschung**. Kunden
 | Service | Details |
 |---|---|
 | **Vercel** | Team: `gotofus-projects`, Account: `admin-42578282` |
-| **GitHub** | `github.com/habibidani/gotofu` (privat) |
+| **GitHub** | App: `github.com/habibidani/gotofu` (privat), Landing: `github.com/GoTofu-Agile/LandingPage` (privat) |
 | **Supabase** | Projekt: `SyntheticTofu`, URL: `https://cgkgolnccyuqjlvcazov.supabase.co` |
 | **Inngest** | Background Jobs (Batch-Interviews, Insights-Generierung) |
 | **OpenAI** | Standard LLM Provider (`gpt-4o`), aber austauschbar |
 | **Tavily** | Web Research für Persona-Datenbeschaffung |
 | **Domain-Registrar** | Hostinger — Nameservers auf Vercel delegiert |
 
-### Monorepo-Architektur
+### Repo-Architektur (Zwei Repos)
 
 ```
-habibidani/gotofu (GitHub)
-├── /                    → gotofu-app (Root = Haupt-App)
-└── apps/landing/        → gotofu-landing (Landing Page)
+habibidani/gotofu (GitHub)         → gotofu-app (app.gotofu.io)
+GoTofu-Agile/LandingPage (GitHub)  → gotofu-landing (gotofu.io)
 ```
 
-Push auf `main` → beide Projekte deployen automatisch auf Vercel.
+Jedes Repo deployt unabhängig auf sein Vercel-Projekt. Push auf `main` → automatisches Deployment.
+
+**Hinweis:** Das lokale Verzeichnis `apps/landing/` existiert noch, wird aber NICHT für das Vercel `gotofu-landing` Projekt genutzt. Die Landing Page kommt aus dem separaten Repo `GoTofu-Agile/LandingPage`.
 
 Details: siehe `VERCEL-SETUP.md`
 
@@ -365,7 +366,7 @@ Organization (Multi-Tenant Root)
 | Neue Inngest-Funktion | Muster aus `src/lib/inngest/functions/run-batch-interview.ts` |
 | DB-Queries | `src/lib/db/queries/` (studies.ts, personas.ts, chat.ts) |
 | LLM-Provider wechseln | `src/lib/ai/provider.ts`, `.env.local` (`LLM_PROVIDER` + Key) |
-| Landing Page | `apps/landing/src/` — separates Next.js Projekt |
+| Landing Page | Separates Repo: `GoTofu-Agile/LandingPage` (nicht in diesem Repo) |
 | Deployment | `VERCEL-SETUP.md` |
 | Frontend/UI Guidelines | `FRONTEND-HANDOFF.md` |
 | Persona Framework Design | `docs/PERSONA-FRAMEWORK.md` |
@@ -377,7 +378,7 @@ Organization (Multi-Tenant Root)
 
 - **`prisma/schema.prisma`** ohne Daniel zu fragen — Breaking Changes betreffen Produktionsdaten
 - **`src/lib/supabase/`** — Auth-Middleware, sehr sensibel
-- **`apps/landing/`** — nur Landing Page, keine Shared Logic mit der App
+- **`apps/landing/`** — lokales Verzeichnis, wird NICHT für Production genutzt. Die Live-Landing-Page kommt aus dem separaten Repo `GoTofu-Agile/LandingPage`
 - **Environment Variables** in `.env.local` für Produktion — Vercel-Secrets gehen über Dashboard oder CLI
 - **Vercel Nameserver / DNS** — Hostinger → Vercel, jede Änderung könnte Domain down bringen
 
@@ -389,9 +390,9 @@ Organization (Multi-Tenant Root)
 
 2. **Vercel Build-Isolation** (Ignored Build Step) noch nicht gesetzt — jeder Push deployt beide Projekte, auch wenn nur eines sich geändert hat. Zu setzen in Vercel Projekt-Settings → Git → Ignored Build Step. Befehle in `VERCEL-SETUP.md`.
 
-3. **Alte Vercel-Projekte** (`gotofu`, `tofu`, `tofu-u2t4`) im `gotofus-projects` Team existieren noch — können gelöscht werden.
+3. ~~**Alte Vercel-Projekte**~~ ✅ ERLEDIGT — `gotofu`, `tofu`, `tofu-u2t4` wurden gelöscht (18.03.2026).
 
-4. **Altes Vercel Projekt** im Account `danielkourie-2761` (`gotofu` Projekt) — kann gelöscht werden (Nameserver zeigen nicht mehr dorthin).
+4. ~~**Altes Vercel Projekt**~~ ✅ ERLEDIGT — alte Projekte bereinigt.
 
 5. **pgvector nicht genutzt** — `embedding` Felder auf `Persona` und `DomainKnowledge` existieren, aber Semantic Search ist noch nicht implementiert.
 
