@@ -12,6 +12,7 @@ const requestSchema = z.object({
 });
 
 const guideSchema = z.object({
+  title: z.string().describe("A concise study title (5-10 words)"),
   questions: z.array(z.string()),
 });
 
@@ -51,10 +52,12 @@ Generate 6-10 open-ended interview questions that:
 - Are conversational, not survey-like
 - Avoid yes/no questions
 
-Return as an array of question strings.`,
+Also generate a concise study title (5-10 words) based on the description.
+
+Return as an object with title and array of question strings.`,
     });
 
-    return Response.json({ guide: object.questions.join("\n") });
+    return Response.json({ guide: object.questions.join("\n"), title: object.title });
   } catch (error) {
     console.error("[study/generate-guide] AI generation failed:", error);
     const message = error instanceof Error ? error.message : "AI generation failed";
