@@ -33,6 +33,17 @@ function LoginForm() {
     }
   }
 
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Signing you in…</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader className="text-center">
@@ -73,15 +84,8 @@ function LoginForm() {
               required
             />
           </div>
-          <Button type="submit" className="w-full cursor-pointer" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Signing in…
-              </>
-            ) : (
-              "Sign in"
-            )}
+          <Button type="submit" className="w-full cursor-pointer">
+            Sign in
           </Button>
         </form>
       </CardContent>
