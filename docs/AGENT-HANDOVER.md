@@ -29,7 +29,7 @@ GoTofu is a **B2B SaaS platform for synthetic user research**. Customers create 
 | Service | Details |
 |---|---|
 | **Vercel** | Team: `gotofus-projects`, Account: `admin-42578282` |
-| **GitHub** | `github.com/habibidani/gotofu` (private) — single repo, two Vercel projects |
+| **GitHub** | `github.com/GoTofu-Agile/Tofu` (private) — single repo, two Vercel projects |
 | **Supabase** | Project: `SyntheticTofu`, URL: `https://cgkgolnccyuqjlvcazov.supabase.co` |
 | **Inngest** | Background Jobs (Batch Interviews, Insights Generation) |
 | **OpenAI** | Default LLM Provider (`gpt-4o`), but swappable |
@@ -40,7 +40,7 @@ GoTofu is a **B2B SaaS platform for synthetic user research**. Customers create 
 ### Repo Architecture (One Repo, Two Vercel Projects)
 
 ```
-habibidani/gotofu (GitHub)
+GoTofu-Agile/Tofu (GitHub)
 ├── / (root)         → Vercel: gotofu-app    → app.gotofu.io
 └── apps/landing/    → Vercel: gotofu-landing → gotofu.io
 ```
@@ -55,8 +55,8 @@ Details: see `VERCEL-SETUP.md`
 
 ```bash
 # Clone repo
-git clone https://github.com/habibidani/gotofu.git
-cd gotofu
+git clone https://github.com/GoTofu-Agile/Tofu.git
+cd Tofu
 
 # Dependencies
 npm install
@@ -448,7 +448,7 @@ Branch Protection Rules require GitHub Pro (private repo). While on Free tier: C
 
 4. **`www.gotofu.io`** is registered in the `gotofu-landing` project as redirect to `gotofu.io` but not yet verified.
 
-5. **GitHub Organization cleanup** — App repo is on `habibidani/gotofu` (personal account). Should be transferred to `GoTofu-Agile` org. `GoTofu-Agile/Tofu` (167KB, public) and `GoTofu-Agile/LandingPage` (public) are unused repos that can be deleted.
+5. ~~**GitHub Organization cleanup** — App repo transferred to `GoTofu-Agile/Tofu`.~~ ✅ (2026-03-19)
 
 6. **Old Git branches** — `dev/login-debug`, `feat/results-dashboard-landing-split`, `marc` — all fully merged into main, can be deleted.
 

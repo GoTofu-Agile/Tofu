@@ -10,8 +10,8 @@ B2B SaaS platform for synthetic user research. Create AI-generated personas from
 
 ```bash
 # 1. Clone & install
-git clone https://github.com/habibidani/gotofu.git
-cd gotofu
+git clone https://github.com/GoTofu-Agile/Tofu.git
+cd Tofu
 npm install
 
 # 2. Set up environment (get values from Daniel)
