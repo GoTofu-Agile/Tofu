@@ -93,6 +93,9 @@ export async function getPersonasForGroupList(groupId: string) {
           criticalFeedbackTendency: true,
         },
       },
+      // Needed for `appStoreReviewSnippetsFromPersona(persona.dataSources)`
+      // on the persona list/card view.
+      dataSources: appReviewDataSourcesInclude,
     },
     orderBy: { createdAt: "asc" },
   });
