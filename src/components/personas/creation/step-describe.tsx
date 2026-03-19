@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,10 +21,35 @@ interface StepDescribeProps {
   onSubmit: (freetext: string) => void;
   loading: boolean;
   hasOrgContext: boolean;
+  initialText?: string;
+  /** Hide the bottom Continue button (parent supplies a single CTA). */
+  hideContinue?: boolean;
+  /** Controlled mode: parent owns the textarea value (use with onTextChange). */
+  text?: string;
+  onTextChange?: (text: string) => void;
 }
 
-export function StepDescribe({ onSubmit, loading, hasOrgContext }: StepDescribeProps) {
-  const [text, setText] = useState("");
+export function StepDescribe({
+  onSubmit,
+  loading,
+  hasOrgContext,
+  initialText,
+  hideContinue = false,
+  text: controlledText,
+  onTextChange,
+}: StepDescribeProps) {
+  const isControlled =
+    controlledText !== undefined && onTextChange !== undefined;
+  const [internalText, setInternalText] = useState(initialText ?? "");
+
+  useEffect(() => {
+    if (!isControlled && initialText !== undefined) {
+      setInternalText(initialText);
+    }
+  }, [initialText, isControlled]);
+
+  const text = isControlled ? controlledText : internalText;
+  const setText = isControlled ? onTextChange! : setInternalText;
 
   return (
     <div className="space-y-5">
@@ -67,23 +92,25 @@ export function StepDescribe({ onSubmit, loading, hasOrgContext }: StepDescribeP
         </div>
       </div>
 
-      <Button
-        onClick={() => onSubmit(text)}
-        disabled={loading || text.trim().length < 5}
-        className="w-full"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Analyzing your description...
-          </>
-        ) : (
-          <>
-            Continue
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </>
-        )}
-      </Button>
+      {!hideContinue && (
+        <Button
+          onClick={() => onSubmit(text)}
+          disabled={loading || text.trim().length < 5}
+          className="w-full"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Analyzing your description...
+            </>
+          ) : (
+            <>
+              Continue
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </>
+          )}
+        </Button>
+      )}
     </div>
   );
 }

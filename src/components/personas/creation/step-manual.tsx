@@ -5,15 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import type { ExtractedContext } from "@/lib/validation/schemas";
 
 interface StepManualProps {
   onSubmit: (extracted: ExtractedContext) => void;
-  onBack: () => void;
+  personaCount: number;
+  onPersonaCountChange: (count: number) => void;
+  loading?: boolean;
 }
 
-export function StepManual({ onSubmit, onBack }: StepManualProps) {
+export function StepManual({
+  onSubmit,
+  personaCount,
+  onPersonaCountChange,
+  loading = false,
+}: StepManualProps) {
   const [groupName, setGroupName] = useState("");
   const [targetUserRole, setTargetUserRole] = useState("");
   const [industry, setIndustry] = useState("");
@@ -39,7 +46,7 @@ export function StepManual({ onSubmit, onBack }: StepManualProps) {
   const valid = targetUserRole.trim().length > 1;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="role">Target user role *</Label>
@@ -48,6 +55,7 @@ export function StepManual({ onSubmit, onBack }: StepManualProps) {
             placeholder="e.g. Product Manager, ER Nurse, Freelance Designer"
             value={targetUserRole}
             onChange={(e) => setTargetUserRole(e.target.value)}
+            disabled={loading}
           />
         </div>
 
@@ -58,6 +66,7 @@ export function StepManual({ onSubmit, onBack }: StepManualProps) {
             placeholder="e.g. Senior PMs at Series B startups (auto-generated if blank)"
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
+            disabled={loading}
           />
         </div>
 
@@ -68,6 +77,7 @@ export function StepManual({ onSubmit, onBack }: StepManualProps) {
             placeholder="e.g. FinTech, Healthcare, E-Commerce"
             value={industry}
             onChange={(e) => setIndustry(e.target.value)}
+            disabled={loading}
           />
         </div>
 
@@ -79,6 +89,7 @@ export function StepManual({ onSubmit, onBack }: StepManualProps) {
             rows={4}
             value={painPointsText}
             onChange={(e) => setPainPointsText(e.target.value)}
+            disabled={loading}
           />
         </div>
 
@@ -90,20 +101,49 @@ export function StepManual({ onSubmit, onBack }: StepManualProps) {
             rows={3}
             value={domainContext}
             onChange={(e) => setDomainContext(e.target.value)}
+            disabled={loading}
           />
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-        <Button onClick={handleSubmit} disabled={!valid} className="flex-1">
-          Continue
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+      {/* Persona count + full-width Continue (max 100, same cap as App Store Reviews) */}
+      <div className="space-y-2">
+        <Label>
+          Number of Personas: <span className="font-semibold">{personaCount}</span>
+        </Label>
+        <input
+          type="range"
+          min={1}
+          max={100}
+          value={personaCount}
+          onChange={(e) => onPersonaCountChange(Number(e.target.value))}
+          disabled={loading}
+          className="w-full accent-primary"
+        />
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>1</span>
+          <span>100</span>
+        </div>
       </div>
+
+      <Button
+        type="button"
+        onClick={handleSubmit}
+        disabled={loading || !valid}
+        className="w-full"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Analyzing your description...
+          </>
+        ) : (
+          <>
+            Continue
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </>
+        )}
+      </Button>
     </div>
   );
 }

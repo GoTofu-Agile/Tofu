@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import type { AppStoreReviewSnippet } from "@/lib/personas/app-store-review-ui";
 
 interface PersonaCardProps {
   persona: {
@@ -23,9 +24,15 @@ interface PersonaCardProps {
     } | null;
   };
   groupId: string;
+  /** Verbatim Outscraper-linked App Store reviews (optional). */
+  appStoreReviews?: AppStoreReviewSnippet[];
 }
 
-export function PersonaCard({ persona, groupId }: PersonaCardProps) {
+export function PersonaCard({
+  persona,
+  groupId,
+  appStoreReviews = [],
+}: PersonaCardProps) {
   const traits = persona.personality;
   const feedbackTendency = traits?.criticalFeedbackTendency ?? null;
 
@@ -85,6 +92,34 @@ export function PersonaCard({ persona, groupId }: PersonaCardProps) {
         <p className="mt-2 text-sm italic text-muted-foreground line-clamp-1">
           &ldquo;{persona.representativeQuote}&rdquo;
         </p>
+      )}
+      {appStoreReviews.length > 0 && (
+        <div className="mt-3 space-y-2 border-t border-border/70 pt-3">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            App Store reviews
+          </p>
+          {appStoreReviews.slice(0, 2).map((r) => (
+            <div key={r.id} className="rounded-md bg-muted/40 px-2.5 py-2">
+              <div className="flex items-center justify-between gap-2">
+                {r.rating != null ? (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-500">
+                    ★ {r.rating}/5
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">Review</span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground line-clamp-3">
+                &ldquo;{r.content}&rdquo;
+              </p>
+            </div>
+          ))}
+          {appStoreReviews.length > 2 && (
+            <p className="text-[10px] text-muted-foreground">
+              +{appStoreReviews.length - 2} more on detail page
+            </p>
+          )}
+        </div>
       )}
       {traits && (
         <div className="mt-3 flex gap-1">

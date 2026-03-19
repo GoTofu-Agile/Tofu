@@ -121,3 +121,18 @@ export const extractedContextSchema = z.object({
 });
 
 export type ExtractedContext = z.infer<typeof extractedContextSchema>;
+
+/** LLM output: map a target audience to concrete App Store apps (after Tavily discovery). */
+export const appStoreAudienceMappedAppSchema = z.object({
+  appName: z.string().min(1).max(120),
+  appUrl: z.string().url(),
+  reasoning: z.string().min(1).max(800),
+});
+
+export const appStoreAudienceMappingResultSchema = z.object({
+  apps: z.array(appStoreAudienceMappedAppSchema).max(8),
+});
+
+export type AppStoreAudienceMappedApp = z.infer<
+  typeof appStoreAudienceMappedAppSchema
+>;

@@ -5,7 +5,8 @@ import { getUserRole } from "@/lib/db/queries/organizations";
 import { requireAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
+import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
 
 export default async function PersonaDetailPage({
   params,
@@ -27,6 +28,7 @@ export default async function PersonaDetailPage({
   }
 
   const traits = persona.personality;
+  const appReviews = appStoreReviewSnippetsFromPersona(persona.dataSources);
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -94,6 +96,60 @@ export default async function PersonaDetailPage({
           <h3 className="text-sm font-medium text-muted-foreground">Bio</h3>
           <p className="mt-1">{persona.bio}</p>
         </div>
+      )}
+
+      {appReviews.length > 0 && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              App Store review voices
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Verbatim reviews from your crawl, matched to this persona. Same
+              review may appear on other personas when it fits multiple
+              profiles.
+            </p>
+            <ul className="mt-4 space-y-4">
+              {appReviews.map((r) => (
+                <li
+                  key={r.id}
+                  className="rounded-lg border border-border/80 bg-muted/20 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-foreground">
+                      {r.title}
+                    </span>
+                    {r.rating != null && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        ★ {r.rating}/5
+                      </Badge>
+                    )}
+                  </div>
+                  {r.sourceUrl && (
+                    <p className="mt-1 break-all text-[11px] text-muted-foreground">
+                      {r.sourceUrl.replace(/^https?:\/\//, "")}
+                    </p>
+                  )}
+                  <blockquote className="mt-3 text-sm leading-relaxed text-foreground">
+                    &ldquo;{r.content}&rdquo;
+                  </blockquote>
+                  {r.reviewUrl && (
+                    <a
+                      href={r.reviewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      Open review
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
       )}
 
       {/* Story Section */}

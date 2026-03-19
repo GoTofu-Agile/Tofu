@@ -1,91 +1,67 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Globe, Loader2 } from "lucide-react";
-import type { ExtractedContext } from "@/lib/validation/schemas";
+import { Globe } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StepUrlProps {
-  onExtracted: (extracted: ExtractedContext) => void;
-  onBack: () => void;
+  url: string;
+  onUrlChange: (url: string) => void;
+  disabled?: boolean;
+  error: string | null;
 }
 
-export function StepUrl({ onExtracted, onBack }: StepUrlProps) {
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+function isValidHttpUrl(value: string) {
+  const t = value.trim();
+  return t.startsWith("http://") || t.startsWith("https://");
+}
 
-  const isValid = url.startsWith("http://") || url.startsWith("https://");
-
-  async function handleExtract() {
-    if (!isValid) return;
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/personas/extract-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to extract URL");
-      }
-
-      const data: ExtractedContext = await res.json();
-      onExtracted(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  }
+export function StepUrl({ url, onUrlChange, disabled, error }: StepUrlProps) {
+  const valid = isValidHttpUrl(url);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        Enter a company or product URL. We&apos;ll scrape the page and infer the target user persona.
+        Enter a company or product URL. We&apos;ll scrape the page and infer the target user
+        persona, then research real user signals.
       </p>
 
       <div className="space-y-2">
-        <Label htmlFor="url">Company / Product URL</Label>
-        <div className="flex gap-2">
+        <Label htmlFor="company-url">Company / Product URL</Label>
+        <div
+          className={cn(
+            "flex items-center gap-3 rounded-lg border bg-background px-3 transition-[border-color,box-shadow]",
+            "focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background",
+            valid
+              ? "border-primary/60 shadow-sm"
+              : "border-input",
+            disabled && "pointer-events-none opacity-60"
+          )}
+        >
+          <Globe
+            className={cn(
+              "h-5 w-5 shrink-0 transition-colors",
+              valid ? "text-primary" : "text-muted-foreground"
+            )}
+            aria-hidden
+          />
           <Input
-            id="url"
+            id="company-url"
             type="url"
+            inputMode="url"
+            autoComplete="url"
             placeholder="https://example.com"
             value={url}
-            onChange={(e) => { setUrl(e.target.value); setError(null); }}
-            onKeyDown={(e) => e.key === "Enter" && isValid && !loading && handleExtract()}
-            disabled={loading}
-            className="flex-1"
+            onChange={(e) => onUrlChange(e.target.value)}
+            disabled={disabled}
+            className="h-11 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
           />
-          <Button onClick={handleExtract} disabled={!isValid || loading}>
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Globe className="h-4 w-4" />
-            )}
-          </Button>
         </div>
-        {loading && (
-          <p className="text-xs text-muted-foreground">Scraping and analyzing... this takes ~10 seconds.</p>
-        )}
-        {error && (
-          <p className="text-sm text-destructive">{error}</p>
-        )}
-      </div>
-
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} disabled={loading} className="flex-1">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
+        {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
     </div>
   );
 }
+
+export { isValidHttpUrl };

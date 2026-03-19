@@ -44,6 +44,13 @@ export async function deletePersonaGroup(groupId: string) {
   });
 }
 
+const appReviewDataSourcesInclude = {
+  where: { domainKnowledge: { sourceType: "APP_REVIEW" as const } },
+  include: {
+    domainKnowledge: true,
+  },
+} as const;
+
 export async function getPersonasForGroup(
   groupId: string,
   options?: { skip?: number; take?: number }
@@ -52,6 +59,7 @@ export async function getPersonasForGroup(
     where: { personaGroupId: groupId, isActive: true },
     include: {
       personality: true,
+      dataSources: appReviewDataSourcesInclude,
     },
     orderBy: { createdAt: "asc" },
     skip: options?.skip,
@@ -95,6 +103,7 @@ export async function getPersona(personaId: string) {
     where: { id: personaId },
     include: {
       personality: true,
+      dataSources: appReviewDataSourcesInclude,
       personaGroup: {
         select: { id: true, name: true, organizationId: true },
       },

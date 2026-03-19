@@ -47,6 +47,16 @@ export function StepProgress({
 
   const genPct = genTotal > 0 ? (genCompleted / genTotal) * 100 : 0;
 
+  const researchHeadline = isResearching
+    ? `Searching ${researchCurrent}/${researchTotal}: ${researchLabel}`
+    : researchResults > 0
+      ? `Found ${researchResults} sources`
+      : "Combining all sources";
+
+  const sourceBadges = Object.entries(researchBySource).filter(
+    ([, count]) => count > 0
+  );
+
   return (
     <div className="space-y-8 py-4">
       {/* Research phase */}
@@ -57,15 +67,11 @@ export function StepProgress({
           ) : (
             <CheckCircle2 className="h-5 w-5 text-green-500" />
           )}
-          <span className="font-medium">
-            {isResearching
-              ? `Searching ${researchCurrent}/${researchTotal}: ${researchLabel}`
-              : `Found ${researchResults} sources`}
-          </span>
+          <span className="font-medium">{researchHeadline}</span>
         </div>
-        {!isResearching && Object.keys(researchBySource).length > 0 && (
+        {!isResearching && sourceBadges.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pl-7">
-            {Object.entries(researchBySource).map(([type, count]) => (
+            {sourceBadges.map(([type, count]) => (
               <Badge key={type} variant="secondary" className="text-[10px]">
                 {SOURCE_LABELS[type] || type}: {count}
               </Badge>
