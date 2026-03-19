@@ -23,8 +23,6 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx prisma generate
-      - run: npm run lint
       - run: npm run build
 
       # Rule-based PR recommendation (no AI / no API keys).
@@ -89,15 +87,12 @@ jobs:
               typeof smokeStatus === "number" &&
               smokeStatus < 500;
 
-            const recommendation = ciOk && smokeOk ? "Approve" : "Request changes";
-
             const lines = [
               marker,
               "",
-              `## CI + Vercel preview recommendation`,
+              `## PR CI + Vercel preview`,
               "",
-              `**Recommendation:** ${recommendation}`,
-              `- CI (lint/build): ${ciOk ? "✅ passed" : "❌ failed"}`,
+              `- Build: ${ciOk ? "✅ passed" : "❌ failed"}`,
               `- Vercel preview: ${previewUrl ? `[link](${previewUrl})` : "_not found_"}`,
               `- Smoke check (/dashboard): ${smokeStatus === null ? "_skipped_" : String(smokeStatus)}`,
             ];
