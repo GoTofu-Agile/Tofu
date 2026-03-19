@@ -4,8 +4,7 @@
 
 | Step | Status | Details |
 |---|---|---|
-| GitHub Repo App (`habibidani/gotofu`) | ✅ | `main` branch is production |
-| GitHub Repo Landing (`GoTofu-Agile/LandingPage`) | ✅ | `main` branch is production |
+| GitHub Repo (`habibidani/gotofu`) | ✅ | `main` branch is production (both projects) |
 | Vercel Account | ✅ | Account: `admin-42578282`, Team: `gotofus-projects` |
 | `gotofu-app` Project | ✅ | Live at `https://app.gotofu.io` |
 | `gotofu-landing` Project | ✅ | Live at `https://gotofu.io` |
@@ -30,16 +29,16 @@
 
 ## Architecture
 
-Two GitHub repos, two Vercel projects:
+One GitHub repo, two Vercel projects with different root directories:
 
-| Vercel Project | Domain | GitHub Repo | Description |
-|---|---|---|---|
-| `gotofu-app` | `app.gotofu.io` | `habibidani/gotofu` | The main app |
-| `gotofu-landing` | `gotofu.io` | `GoTofu-Agile/LandingPage` | Static landing page |
+| Vercel Project | Domain | GitHub Repo | Root Directory | Description |
+|---|---|---|---|---|
+| `gotofu-app` | `app.gotofu.io` | `habibidani/gotofu` | `/` (root) | The main app |
+| `gotofu-landing` | `gotofu.io` | `habibidani/gotofu` | `apps/landing/` | Static landing page |
 
-Each repo deploys independently to its Vercel project. Push to `main` → automatic deployment.
+Both projects deploy from the same repo. Push to `main` → both projects deploy automatically.
 
-**Note:** The `.vercel/project.json` in the `habibidani/gotofu` repo points to `gotofu-landing` (historical). The local directory `apps/landing/` is NOT used for production.
+**Note:** The `.vercel/project.json` in the repo root points to `gotofu-landing` (historical). This doesn't affect builds — Vercel uses the GitHub integration, not the local config.
 
 ### Old Projects (deleted 2026-03-18)
 - `gotofu` (gotofu.vercel.app) — duplicate
@@ -72,6 +71,8 @@ All set via Vercel CLI or Dashboard. Values from `.env.local`:
 | Key | Value |
 |---|---|
 | `NEXT_PUBLIC_APP_URL` | `https://app.gotofu.io` |
+
+> **Note:** `gotofu-landing` uses `apps/landing/` as root directory in the same repo.
 
 ---
 
@@ -108,9 +109,9 @@ The MX + SPF records are for **Zoho Mail** (`admin@gotofu.io`). Without these re
 
 ## How Deploys Work
 
-- Push to `main` → **both** projects deploy automatically (GitHub Integration)
-- Landing Page: ~15 seconds build (static site, no DB)
-- App: ~45 seconds build (`prisma generate` + `next build`)
+- Push to `main` → **both** projects deploy automatically (same repo, GitHub Integration)
+- Landing Page (`apps/landing/`): ~15 seconds build (static site, no DB)
+- App (root `/`): ~45 seconds build (`prisma generate` + `next build`)
 
 ### Build Isolation (recommended, not yet set)
 

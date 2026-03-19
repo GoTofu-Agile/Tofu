@@ -150,12 +150,12 @@ See [`.env.example`](.env.example) for all variables with descriptions.
 
 ## Deployment
 
-Two separate Vercel projects, two repos:
+One repo, two Vercel projects with different root directories:
 
-| Project | Domain | Repo |
+| Project | Domain | Root Directory |
 |---|---|---|
-| `gotofu-app` | `app.gotofu.io` | `habibidani/gotofu` (this repo) |
-| `gotofu-landing` | `gotofu.io` | `GoTofu-Agile/LandingPage` |
+| `gotofu-app` | `app.gotofu.io` | `/` (root) |
+| `gotofu-landing` | `gotofu.io` | `apps/landing/` |
 
 See [`VERCEL-SETUP.md`](VERCEL-SETUP.md) for full deployment details.
 

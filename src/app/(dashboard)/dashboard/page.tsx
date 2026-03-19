@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
-import { getOrganization } from "@/lib/db/queries/organizations";
+import { getOrgProductContext } from "@/lib/db/queries/organizations";
 import { prisma } from "@/lib/db/prisma";
 import {
   CheckCircle2,
@@ -35,9 +35,9 @@ export default async function DashboardPage() {
   const activeOrg = organizations.find((o) => o.id === activeOrgId);
   const orgDisplayName = activeOrg?.isPersonal ? "Personal" : (activeOrg?.name ?? "Workspace");
 
-  const [org, personaGroupCount, studyCount, personaCount, recentStudies, recentGroups] =
+  const [orgContext, personaGroupCount, studyCount, personaCount, recentStudies, recentGroups] =
     await Promise.all([
-      getOrganization(activeOrgId),
+      getOrgProductContext(activeOrgId),
       prisma.personaGroup.count({ where: { organizationId: activeOrgId } }),
       prisma.study.count({ where: { organizationId: activeOrgId } }),
       prisma.persona.count({
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
     ]);
 
   const steps = [
-    { label: "Set up product context", done: !!org?.setupCompleted, href: "/settings" },
+    { label: "Set up product context", done: !!orgContext?.setupCompleted, href: "/settings" },
     { label: "Create a persona group", done: personaGroupCount > 0, href: "/personas/new" },
     { label: "Run your first study", done: studyCount > 0, href: "/studies/new" },
   ];

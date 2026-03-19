@@ -70,7 +70,7 @@ These are the mistakes that agents make repeatedly. Memorize them:
 
 - **`prisma/schema.prisma`** — breaking changes affect production data
 - **`src/lib/supabase/`** — auth middleware, very sensitive
-- **`apps/landing/`** — local directory, NOT used for production. Live landing page comes from separate repo `GoTofu-Agile/LandingPage`
+- **`apps/landing/`** — live landing page (`gotofu.io`). Same repo, different Vercel project with root directory `apps/landing/`
 - **Vercel DNS / Nameservers** — domain could go down
 
 ## Where to read more

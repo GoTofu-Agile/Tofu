@@ -29,7 +29,7 @@ GoTofu is a **B2B SaaS platform for synthetic user research**. Customers create 
 | Service | Details |
 |---|---|
 | **Vercel** | Team: `gotofus-projects`, Account: `admin-42578282` |
-| **GitHub** | App: `github.com/habibidani/gotofu` (private), Landing: `github.com/GoTofu-Agile/LandingPage` (private) |
+| **GitHub** | `github.com/habibidani/gotofu` (private) — single repo, two Vercel projects |
 | **Supabase** | Project: `SyntheticTofu`, URL: `https://cgkgolnccyuqjlvcazov.supabase.co` |
 | **Inngest** | Background Jobs (Batch Interviews, Insights Generation) |
 | **OpenAI** | Default LLM Provider (`gpt-4o`), but swappable |
@@ -37,16 +37,15 @@ GoTofu is a **B2B SaaS platform for synthetic user research**. Customers create 
 | **Zoho Mail** | `admin@gotofu.io` — Vercel Account Login, team communication |
 | **Domain Registrar** | Hostinger — Nameservers delegated to Vercel, DNS managed at Vercel (MX for Zoho, SPF) |
 
-### Repo Architecture (Two Repos)
+### Repo Architecture (One Repo, Two Vercel Projects)
 
 ```
-habibidani/gotofu (GitHub)         → gotofu-app (app.gotofu.io)
-GoTofu-Agile/LandingPage (GitHub)  → gotofu-landing (gotofu.io)
+habibidani/gotofu (GitHub)
+├── / (root)         → Vercel: gotofu-app    → app.gotofu.io
+└── apps/landing/    → Vercel: gotofu-landing → gotofu.io
 ```
 
-Each repo deploys independently to its Vercel project. Push to `main` → automatic deployment.
-
-**Note:** The local directory `apps/landing/` still exists but is NOT used for the Vercel `gotofu-landing` project. The landing page comes from the separate repo `GoTofu-Agile/LandingPage`.
+One repo with two Vercel projects using different root directories. Push to `main` → both projects deploy automatically.
 
 Details: see `VERCEL-SETUP.md`
 
@@ -185,7 +184,7 @@ GOTOFU_ADMIN_EMAILS=daniel.kourie@code.berlin
 ├── prisma/
 │   └── schema.prisma        # Complete data model
 ├── apps/
-│   └── landing/             # Separate Next.js App (gotofu.io)
+│   └── landing/             # Landing Page (gotofu.io) — same repo, separate Vercel project
 ├── docs/
 │   ├── AGENT-HANDOVER.md    # This document
 │   ├── ENGINEERING-VISION.md # Architecture deep-dive
@@ -372,7 +371,7 @@ Organization (Multi-Tenant Root)
 | New Inngest function | Pattern from `src/lib/inngest/functions/run-batch-interview.ts` |
 | DB queries | `src/lib/db/queries/` (studies.ts, personas.ts, chat.ts) |
 | Switch LLM provider | `src/lib/ai/provider.ts`, `.env.local` (`LLM_PROVIDER` + key) |
-| Landing Page | Separate repo: `GoTofu-Agile/LandingPage` (not in this repo) |
+| Landing Page | `apps/landing/` (same repo, separate Vercel project) |
 | Deployment | `VERCEL-SETUP.md` |
 | Frontend/UI guidelines | `FRONTEND-HANDOFF.md` |
 | Persona Framework design | `docs/PERSONA-FRAMEWORK.md` |
@@ -384,7 +383,7 @@ Organization (Multi-Tenant Root)
 
 - **`prisma/schema.prisma`** — breaking changes affect production data
 - **`src/lib/supabase/`** — auth middleware, very sensitive
-- **`apps/landing/`** — local directory, NOT used for production. The live landing page comes from the separate repo `GoTofu-Agile/LandingPage`
+- **`apps/landing/`** — live landing page (`gotofu.io`). Same repo, different Vercel project. Changes here deploy to production
 - **Environment Variables** in `.env.local` for production — Vercel secrets go through Dashboard or CLI
 - **Vercel Nameservers / DNS** — Hostinger → Vercel, any change could bring the domain down
 

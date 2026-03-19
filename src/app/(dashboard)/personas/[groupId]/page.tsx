@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getPersonaGroup, getPersonasForGroup } from "@/lib/db/queries/personas";
+import { getPersonaGroup, getPersonasForGroupList } from "@/lib/db/queries/personas";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { requireAuth } from "@/lib/auth";
 import { PersonaCard } from "@/components/personas/persona-card";
@@ -31,7 +31,7 @@ export default async function PersonaGroupDetailPage({
     notFound();
   }
 
-  const personas = await getPersonasForGroup(groupId);
+  const personas = await getPersonasForGroupList(groupId);
   const count = query.count ? parseInt(query.count, 10) : 5;
   const domainContext = query.domainContext || group.domainContext || undefined;
 
