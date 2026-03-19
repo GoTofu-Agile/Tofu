@@ -17,6 +17,34 @@ export default async function MembersPage() {
 
   if (!org) notFound();
 
+  // Personal workspace — no members
+  if (org.isPersonal) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Members</h2>
+          <p className="text-muted-foreground">
+            This is your personal workspace for testing and exploration.
+          </p>
+        </div>
+        <div className="rounded-lg border border-dashed p-12 text-center">
+          <h3 className="text-lg font-medium">Personal workspace</h3>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
+            To collaborate with your team, create a team workspace. Team
+            workspaces let you invite members, assign roles, and share personas
+            and studies.
+          </p>
+          <a
+            href="/settings?new=true"
+            className="mt-4 inline-flex items-center rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
+          >
+            Create team workspace
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   const canManage = myRole === "OWNER" || myRole === "ADMIN";
 
   return (

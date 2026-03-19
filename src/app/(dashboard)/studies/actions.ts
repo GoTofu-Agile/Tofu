@@ -31,6 +31,7 @@ export async function createNewStudy(data: {
   description?: string;
   studyType: StudyType;
   interviewGuide?: string;
+  surveyQuestions?: unknown[];
   personaGroupIds: string[];
 }) {
   const { user, activeOrgId } = await getActiveOrg();
@@ -46,6 +47,7 @@ export async function createNewStudy(data: {
     description: data.description,
     studyType: data.studyType,
     interviewGuide: data.interviewGuide,
+    surveyQuestions: data.surveyQuestions,
     personaGroupIds: data.personaGroupIds,
   });
 

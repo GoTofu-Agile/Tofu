@@ -61,10 +61,11 @@ export async function POST(request: NextRequest) {
       ? `\nAvailable persona groups (pick the most relevant ones by ID):\n${body.personaGroups.map((g) => `- ID: "${g.id}" | Name: "${g.name}" | Description: "${g.description || "none"}"`).join("\n")}`
       : "";
 
-  const { object } = await generateObject({
-    model: getModel(),
-    schema: setupSchema,
-    prompt: `You are an expert user researcher setting up a study.
+  try {
+    const { object } = await generateObject({
+      model: getModel(),
+      schema: setupSchema,
+      prompt: `You are an expert user researcher setting up a study.
 
 The user described what they want to learn:
 "${body.description}"
@@ -82,11 +83,16 @@ Based on this, generate:
    - Are conversational, not survey-like
    - Avoid yes/no questions
 3. The IDs of the most relevant persona groups from the available list (if any match). Only include groups that are clearly relevant. If none match well, return an empty array.`,
-  });
+    });
 
-  return Response.json({
-    title: object.title,
-    interviewGuide: object.interviewGuide.join("\n"),
-    suggestedGroupIds: object.suggestedGroupIds,
-  });
+    return Response.json({
+      title: object.title,
+      interviewGuide: object.interviewGuide.join("\n"),
+      suggestedGroupIds: object.suggestedGroupIds,
+    });
+  } catch (error) {
+    console.error("[study/setup] AI generation failed:", error);
+    const message = error instanceof Error ? error.message : "AI generation failed";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }

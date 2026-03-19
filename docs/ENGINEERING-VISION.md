@@ -236,7 +236,7 @@ npx next build           # Verify production build
 ├── postcss.config.mjs                  ← PostCSS (Tailwind)
 ├── eslint.config.mjs                   ← ESLint config
 ├── components.json                     ← shadcn/ui config
-├── HANDOFF.md                          ← Full project handoff document
+├── CLAUDE.md                           ← Instructions for Claude Code agents
 └── PLAN.md                             ← Implementation plan
 ```
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,15 @@ export default function SignupPage() {
       setError(result.error);
       setLoading(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-sm text-muted-foreground">Creating your account…</p>
+      </div>
+    );
   }
 
   return (
@@ -75,8 +85,8 @@ export default function SignupPage() {
               minLength={6}
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating account..." : "Sign up"}
+          <Button type="submit" className="w-full cursor-pointer">
+            Sign up
           </Button>
         </form>
       </CardContent>

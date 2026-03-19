@@ -12,6 +12,7 @@ import {
   GitCompareArrows,
   ChevronDown,
   ArrowLeft,
+  BarChart3,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -106,6 +107,25 @@ export default async function StudyDetailPage({
           <p className="mt-1 text-muted-foreground">{study.description}</p>
         )}
       </div>
+
+      {/* View Results Button — prominent when report exists */}
+      {analysisReport && (
+        <Link
+          href={`/studies/${study.id}/results`}
+          className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 transition-colors hover:bg-primary/10"
+        >
+          <div className="flex items-center gap-3">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">View Results Dashboard</p>
+              <p className="text-xs text-muted-foreground">
+                Themes, quotes, and recommendations from {completedCount} interviews
+              </p>
+            </div>
+          </div>
+          <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
+        </Link>
+      )}
 
       {/* Interview Guide — collapsible */}
       {study.interviewGuide && (

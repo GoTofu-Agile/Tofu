@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { APP_URL } from "@/lib/config";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
@@ -10,7 +10,6 @@ export function CtaSection() {
     <section>
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
         <div className="relative overflow-hidden rounded-2xl bg-primary px-6 py-16 text-center text-primary-foreground sm:px-12 sm:py-20">
-          {/* Background decoration */}
           <div className="pointer-events-none absolute inset-0 -z-0">
             <div className="absolute -top-24 -right-24 size-64 rounded-full bg-white/5 blur-2xl" />
             <div className="absolute -bottom-24 -left-24 size-64 rounded-full bg-white/5 blur-2xl" />
@@ -27,8 +26,8 @@ export function CtaSection() {
               no waiting — just honest, unfiltered feedback.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link
-                href="/signup"
+              <a
+                href={`${APP_URL}/signup`}
                 className={cn(
                   buttonVariants({ size: "lg" }),
                   "gap-2 border-white/20 bg-white px-6 text-base text-primary hover:bg-white/90"
@@ -36,7 +35,7 @@ export function CtaSection() {
               >
                 Get started for free
                 <ArrowRight className="size-4" />
-              </Link>
+              </a>
             </div>
           </div>
         </div>

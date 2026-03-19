@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Landing page build artifacts (separate Next.js app):
+    "apps/landing/.next/**",
+    "apps/landing/node_modules/**",
   ]),
 ]);
 

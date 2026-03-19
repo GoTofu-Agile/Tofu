@@ -21,10 +21,11 @@ model User {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  memberships OrganizationMember[]
-  studies     Study[]
-  uploads     Upload[]
-  usageLogs   UsageLog[]
+  memberships       OrganizationMember[]
+  studies            Study[]
+  uploads            Upload[]
+  usageLogs          UsageLog[]
+  chatConversations  ChatConversation[]
 }
 
 model Organization {
@@ -46,12 +47,13 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members       OrganizationMember[]
-  invitations   OrganizationInvitation[]
-  personaGroups PersonaGroup[]
-  studies       Study[]
-  uploads       Upload[]
-  usageLogs     UsageLog[]
+  members            OrganizationMember[]
+  invitations        OrganizationInvitation[]
+  personaGroups      PersonaGroup[]
+  studies            Study[]
+  uploads            Upload[]
+  usageLogs          UsageLog[]
+  chatConversations  ChatConversation[]
 }
 
 model OrganizationMember {
@@ -79,6 +81,33 @@ model OrganizationInvitation {
 
   @@index([token])
 }
+
+// ─── Chat (AI Assistant) ───
+
+model ChatConversation {
+  id             String   @id @default(cuid())
+  title          String?
+  organizationId String
+  userId         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     ChatMessage[]
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // "user" | "assistant"
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+// ─── Enums ───
 
 enum OrgRole {
   OWNER

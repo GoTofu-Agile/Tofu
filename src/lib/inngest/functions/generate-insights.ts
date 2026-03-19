@@ -16,6 +16,7 @@ const insightsSchema = z.object({
       description: z.string(),
       frequency: z.number().int().min(1),
       sentiment: z.enum(["positive", "negative", "neutral", "mixed"]),
+      personaNames: z.array(z.string()).describe("Names of personas who mentioned this theme"),
     })
   ),
   keyQuotes: z.array(
@@ -89,7 +90,7 @@ ${study.interviewGuide ? `Interview Guide: ${study.interviewGuide}\n` : ""}
 ${transcripts.length} interviews were conducted with synthetic personas. Analyze ALL transcripts and extract:
 
 1. **Summary**: 2-3 sentence executive summary of the key findings
-2. **Themes**: Recurring themes across interviews. Include name, description, how many interviews mentioned it, and overall sentiment
+2. **Themes**: Recurring themes across interviews. Include name, description, how many interviews mentioned it, overall sentiment, and the exact persona names who mentioned it
 3. **Key Quotes**: 5-10 most insightful/representative quotes with persona name, context, and which theme they relate to
 4. **Sentiment Breakdown**: Overall sentiment distribution across all interviews (positive/negative/neutral percentages)
 5. **Recommendations**: 3-5 actionable recommendations based on the findings, with priority and supporting evidence

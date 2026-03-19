@@ -67,6 +67,37 @@ export async function getPersonasForGroup(
   });
 }
 
+/** Slim query for list/card views — excludes large text fields (backstory, llmSystemPrompt, etc.) */
+export async function getPersonasForGroupList(groupId: string) {
+  return prisma.persona.findMany({
+    where: { personaGroupId: groupId, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      age: true,
+      gender: true,
+      location: true,
+      occupation: true,
+      archetype: true,
+      bio: true,
+      representativeQuote: true,
+      qualityScore: true,
+      personality: {
+        select: {
+          openness: true,
+          conscientiousness: true,
+          extraversion: true,
+          agreeableness: true,
+          neuroticism: true,
+          communicationStyle: true,
+          criticalFeedbackTendency: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
 export async function getPersona(personaId: string) {
   return prisma.persona.findUnique({
     where: { id: personaId },

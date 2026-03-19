@@ -24,12 +24,25 @@ export async function requireAuth() {
     authUser.user_metadata?.name
   );
 
-  // Ensure personal workspace exists (check every time, not just on first login)
-  const orgs = await getOrganizationsForUser(dbUser.id);
-  if (orgs.length === 0) {
+  return dbUser;
+}
+
+export async function requireAuthWithOrgs() {
+  const authUser = await getAuthUser();
+  if (!authUser) {
+    throw new Error("Not authenticated");
+  }
+
+  // Upsert user + fetch orgs in parallel
+  const [dbUser, organizations] = await Promise.all([
+    upsertUser(authUser.id, authUser.email!, authUser.user_metadata?.name),
+    getOrganizationsForUser(authUser.id),
+  ]);
+
+  // Ensure personal workspace exists
+  if (organizations.length === 0) {
     try {
       await createPersonalWorkspace(authUser.id, authUser.email!);
-      console.log("[auth] Created personal workspace for:", authUser.email);
     } catch (error) {
       if (
         !(error instanceof Error && error.message.includes("Unique constraint"))
@@ -37,15 +50,12 @@ export async function requireAuth() {
         throw error;
       }
     }
+    // Re-fetch orgs after creating workspace
+    const updatedOrgs = await getOrganizationsForUser(authUser.id);
+    return { user: dbUser, organizations: updatedOrgs };
   }
 
-  return dbUser;
-}
-
-export async function requireAuthWithOrgs() {
-  const user = await requireAuth();
-  const organizations = await getOrganizationsForUser(user.id);
-  return { user, organizations };
+  return { user: dbUser, organizations };
 }
 
 export async function getActiveOrgId(organizations: Array<{ id: string }>) {

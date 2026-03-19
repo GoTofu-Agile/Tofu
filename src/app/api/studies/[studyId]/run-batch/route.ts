@@ -50,10 +50,16 @@ export async function POST(
   }
 
   // Send event to Inngest
-  await inngest.send({
-    name: "study/run-batch",
-    data: { studyId },
-  });
+  try {
+    await inngest.send({
+      name: "study/run-batch",
+      data: { studyId },
+    });
+  } catch (error) {
+    console.error("[run-batch] Failed to send Inngest event:", error);
+    const message = error instanceof Error ? error.message : "Failed to start batch interviews";
+    return Response.json({ error: message }, { status: 500 });
+  }
 
   return Response.json({
     success: true,

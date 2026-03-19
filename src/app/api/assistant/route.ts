@@ -1,4 +1,4 @@
-import { streamText, tool, zodSchema } from "ai";
+import { streamText, tool, zodSchema, stepCountIs, convertToModelMessages } from "ai";
 import { z } from "zod";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
@@ -9,12 +9,22 @@ import { prisma } from "@/lib/db/prisma";
 import {
   createPersonaGroup,
   getPersonaGroupsForOrg,
+  getPersona,
 } from "@/lib/db/queries/personas";
 import {
   createStudy,
   getStudiesForOrg,
+  getAnalysisReport,
 } from "@/lib/db/queries/studies";
-import { getOrgProductContext } from "@/lib/db/queries/organizations";
+import {
+  getOrgProductContext,
+  createInvitation,
+} from "@/lib/db/queries/organizations";
+import {
+  createConversation,
+  addChatMessage,
+  updateConversationTitle,
+} from "@/lib/db/queries/chat";
 import type { StudyType } from "@prisma/client";
 
 export async function POST(request: Request) {
@@ -64,11 +74,37 @@ Industry: ${orgContext.industry || "Not set"}`
     : "Product context not yet configured. Suggest the user set it up in Settings.";
 
   const body = await request.json();
-  const { messages } = body;
+  const { messages: uiMessages, conversationId: existingConvId } = body;
+
+  // Convert UIMessages to ModelMessages for streamText
+  const messages = await convertToModelMessages(uiMessages ?? []);
+
+  // Persist: create or reuse conversation
+  let convId = existingConvId as string | null;
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+  const lastUserText =
+    lastUserMsg && "content" in lastUserMsg
+      ? typeof lastUserMsg.content === "string"
+        ? lastUserMsg.content
+        : ""
+      : "";
+
+  if (lastUserText) {
+    if (!convId) {
+      const conv = await createConversation(activeOrgId, dbUser.id);
+      convId = conv.id;
+      // Set title from first message
+      await updateConversationTitle(
+        convId,
+        lastUserText.slice(0, 60) + (lastUserText.length > 60 ? "..." : "")
+      );
+    }
+    await addChatMessage(convId, "user", lastUserText);
+  }
 
   const result = streamText({
     model: getModel(),
-    system: `You are the GoTofu AI assistant. You help users create personas, set up studies, and manage their research workspace.
+    system: `You are the GoTofu AI agent. You don't just chat — you take action. You help users create personas, set up studies, manage their workspace, invite team members, and configure their product.
 
 Current workspace: ${orgName}
 User: ${dbUser.name || dbUser.email}
@@ -76,15 +112,33 @@ Role: ${role}
 
 ${contextBlock}
 
-Guidelines:
-- Be concise and helpful
-- Use the tools provided to take actions
-- After creating something, mention what was created and offer next steps
-- When listing items, use the list tools to show clickable results
-- If the user asks to navigate somewhere, use the navigateTo tool
-- Respond in the same language the user writes in
-- If you don't know something, say so honestly`,
+YOUR TOOLS:
+- createPersonaGroup: Create a persona group
+- generatePersonas: Generate AI personas in a group
+- createStudy / setupStudyFromDescription: Create studies
+- runBatchInterviews: Run all interviews in a study
+- listPersonaGroups / listStudies: List resources
+- getPersonaDetails: Get detailed persona info
+- getStudyInsights: Get study analysis results
+- getWorkspaceInfo: Get workspace stats
+- updateProductContext: Set up product info
+- inviteTeamMember: Send team invitations
+- navigateTo: Navigate the app
+
+BEHAVIOR RULES:
+- Be ACTION-ORIENTED. When you know what to do, do it immediately.
+- SMART FOLLOW-UPS: If the user's request is vague, ask ONE short clarifying question first. Examples:
+  - "Personas erstellen" → ask "Fuer welche Zielgruppe? Und wie viele soll ich erstellen?"
+  - "Studie aufsetzen" → ask "Was moechtest du herausfinden?"
+  - But if specific enough ("Erstell 5 Personas fuer Studenten aus Asien"), execute immediately.
+- Chain multiple tools when needed. E.g. "Create personas and set up a study" → createPersonaGroup → generatePersonas → navigateTo the group page → setupStudyFromDescription.
+- When the user describes their product, IMMEDIATELY call updateProductContext.
+- After generating personas, call navigateTo to show the persona group page so the user can watch progress.
+- When user asks to open/show/go to something, use navigateTo — the user sees the app navigate live in the window next to this chat.
+- Be concise — one or two sentences max after tool execution.
+- Respond in the user's language.`,
     messages,
+    stopWhen: stepCountIs(8),
     tools: {
       createPersonaGroup: tool({
         description:
@@ -334,8 +388,155 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
           return { path, message: `Navigating to ${path}` };
         },
       }),
+
+      updateProductContext: tool({
+        description:
+          "Update the workspace product context. Use when user describes their product, target audience, or industry.",
+        inputSchema: zodSchema(
+          z.object({
+            productName: z.string().optional().describe("Product name"),
+            productDescription: z.string().optional().describe("What the product does"),
+            targetAudience: z.string().optional().describe("Who the product is for"),
+            industry: z.string().optional().describe("Industry/domain"),
+            competitors: z.string().optional().describe("Known competitors"),
+          })
+        ),
+        execute: async ({ productName, productDescription, targetAudience, industry, competitors }) => {
+          await prisma.organization.update({
+            where: { id: activeOrgId },
+            data: {
+              ...(productName && { productName }),
+              ...(productDescription && { productDescription }),
+              ...(targetAudience && { targetAudience }),
+              ...(industry && { industry }),
+              ...(competitors && { competitors }),
+              setupCompleted: true,
+            },
+          });
+          return {
+            message: `Updated product context: ${[productName, targetAudience, industry].filter(Boolean).join(", ")}`,
+          };
+        },
+      }),
+
+      generatePersonas: tool({
+        description:
+          "Generate AI personas for a persona group. Use when user wants to create/generate personas.",
+        inputSchema: zodSchema(
+          z.object({
+            groupId: z.string().describe("Persona group ID to generate personas for"),
+            count: z.number().min(1).max(10).default(5).describe("Number of personas to generate"),
+            domainContext: z.string().optional().describe("Additional context about who these personas should be"),
+          })
+        ),
+        execute: async ({ groupId, count, domainContext }) => {
+          const { generateAndSavePersonas } = await import("@/lib/ai/generate-personas");
+          const contextStr = [
+            domainContext,
+            orgContext?.productDescription,
+            orgContext?.targetAudience ? `Target audience: ${orgContext.targetAudience}` : "",
+            orgContext?.industry ? `Industry: ${orgContext.industry}` : "",
+          ].filter(Boolean).join("\n");
+
+          const result = await generateAndSavePersonas({
+            groupId,
+            count,
+            domainContext: contextStr || undefined,
+            sourceTypeOverride: "PROMPT_GENERATED",
+          });
+          return {
+            message: `Generated ${result.generated} personas`,
+            url: `/personas/${groupId}`,
+            count: result.generated,
+          };
+        },
+      }),
+
+      getPersonaDetails: tool({
+        description:
+          "Get detailed info about a specific persona including personality traits and backstory.",
+        inputSchema: zodSchema(
+          z.object({
+            personaId: z.string().describe("The persona ID"),
+          })
+        ),
+        execute: async ({ personaId }) => {
+          const persona = await getPersona(personaId);
+          if (!persona) return { message: "Persona not found" };
+          return {
+            name: persona.name,
+            occupation: persona.occupation,
+            age: persona.age,
+            backstory: persona.backstory,
+            personality: persona.personality
+              ? {
+                  openness: persona.personality.openness,
+                  conscientiousness: persona.personality.conscientiousness,
+                  extraversion: persona.personality.extraversion,
+                  agreeableness: persona.personality.agreeableness,
+                  neuroticism: persona.personality.neuroticism,
+                }
+              : null,
+            archetype: persona.archetype,
+            goals: persona.goals,
+            frustrations: persona.frustrations,
+            url: `/personas/${persona.personaGroup.id}/${persona.id}`,
+            message: `${persona.name} — ${persona.occupation || "Unknown role"}, age ${persona.age || "?"}`,
+          };
+        },
+      }),
+
+      getStudyInsights: tool({
+        description:
+          "Get analysis results and insights from a completed study.",
+        inputSchema: zodSchema(
+          z.object({
+            studyId: z.string().describe("The study ID"),
+          })
+        ),
+        execute: async ({ studyId }) => {
+          const report = await getAnalysisReport(studyId);
+          if (!report) return { message: "No analysis report found. Run interviews first, then insights will be generated." };
+          return {
+            title: report.title,
+            summary: report.summary,
+            themes: report.themes,
+            recommendations: report.recommendations,
+            sentiment: report.sentimentBreakdown,
+            url: `/studies/${studyId}`,
+            message: `Study insights: ${report.summary?.slice(0, 100)}...`,
+          };
+        },
+      }),
+
+      inviteTeamMember: tool({
+        description:
+          "Invite a team member to the current workspace by email.",
+        inputSchema: zodSchema(
+          z.object({
+            email: z.string().email().describe("Email address to invite"),
+            memberRole: z.enum(["ADMIN", "MEMBER", "VIEWER"]).default("MEMBER").describe("Role for the new member"),
+          })
+        ),
+        execute: async ({ email, memberRole }) => {
+          const invitation = await createInvitation(activeOrgId, email, memberRole);
+          const origin = request.headers.get("origin") || "http://localhost:3004";
+          const inviteUrl = `${origin}/accept-invite/${invitation.token}`;
+          return {
+            message: `Invited ${email} as ${memberRole}. Share this link: ${inviteUrl}`,
+            email,
+            role: memberRole,
+            inviteUrl,
+          };
+        },
+      }),
+    },
+    async onFinish({ text }) {
+      if (convId && text) {
+        await addChatMessage(convId, "assistant", text);
+      }
     },
   });
 
-  return result.toTextStreamResponse();
+  return result.toUIMessageStreamResponse();
 }

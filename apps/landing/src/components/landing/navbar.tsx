@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { APP_URL } from "@/lib/config";
 import { buttonVariants } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
@@ -22,7 +23,6 @@ export function Navbar() {
           GoTofu
         </Link>
 
-        {/* Desktop nav */}
         <div className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => (
             <a
@@ -36,21 +36,20 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Link
-            href="/login"
+          <a
+            href={`${APP_URL}/login`}
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
           >
             Sign in
-          </Link>
-          <Link
-            href="/signup"
+          </a>
+          <a
+            href={`${APP_URL}/signup`}
             className={cn(buttonVariants({ size: "sm" }))}
           >
             Get started
-          </Link>
+          </a>
         </div>
 
-        {/* Mobile toggle */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="inline-flex items-center justify-center rounded-lg p-2 text-muted-foreground hover:text-foreground md:hidden"
@@ -60,7 +59,6 @@ export function Navbar() {
         </button>
       </nav>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <div className="border-t border-border/40 bg-background px-4 pb-4 pt-2 md:hidden">
           <div className="flex flex-col gap-1">
@@ -76,18 +74,18 @@ export function Navbar() {
             ))}
           </div>
           <div className="mt-3 flex flex-col gap-2">
-            <Link
-              href="/login"
+            <a
+              href={`${APP_URL}/login`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full")}
             >
               Sign in
-            </Link>
-            <Link
-              href="/signup"
+            </a>
+            <a
+              href={`${APP_URL}/signup`}
               className={cn(buttonVariants({ size: "sm" }), "w-full")}
             >
               Get started
-            </Link>
+            </a>
           </div>
         </div>
       )}

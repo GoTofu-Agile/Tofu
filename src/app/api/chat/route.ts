@@ -79,22 +79,28 @@ export async function POST(request: NextRequest) {
   }
 
   // Stream the response
-  const result = streamText({
-    model: getModel(),
-    system: fullSystemPrompt,
-    messages: llmMessages,
-    async onFinish({ text }) {
-      const count = await getMessageCount(sessionId);
-      await addMessage({
-        sessionId,
-        role: "RESPONDENT",
-        content: text,
-        sequence: count + 1,
-      });
-    },
-  });
+  try {
+    const result = streamText({
+      model: getModel(),
+      system: fullSystemPrompt,
+      messages: llmMessages,
+      async onFinish({ text }) {
+        const count = await getMessageCount(sessionId);
+        await addMessage({
+          sessionId,
+          role: "RESPONDENT",
+          content: text,
+          sequence: count + 1,
+        });
+      },
+    });
 
-  return result.toTextStreamResponse();
+    return result.toTextStreamResponse();
+  } catch (error) {
+    console.error("[chat] AI streaming failed:", error);
+    const message = error instanceof Error ? error.message : "AI chat failed";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }
 
 function buildFallbackSystemPrompt(

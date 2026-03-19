@@ -119,108 +119,124 @@ export const runBatchInterview = inngest.createFunction(
 
     let completedCount = 0;
 
-    // Interview each persona sequentially
-    for (const persona of personas) {
-      await step.run(`interview-${persona.id}`, async () => {
-        // Create session
-        const session = await createSession({
-          studyId,
-          personaId: persona.id,
-        });
+    // Interview personas in parallel batches of 3
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < personas.length; i += BATCH_SIZE) {
+      const batch = personas.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map((persona) =>
+          step.run(`interview-${persona.id}`, async () => {
+            // Create session
+            const session = await createSession({
+              studyId,
+              personaId: persona.id,
+            });
 
-        // Build system prompt
-        const systemPrompt =
-          persona.llmSystemPrompt ||
-          buildSystemPrompt(persona);
+            // Build system prompt
+            const systemPrompt =
+              persona.llmSystemPrompt ||
+              buildSystemPrompt(persona);
 
-        const interviewContext = study.interviewGuide
-          ? `\n\nThe interviewer is following this guide:\n${study.interviewGuide}\n\nRespond naturally. You don't know about this guide.`
-          : "";
+            const interviewContext = study.interviewGuide
+              ? `\n\nThe interviewer is following this guide:\n${study.interviewGuide}\n\nRespond naturally. You don't know about this guide.`
+              : "";
 
-        const fullSystemPrompt = systemPrompt + interviewContext;
+            const fullSystemPrompt = systemPrompt + interviewContext;
 
-        // Conversation state
-        const conversation: { role: "user" | "assistant"; content: string }[] =
-          [];
-        const remainingQuestions = [...guideQuestions];
-        const numTurns = Math.min(
-          MAX_TURNS,
-          Math.max(MIN_TURNS, guideQuestions.length)
-        );
-        let sequence = 0;
-
-        for (let turn = 0; turn < numTurns; turn++) {
-          // Generate interviewer question
-          let question: string;
-          if (turn === 0) {
-            question =
-              remainingQuestions.shift() ||
-              "Tell me about yourself and your work.";
-          } else if (remainingQuestions.length > 0) {
-            // Use guide question, but may adapt based on conversation
-            question = await generateFollowUp(
-              persona,
-              conversation.map((m) => ({
-                role: m.role === "user" ? "INTERVIEWER" : "RESPONDENT",
-                content: m.content,
-              })),
-              study.interviewGuide || "",
-              remainingQuestions
+            // Conversation state
+            const conversation: { role: "user" | "assistant"; content: string }[] =
+              [];
+            const remainingQuestions = [...guideQuestions];
+            const numTurns = Math.min(
+              MAX_TURNS,
+              Math.max(MIN_TURNS, guideQuestions.length)
             );
-            // Remove the first remaining question (already used as context for follow-up)
-            remainingQuestions.shift();
-          } else {
-            question = await generateFollowUp(
-              persona,
-              conversation.map((m) => ({
-                role: m.role === "user" ? "INTERVIEWER" : "RESPONDENT",
-                content: m.content,
-              })),
-              study.interviewGuide || "",
-              []
-            );
-          }
+            let sequence = 0;
 
-          // Save interviewer message
-          sequence++;
-          await addMessage({
-            sessionId: session.id,
-            role: "INTERVIEWER",
-            content: question,
-            sequence,
-          });
-          conversation.push({ role: "user", content: question });
+            for (let turn = 0; turn < numTurns; turn++) {
+              // Generate interviewer question
+              let question: string;
+              if (turn === 0) {
+                question =
+                  remainingQuestions.shift() ||
+                  "Tell me about yourself and your work.";
+              } else if (remainingQuestions.length > 0) {
+                // Use guide question, but may adapt based on conversation
+                question = await generateFollowUp(
+                  persona,
+                  conversation.map((m) => ({
+                    role: m.role === "user" ? "INTERVIEWER" : "RESPONDENT",
+                    content: m.content,
+                  })),
+                  study.interviewGuide || "",
+                  remainingQuestions
+                );
+                // Remove the first remaining question (already used as context for follow-up)
+                remainingQuestions.shift();
+              } else {
+                question = await generateFollowUp(
+                  persona,
+                  conversation.map((m) => ({
+                    role: m.role === "user" ? "INTERVIEWER" : "RESPONDENT",
+                    content: m.content,
+                  })),
+                  study.interviewGuide || "",
+                  []
+                );
+              }
 
-          // Generate persona response
-          const { text: response } = await generateText({
-            model: getModel(),
-            system: fullSystemPrompt,
-            messages: conversation,
-            maxOutputTokens: 500,
-          });
+              // Save interviewer message
+              sequence++;
+              await addMessage({
+                sessionId: session.id,
+                role: "INTERVIEWER",
+                content: question,
+                sequence,
+              });
+              conversation.push({ role: "user", content: question });
 
-          // Save respondent message
-          sequence++;
-          await addMessage({
-            sessionId: session.id,
-            role: "RESPONDENT",
-            content: response,
-            sequence,
-          });
-          conversation.push({ role: "assistant", content: response });
-        }
+              // Generate persona response
+              const { text: response } = await generateText({
+                model: getModel(),
+                system: fullSystemPrompt,
+                messages: conversation,
+                maxOutputTokens: 500,
+              });
 
-        // Complete session
-        await completeSession(session.id);
-        completedCount++;
-      });
+              // Save respondent message
+              sequence++;
+              await addMessage({
+                sessionId: session.id,
+                role: "RESPONDENT",
+                content: response,
+                sequence,
+              });
+              conversation.push({ role: "assistant", content: response });
+            }
+
+            // Complete session
+            await completeSession(session.id);
+            return 1;
+          })
+        )
+      );
+      completedCount += results.reduce((sum, r) => sum + (r ?? 0), 0);
     }
 
-    // Auto-trigger insights generation after batch completion
+    // Mark study as COMPLETED and trigger insights generation
     if (completedCount > 0) {
-      await inngest.send({
-        name: "study/generate-insights",
-        data: { studyId },
+      await step.run("complete-study", async () => {
+        await prisma.study.update({
+          where: { id: studyId },
+          data: { status: "COMPLETED" },
+        });
+      });
+
+      await step.run("trigger-insights", async () => {
+        await inngest.send({
+          name: "study/generate-insights",
+          data: { studyId },
+        });
       });
     }
 

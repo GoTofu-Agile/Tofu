@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { APP_URL } from "@/lib/config";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Sparkles } from "lucide-react";
@@ -9,7 +9,6 @@ import { ArrowRight, Sparkles } from "lucide-react";
 export function Hero() {
   return (
     <section className="relative overflow-hidden">
-      {/* Subtle gradient background */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute top-0 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-primary/[0.03] blur-3xl" />
       </div>
@@ -33,8 +32,8 @@ export function Hero() {
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/signup"
+            <a
+              href={`${APP_URL}/signup`}
               className={cn(
                 buttonVariants({ size: "lg" }),
                 "gap-2 px-6 text-base"
@@ -42,7 +41,7 @@ export function Hero() {
             >
               Start for free
               <ArrowRight className="size-4" />
-            </Link>
+            </a>
             <a
               href="#how-it-works"
               className={cn(
@@ -55,11 +54,9 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Product preview mock */}
         <div className="mx-auto mt-16 max-w-4xl sm:mt-20">
           <div className="rounded-xl border border-border/60 bg-card p-1 shadow-2xl shadow-black/5 ring-1 ring-black/[0.03]">
             <div className="rounded-lg bg-muted/30 p-4 sm:p-6">
-              {/* Mock chat interface */}
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex size-9 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                   SP
@@ -78,8 +75,7 @@ export function Hero() {
               <div className="space-y-3">
                 <div className="flex justify-end">
                   <div className="max-w-[80%] rounded-xl rounded-br-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
-                    What frustrates you most about current project management
-                    tools?
+                    What frustrates you most about current project management tools?
                   </div>
                 </div>
                 <div className="flex justify-start">
@@ -93,8 +89,7 @@ export function Hero() {
                 </div>
                 <div className="flex justify-end">
                   <div className="max-w-[80%] rounded-xl rounded-br-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
-                    Can you tell me about a specific moment where the tool got
-                    in your way?
+                    Can you tell me about a specific moment where the tool got in your way?
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 pl-1">

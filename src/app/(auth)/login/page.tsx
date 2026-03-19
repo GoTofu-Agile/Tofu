@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 import { login } from "../actions";
 
 function LoginForm() {
@@ -30,6 +31,15 @@ function LoginForm() {
       setError(result.error);
       setLoading(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-sm text-muted-foreground">Signing you in…</p>
+      </div>
+    );
   }
 
   return (
@@ -72,8 +82,8 @@ function LoginForm() {
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
+          <Button type="submit" className="w-full cursor-pointer">
+            Sign in
           </Button>
         </form>
       </CardContent>
