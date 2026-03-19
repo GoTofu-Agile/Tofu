@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, FileText, Zap, Linkedin, Globe, SearchCheck } from "lucide-react";
+import { LayoutTemplate, FileText, Zap, FileUp, Globe, SearchCheck } from "lucide-react";
 
 export type CreationMethod =
   | "templates"
@@ -23,12 +23,11 @@ interface Method {
 const METHODS: Method[] = [
   {
     id: "templates",
-    icon: Lock,
+    icon: LayoutTemplate,
     title: "Templates",
-    description: "Pre-built personas across industries. One click to add.",
-    label: "Coming Soon",
-    labelClass: "bg-muted text-muted-foreground",
-    comingSoon: true,
+    description: "Start from opinionated presets for common audiences.",
+    label: "Data Backed",
+    labelClass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   },
   {
     id: "manual",
@@ -41,16 +40,16 @@ const METHODS: Method[] = [
   {
     id: "ai-generate",
     icon: Zap,
-    title: "AI Generate",
-    description: "Describe who you need — AI fills in the rest instantly.",
-    label: "Prompted",
-    labelClass: "bg-muted text-muted-foreground",
+    title: "App Store Reviews",
+    description: "Use real App Store reviews and AI to synthesize personas.",
+    label: "Data Backed",
+    labelClass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   },
   {
     id: "linkedin",
-    icon: Linkedin,
-    title: "LinkedIn PDF",
-    description: "Export your LinkedIn profile as PDF and upload it.",
+    icon: FileUp,
+    title: "CV / Resume",
+    description: "Upload a CV or resume PDF to ground personas.",
     label: "Own Data",
     labelClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
   },
@@ -79,11 +78,6 @@ interface StepMethodPickerProps {
 export function StepMethodPicker({ onSelect }: StepMethodPickerProps) {
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-sm text-muted-foreground">
-          Choose how you want to create your personas.
-        </p>
-      </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {METHODS.map((m) => {
           const Icon = m.icon;

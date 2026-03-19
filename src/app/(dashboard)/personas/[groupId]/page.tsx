@@ -4,6 +4,7 @@ import { getPersonaGroup, getPersonasForGroup } from "@/lib/db/queries/personas"
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { requireAuth } from "@/lib/auth";
 import { PersonaCard } from "@/components/personas/persona-card";
+import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
 import { GeneratePersonasButton } from "@/components/personas/generate-personas-button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Users } from "lucide-react";
@@ -54,12 +55,14 @@ export default async function PersonaGroupDetailPage({
               <p className="mt-1 text-muted-foreground">{group.description}</p>
             )}
             <div className="mt-2 flex items-center gap-3">
-              <Badge
-                variant="secondary"
-                className={SOURCE_LABELS[group.sourceType].className}
-              >
-                {SOURCE_LABELS[group.sourceType].label}
-              </Badge>
+              {group.sourceType !== "PROMPT_GENERATED" ? (
+                <Badge
+                  variant="secondary"
+                  className={SOURCE_LABELS[group.sourceType].className}
+                >
+                  {SOURCE_LABELS[group.sourceType].label}
+                </Badge>
+              ) : null}
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Users className="h-3.5 w-3.5" />
                 {group._count.personas} personas
@@ -83,6 +86,9 @@ export default async function PersonaGroupDetailPage({
               key={persona.id}
               persona={persona}
               groupId={groupId}
+              appStoreReviews={appStoreReviewSnippetsFromPersona(
+                persona.dataSources
+              )}
             />
           ))}
         </div>

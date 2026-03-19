@@ -639,6 +639,32 @@ Die Persönlichkeit steuert aktiv das Antwortverhalten:
 - **Response Bias** — Erkennt unrealistische Big Five Verteilungen
 - **Representational Gaps** — Identifiziert unterrepräsentierte Subgruppen
 
+### Persona Templates (für durchschnittliche Nutzer:innen)
+
+Um den Einstieg für nicht-researcher Personas zu erleichtern, gibt es vordefinierte **Persona Templates**. Ein Template ist eine kuratierte Kombination aus Demografie + Verhaltensprofil, die von der Persona-Engine als starke, aber flexible Leitplanke verwendet wird.
+
+- Implementierung:
+  - Statische Konfiguration in `[src/lib/personas/templates.ts](src/lib/personas/templates.ts)` mit `PersonaTemplateConfig`.
+  - Jedes Template beschreibt:
+    - `demographics` (Altersrange, typische Locations/Berufe, grobe Gender-Verteilung)
+    - `behaviorProfile` (Big-Five-Tendenzen, Kommunikations- und Entscheidungsstil in Textform)
+    - `defaultPersonaCount`, `diversityFocus` (broad/focused) und typische Use-Cases.
+  - Der Prompt-Builder in `[src/lib/ai/generate-personas.ts](src/lib/ai/generate-personas.ts)` bekommt optional ein `templateConfig` und fügt eine eigene **Template-Layer** ein („TEMPLATE CONSTRAINTS“ + „BEHAVIORAL INTENT“).
+- Erste Template-Kollektion (für generische SaaS-Cases):
+  - **Young Caring Professionals** — Frauen 22–36 in Care-/Sozial-/Bildungsberufen (Hebammen, Pflege, Lehrkräfte).
+  - **Productive Developers** — Männer 30–55, Tech-/Tooling-affin, meinungsstarke Engineers.
+  - **Busy Team Leads** — Mixed 28–45, Team Leads / PMs zwischen Management und ICs.
+  - **Founders & Solo Builders** — Frühphasen-Gründer:innen und Indie Hacker mit hoher Risiko- & Experimentierfreude.
+  - **Corporate Stakeholders** — Senior Manager:innen, Directors, VP-Level in größeren Organisationen.
+  - **Students & Early Career** — 18–28, mobile-first, preisbewusst, hohe Tool-Churn.
+- UX:
+  - In `/personas/new` gibt es im **Unified Creation Flow** eine Methode **“Templates”**:
+    - Step 1: Template-Karte wählen (Name, Beschreibung, Use-Cases).
+    - Step 2: Anzahl der Personas (1–100) einstellen.
+    - GoTofu erstellt automatisch eine `PersonaGroup` mit Template-Namen und nutzt vorhandenen Org-Produktkontext als Domain Context (falls vorhanden).
+    - Danach wird `/api/personas/generate` mit `templateId` aufgerufen; die Engine nutzt das Template im Prompt.
+  - Zielgruppe: „Durchschnitts-User“, die ohne Prompt-Engineering und ohne Research-Setup schnell loslegen wollen.
+
 ---
 
 ## Persona-Generierung: Technische Pipeline (Detail)
@@ -702,6 +728,52 @@ Domain-Beschreibung (z.B. "Hebammen in Deutschland")
      ↓
 [5] Quality + Diversity Checks
 ```
+
+### Pipeline 3a: Company URL → Personas (Tavily Extract + Search)
+
+```
+Company URL Eintrag (Step „Company URL“ im Unified Creation Flow)
+     ↓
+POST `/api/personas/extract-url`
+     ↓
+Tavily extract(url) + Tavily search(..., { maxResults }) → `companyContext`
+     ↓
+`generateObject` mit `extractedContextSchema`
+     ↓
+PersonaGroup → `/api/personas/generate` (mit extracted domainContext)
+```
+
+Implementierungsdetails:
+- Route: `[src/app/api/personas/extract-url/route.ts](src/app/api/personas/extract-url/route.ts)`
+- Ergebnis: ein `ExtractedContext` (targetUserRole, industry, painPoints, demographicsHints, domainContext), das anschließend als Domain Context für die Persona-Engine dient.
+
+### Pipeline 3b: App Store Reviews → Personas (Discover + Outscraper Reviews)
+
+```
+Prompt/Target-Audience
+     ↓
+POST `/api/research/discover-appstore-url`
+     ↓
+Tavily Web-Suche (Bias auf `apps.apple.com`) → `appUrl`
+     ↓
+POST `/api/reviews/appstore` (Outscraper)
+     ↓
+Persist als DomainKnowledge (sourceType: `APP_REVIEW`) → RAG-Assembly
+     ↓
+`/api/personas/generate` (DATA_BASED) → grounded Personas
+```
+
+Implementierungsdetails:
+- App URL Discovery: `[src/app/api/research/discover-appstore-url/route.ts](src/app/api/research/discover-appstore-url/route.ts)`
+- Review Scraping + Persist: `[src/app/api/reviews/appstore/route.ts](src/app/api/reviews/appstore/route.ts)` und `[src/lib/reviews/outscraper.ts](src/lib/reviews/outscraper.ts)`
+
+### UX: Chat-Pipeline-Progress auf `/personas/new` (Live-Logs, Sequenz & Checks)
+
+Die Visualisierung zeigt eine sequenzielle Schritt-Liste, die sich wie „Live Logs“ anfühlt:
+- Jeder Schritt wird zuerst auf `active` gesetzt.
+- Nach dem jeweiligen Work (oder Visual-Delay) wird er auf `done` gesetzt; bei „visual_only“ wird er als `skipped` markiert.
+- Der letzte Schritt (Generation) bleibt visuell aktiv, bis der Streaming-Worker „done“ signalisiert; erst dann wechselt der UI-Status auf `done`.
+- Step Labels sind **kontext-aware** (z.B. public vs. corporate web addresses) und variieren pro Run, während die Gesamtpipeline (Tavily / App Store Reviews / Generation) konsistent bleibt.
 
 ### Batch Processing & Kosten-Optimierung
 
@@ -895,9 +967,13 @@ export const generatePersonaBatch = inngest.createFunction(
 8. BiasDetector + BiasIndicator Component
 9. Big Five Profil-Generierung + PersonalityRadar Chart
 10. GenerationWizard (Multi-Step Form)
-11. **3 Pre-built Groups seeden**: Hebammen, Ausländer, Perioden-Planning (je 50-100 Personas)
-12. Tagging-System
-13. Embedding-Generierung + pgvector Similarity Search
+11. **Persona Templates im Wizard**:
+    - Templates definieren (siehe Abschnitt „Persona Templates“).
+    - „Templates“-Methode im Unified Creation Flow implementieren.
+    - Templates → `PersonaGroup` + Batch-Generierung verdrahten.
+12. **3 Pre-built Groups seeden**: Hebammen, Ausländer, Perioden-Planning (je 50-100 Personas), optional auf Basis der Templates.
+13. Tagging-System
+14. Embedding-Generierung + pgvector Similarity Search
 
 **Deliverable**: User können Personas generieren, browsen, filtern, managen.
 

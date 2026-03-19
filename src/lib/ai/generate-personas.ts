@@ -2,12 +2,15 @@ import { generateObject } from "ai";
 import { getModel } from "./provider";
 import { personaSchema, type PersonaOutput } from "@/lib/validation/schemas";
 import { prisma } from "@/lib/db/prisma";
+import type { PersonaTemplateConfig } from "@/lib/personas/templates";
+import { assignAppStoreReviewsToPersonas } from "@/lib/personas/assign-app-store-reviews";
 
 export interface GeneratePersonasParams {
   groupId: string;
   count: number;
   domainContext?: string;
   sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
+  templateConfig?: PersonaTemplateConfig;
   onProgress?: (completed: number, total: number, personaName: string) => void;
 }
 
@@ -21,9 +24,10 @@ function buildPrompt(params: {
   count: number;
   domainContext?: string;
   ragContext?: string;
+  templateConfig?: PersonaTemplateConfig;
   previousPersonas: { name: string; archetype: string }[];
 }): string {
-  const { index, count, domainContext, ragContext, previousPersonas } = params;
+  const { index, count, domainContext, ragContext, templateConfig, previousPersonas } = params;
 
   const layers: string[] = [];
 
@@ -46,6 +50,53 @@ CRITICAL RULES:
   }
   if (ragContext) {
     layers.push(`BACKGROUND RESEARCH:\n${ragContext}`);
+  }
+
+  // Optional layer: Template constraints (demographics + behavior profile)
+  if (templateConfig) {
+    const d = templateConfig.demographics;
+    const b = templateConfig.behaviorProfile;
+
+    const demographicLines = [
+      `Intended template: ${templateConfig.name} — ${templateConfig.description}`,
+      `Typical age range: ${d.ageRange.min}-${d.ageRange.max}`,
+      d.genderBalance !== "unspecified"
+        ? `Typical gender mix: ${d.genderBalance.replace("_", " ")}`
+        : undefined,
+      d.typicalProfessions?.length
+        ? `Typical professions: ${d.typicalProfessions.join(", ")}`
+        : undefined,
+      d.typicalLocations?.length
+        ? `Typical locations: ${d.typicalLocations.join(", ")}`
+        : undefined,
+    ].filter(Boolean);
+
+    const behaviorLines = [
+      `Behavioral profile: ${b.summary}`,
+      b.communicationStyle
+        ? `Preferred communication style: ${b.communicationStyle}`
+        : undefined,
+      b.decisionStyle
+        ? `Decision-making style: ${b.decisionStyle}`
+        : undefined,
+      b.riskToleranceHint
+        ? `Risk tolerance: ${b.riskToleranceHint}`
+        : undefined,
+      b.skepticismHint
+        ? `Baseline skepticism toward new products: ${b.skepticismHint}`
+        : undefined,
+      templateConfig.diversityFocus === "focused"
+        ? "Diversity focus: keep personas within this segment, but still ensure they are distinct from each other."
+        : "Diversity focus: cover a broad range of archetypes within this segment."
+    ].filter(Boolean);
+
+    layers.push(
+      `TEMPLATE CONSTRAINTS:\n${demographicLines.join(
+        "\n"
+      )}\n\nBEHAVIORAL INTENT:\n${behaviorLines.join(
+        "\n"
+      )}\n\nPersonas MUST belong to this segment. Do not drift into unrelated demographics or roles, but ensure each persona is still unique.`
+    );
   }
 
   // Layer 3: Diversity & Anti-Sycophancy Constraints
@@ -187,7 +238,8 @@ function computeQualityScore(persona: PersonaOutput): number {
 export async function generateAndSavePersonas(
   params: GeneratePersonasParams
 ): Promise<GeneratePersonasResult> {
-  const { groupId, count, domainContext, sourceTypeOverride, onProgress } = params;
+  const { groupId, count, domainContext, sourceTypeOverride, templateConfig, onProgress } =
+    params;
 
   // Load domain knowledge for RAG context (with provenance tracking)
   const knowledge = await prisma.domainKnowledge.findMany({
@@ -195,7 +247,9 @@ export async function generateAndSavePersonas(
     take: 20,
     orderBy: [{ relevanceScore: "desc" }, { createdAt: "desc" }],
   });
-  const knowledgeIds = knowledge.map((k) => k.id);
+  const nonAppReviewKnowledgeIds = knowledge
+    .filter((k) => k.sourceType !== "APP_REVIEW")
+    .map((k) => k.id);
   const ragContext = knowledge.length
     ? knowledge
         .map((k) => {
@@ -220,6 +274,7 @@ export async function generateAndSavePersonas(
         count,
         domainContext,
         ragContext,
+        templateConfig,
         previousPersonas,
       });
 
@@ -277,10 +332,11 @@ export async function generateAndSavePersonas(
         },
       });
 
-      // Link persona to data sources for provenance tracking
-      if (knowledgeIds.length > 0) {
+      // Link persona to non–App-Store RAG sources only; App Store reviews are
+      // assigned per-persona after generation via assignAppStoreReviewsToPersonas.
+      if (nonAppReviewKnowledgeIds.length > 0) {
         await prisma.personaDataSource.createMany({
-          data: knowledgeIds.map((dkId) => ({
+          data: nonAppReviewKnowledgeIds.map((dkId) => ({
             personaId: createdPersona.id,
             domainKnowledgeId: dkId,
           })),
@@ -310,6 +366,17 @@ export async function generateAndSavePersonas(
     where: { id: groupId },
     data: { personaCount: actualCount },
   });
+
+  if (actualCount > 0) {
+    try {
+      await assignAppStoreReviewsToPersonas(groupId);
+    } catch (e) {
+      console.error(
+        "[generate-personas] assignAppStoreReviewsToPersonas failed:",
+        e
+      );
+    }
+  }
 
   return { generated, errors };
 }

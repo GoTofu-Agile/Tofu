@@ -132,6 +132,9 @@ export const RESEARCH_SOURCES = [
   },
 ] as const;
 
+/** All research source IDs — used when the UI does not let users toggle sources. */
+export const ALL_RESEARCH_SOURCE_IDS: string[] = RESEARCH_SOURCES.map((s) => s.id);
+
 export interface ContextQueryInput {
   targetUserRole: string;
   industry?: string | null;
