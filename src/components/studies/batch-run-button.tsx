@@ -96,19 +96,23 @@ export function BatchRunButton({
   async function handleRun() {
     setStarting(true);
     setError(null);
-    const result = await runBatchInterviews(studyId);
+    try {
+      const result = await runBatchInterviews(studyId);
 
-    if (result.error) {
-      toast.error(result.error);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(`Batch started for ${result.pendingCount} personas!`);
+      pollingStartTime.current = Date.now();
+      consecutiveErrors.current = 0;
+      setPolling(true);
+    } catch {
+      setError("Failed to start batch interviews. Please try again.");
+    } finally {
       setStarting(false);
-      return;
     }
-
-    toast.success(`Batch started for ${result.pendingCount} personas!`);
-    setStarting(false);
-    pollingStartTime.current = Date.now();
-    consecutiveErrors.current = 0;
-    setPolling(true);
   }
 
   // Error state

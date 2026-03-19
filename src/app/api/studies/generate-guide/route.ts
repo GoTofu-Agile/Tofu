@@ -24,7 +24,10 @@ export async function POST(request: NextRequest) {
   if (!authUser) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
-  await getUser(authUser.id);
+  const dbUser = await getUser(authUser.id);
+  if (!dbUser) {
+    return Response.json({ error: "User not found" }, { status: 401 });
+  }
 
   let body;
   try {

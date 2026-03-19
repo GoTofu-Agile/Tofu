@@ -23,11 +23,13 @@ export function InvitationRow({ invitation, canManage }: InvitationRowProps) {
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState(false);
 
+  /* eslint-disable react-hooks/purity */
   const daysLeft = Math.ceil(
     (new Date(invitation.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
 
   const inviteUrl = `${window.location.origin}/accept-invite/${invitation.token}`;
+  /* eslint-enable react-hooks/purity */
 
   async function handleCopy() {
     await navigator.clipboard.writeText(inviteUrl);

@@ -31,6 +31,7 @@ export function OrgSwitcher({ organizations, activeOrgId, collapsed }: OrgSwitch
   const displayName = activeOrg?.isPersonal ? "Personal" : activeOrg?.name ?? "Workspace";
 
   function switchOrg(orgId: string) {
+    // eslint-disable-next-line react-hooks/immutability
     document.cookie = `activeOrgId=${orgId}; path=/; max-age=31536000`;
     router.refresh();
   }

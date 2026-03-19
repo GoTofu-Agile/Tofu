@@ -28,11 +28,17 @@ export async function POST(request: NextRequest) {
   let companyContext = "";
   try {
     const [pageResult, searchResult] = await Promise.all([
-      client.extract([url]).catch(() => null),
+      client.extract([url]).catch((err) => {
+        console.warn("[extract-url] Tavily extract failed:", err);
+        return null;
+      }),
       client.search(`company overview target users ${url}`, {
         maxResults: 3,
         searchDepth: "basic",
-      }).catch(() => null),
+      }).catch((err) => {
+        console.warn("[extract-url] Tavily search failed:", err);
+        return null;
+      }),
     ]);
 
     const parts: string[] = [];
@@ -52,10 +58,11 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Could not extract content from URL" }, { status: 400 });
   }
 
-  const { object } = await generateObject({
-    model: getModel(),
-    schema: extractedContextSchema,
-    prompt: `You are helping create synthetic personas based on a company's website and context.
+  try {
+    const { object } = await generateObject({
+      model: getModel(),
+      schema: extractedContextSchema,
+      prompt: `You are helping create synthetic personas based on a company's website and context.
 
 Company URL: ${url}
 
@@ -69,7 +76,12 @@ Based on this company, extract a target user persona:
 - painPoints: 3-5 pain points that their target users likely have (that this product addresses)
 - demographicsHints: Inferred demographic info about their typical users
 - domainContext: A rich paragraph describing the target user type for this company — their background, challenges, motivations, and why they would use this product.`,
-  });
+    });
 
-  return Response.json(object);
+    return Response.json(object);
+  } catch (error) {
+    console.error("[extract-url] AI generation failed:", error);
+    const message = error instanceof Error ? error.message : "Failed to analyze URL content";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }
