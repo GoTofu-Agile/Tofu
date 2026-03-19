@@ -11,6 +11,11 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+      # prisma/schema.prisma uses these env vars for `datasource db`.
+      # Provide syntactically-valid placeholder values for CI so `prisma generate` can run
+      # without real secrets/DB access.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres?connection_limit=1
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,6 +33,7 @@ jobs:
       # - Posts/updates a single PR comment with an approve vs request-changes recommendation
       - name: Post PR recommendation (Vercel preview + smoke check)
         if: always()
+        continue-on-error: true
         uses: actions/github-script@v7
         env:
           CI_STATUS: ${{ job.status }}
