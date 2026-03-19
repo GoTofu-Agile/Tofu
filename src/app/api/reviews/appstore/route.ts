@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
   if (rows.length > 0) {
     // createMany is faster; we don't require individual ids here
     await prisma.domainKnowledge.createMany({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma createMany expects exact model input, .filter(Boolean) narrows runtime but not TS
       data: rows as any,
     });
   }

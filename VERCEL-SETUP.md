@@ -4,7 +4,7 @@
 
 | Step | Status | Details |
 |---|---|---|
-| GitHub Repo (`habibidani/gotofu`) | ✅ | `main` branch is production (both projects) |
+| GitHub Repo (`GoTofu-Agile/Tofu`) | ✅ | `main` branch is production (both projects) |
 | Vercel Account | ✅ | Account: `admin-42578282`, Team: `gotofus-projects` |
 | `gotofu-app` Project | ✅ | Live at `https://app.gotofu.io` |
 | `gotofu-landing` Project | ✅ | Live at `https://gotofu.io` |
@@ -33,8 +33,8 @@ One GitHub repo, two Vercel projects with different root directories:
 
 | Vercel Project | Domain | GitHub Repo | Root Directory | Description |
 |---|---|---|---|---|
-| `gotofu-app` | `app.gotofu.io` | `habibidani/gotofu` | `/` (root) | The main app |
-| `gotofu-landing` | `gotofu.io` | `habibidani/gotofu` | `apps/landing/` | Static landing page |
+| `gotofu-app` | `app.gotofu.io` | `GoTofu-Agile/Tofu` | `/` (root) | The main app |
+| `gotofu-landing` | `gotofu.io` | `GoTofu-Agile/Tofu` | `apps/landing/` | Static landing page |
 
 Both projects deploy from the same repo. Push to `main` → both projects deploy automatically.
 
