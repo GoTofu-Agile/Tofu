@@ -1,0 +1,514 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  extensions = [vector]
+}
+
+// ─── Auth & Orgs ───
+
+model User {
+  id                  String   @id @default(uuid()) // = Supabase auth.users.id
+  email               String   @unique
+  name                String?
+  avatarUrl           String?
+  onboardingCompleted Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  memberships       OrganizationMember[]
+  studies            Study[]
+  uploads            Upload[]
+  usageLogs          UsageLog[]
+  chatConversations  ChatConversation[]
+}
+
+model Organization {
+  id         String  @id @default(cuid())
+  name       String
+  slug       String  @unique
+  logoUrl    String?
+  isPersonal Boolean @default(false)
+
+  // Product context (filled via AI onboarding chat)
+  productName        String?
+  productDescription String?  @db.Text
+  targetAudience     String?
+  industry           String?
+  competitors        String?  // comma-separated
+  websiteUrl         String?
+  setupCompleted     Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members            OrganizationMember[]
+  invitations        OrganizationInvitation[]
+  personaGroups      PersonaGroup[]
+  studies            Study[]
+  uploads            Upload[]
+  usageLogs          UsageLog[]
+  chatConversations  ChatConversation[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole      @default(MEMBER)
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, userId])
+}
+
+model OrganizationInvitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrgRole      @default(MEMBER)
+  token          String       @unique @default(cuid())
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([token])
+}
+
+// ─── Chat (AI Assistant) ───
+
+model ChatConversation {
+  id             String   @id @default(cuid())
+  title          String?
+  organizationId String
+  userId         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     ChatMessage[]
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // "user" | "assistant"
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+// ─── Enums ───
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// ─── Personas ───
+
+model PersonaGroup {
+  id               String     @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  sourceType       SourceType
+  generationConfig Json?
+  domainContext    String?    @db.Text
+  isPrebuilt       Boolean    @default(false)
+  personaCount     Int        @default(0)
+  metadata         Json?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  personas         Persona[]
+  studyAssignments StudyPersonaGroup[]
+  domainKnowledge  DomainKnowledge[]
+  tags             TagOnGroup[]
+
+  @@index([organizationId])
+}
+
+model Persona {
+  id              String       @id @default(cuid())
+  personaGroupId  String
+  personaGroup    PersonaGroup @relation(fields: [personaGroupId], references: [id], onDelete: Cascade)
+  name            String
+  age             Int?
+  gender          String?
+  location        String?
+  occupation      String?
+  bio             String?      @db.Text
+  backstory       String       @db.Text
+  goals           Json?
+  frustrations    Json?
+  behaviors       Json?
+  demographics    Json?
+  psychographics  Json?
+  sourceType      SourceType
+  sourceReference Json?
+  llmSystemPrompt String?      @db.Text
+  embedding       Unsupported("vector(1536)")?
+  qualityScore    Float?
+  isActive        Boolean      @default(true)
+
+  // Rich persona fields
+  archetype           String?
+  representativeQuote String?  @db.Text
+  techLiteracy        Int?
+  domainExpertise     String?
+  dayInTheLife        String?  @db.Text
+  coreValues          Json?
+  communicationSample String?  @db.Text
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  personality  PersonalityProfile?
+  attributes   PersonaAttribute[]
+  sessions     Session[]
+  tags         TagOnPersona[]
+  dataSources  PersonaDataSource[]
+
+  @@index([personaGroupId, isActive])
+}
+
+model PersonalityProfile {
+  id                     String  @id @default(cuid())
+  personaId              String  @unique
+  persona                Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+
+  // Big Five
+  openness               Float
+  conscientiousness      Float
+  extraversion           Float
+  agreeableness          Float
+  neuroticism            Float
+
+  // Communication
+  communicationStyle     String?
+  responseLengthTendency String?
+
+  // Decision & Behavior
+  decisionMakingStyle    String?
+  riskTolerance          Float?
+  trustPropensity        Float?
+  emotionalExpressiveness Float?
+
+  // Interview Behavior Modifiers
+  directness             Float?
+  criticalFeedbackTendency Float?
+  vocabularyLevel        String?
+  tangentTendency        Float?
+
+  createdAt              DateTime @default(now())
+}
+
+model PersonaAttribute {
+  id        String  @id @default(cuid())
+  personaId String
+  persona   Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  key       String
+  value     String  @db.Text
+  type      String  @default("string")
+
+  @@unique([personaId, key])
+}
+
+// ─── Studies & Sessions ───
+
+model Study {
+  id                 String      @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById        String
+  createdBy          User        @relation(fields: [createdById], references: [id])
+  title              String
+  description        String?     @db.Text
+  studyType          StudyType
+  status             StudyStatus @default(DRAFT)
+  interviewGuide     String?     @db.Text
+  surveyQuestions    Json?
+  researchObjectives Json?
+  targetSampleSize   Int?
+  completedCount     Int         @default(0)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  personaGroups   StudyPersonaGroup[]
+  sessions        Session[]
+  analysisReports AnalysisReport[]
+
+  @@index([organizationId])
+}
+
+model StudyPersonaGroup {
+  id             String       @id @default(cuid())
+  studyId        String
+  study          Study        @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  personaGroupId String
+  personaGroup   PersonaGroup @relation(fields: [personaGroupId], references: [id])
+  sampleSize     Int?
+  filterCriteria Json?
+
+  @@unique([studyId, personaGroupId])
+}
+
+model Session {
+  id           String        @id @default(cuid())
+  studyId      String
+  study        Study         @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  personaId    String
+  persona      Persona       @relation(fields: [personaId], references: [id])
+  status       SessionStatus @default(PENDING)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  durationMs   Int?
+  tokenUsage   Json?
+  costEstimate Float?
+  errorMessage String?       @db.Text
+  parentId     String?
+  createdAt    DateTime      @default(now())
+
+  messages  SessionMessage[]
+  responses SessionResponse[]
+
+  @@index([studyId, status])
+}
+
+model SessionMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      MessageRole
+  content   String      @db.Text
+  sequence  Int
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId, sequence])
+}
+
+model SessionResponse {
+  id           String   @id @default(cuid())
+  sessionId    String
+  session      Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionKey  String?
+  questionText String   @db.Text
+  responseText String   @db.Text
+  sentiment    String?
+  confidence   Float?
+  themes       Json?
+  codedData    Json?
+  createdAt    DateTime @default(now())
+}
+
+// ─── Uploads ───
+
+model Upload {
+  id               String           @id @default(cuid())
+  organizationId   String
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedById     String
+  uploadedBy       User             @relation(fields: [uploadedById], references: [id])
+  originalFilename String
+  storagePath      String
+  mimeType         String
+  fileSize         Int
+  uploadType       UploadType
+  processingStatus ProcessingStatus @default(PENDING)
+  processingResult Json?
+  rowCount         Int?
+  personaGroupId   String?
+  errorMessage     String?          @db.Text
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+// ─── Analysis ───
+
+model AnalysisReport {
+  id                   String   @id @default(cuid())
+  studyId              String
+  study                Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  title                String
+  summary              String?  @db.Text
+  keyFindings          Json?
+  themes               Json?
+  sentimentBreakdown   Json?
+  demographicBreakdown Json?
+  recommendations      Json?
+  createdAt            DateTime @default(now())
+}
+
+// ─── RAG Knowledge Base ───
+
+model DomainKnowledge {
+  id             String       @id @default(cuid())
+  personaGroupId String
+  personaGroup   PersonaGroup @relation(fields: [personaGroupId], references: [id], onDelete: Cascade)
+
+  // Content
+  title          String
+  content        String       @db.Text
+  summary        String?      @db.Text
+
+  // Provenance
+  sourceType     DataSourceType
+  sourceUrl      String?
+  sourceDomain   String?
+  sourceAuthor   String?
+
+  // Temporal tracking
+  publishedAt    DateTime?
+  scrapedAt      DateTime     @default(now())
+
+  // Quality & relevance
+  relevanceScore Float?
+  sentiment      String?
+  language       String?      @default("en")
+
+  // Search context
+  searchQuery    String?
+  searchSession  String?
+
+  embedding      Unsupported("vector(1536)")?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  personaSources PersonaDataSource[]
+
+  @@index([personaGroupId, sourceType])
+  @@index([publishedAt])
+}
+
+model PersonaDataSource {
+  id                String          @id @default(cuid())
+  personaId         String
+  persona           Persona         @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  domainKnowledgeId String
+  domainKnowledge   DomainKnowledge @relation(fields: [domainKnowledgeId], references: [id], onDelete: Cascade)
+  influence         String?
+
+  @@unique([personaId, domainKnowledgeId])
+}
+
+enum DataSourceType {
+  REDDIT
+  APP_REVIEW
+  PLAY_STORE_REVIEW
+  FORUM
+  PRODUCT_HUNT
+  G2_REVIEW
+  TRUSTPILOT
+  NEWS
+  ACADEMIC
+  SOCIAL_MEDIA
+  MANUAL
+}
+
+// ─── Tags ───
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  groups   TagOnGroup[]
+  personas TagOnPersona[]
+}
+
+model TagOnGroup {
+  tagId          String
+  tag            Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  personaGroupId String
+  personaGroup   PersonaGroup @relation(fields: [personaGroupId], references: [id], onDelete: Cascade)
+
+  @@id([tagId, personaGroupId])
+}
+
+model TagOnPersona {
+  tagId     String
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  personaId String
+  persona   Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+
+  @@id([tagId, personaId])
+}
+
+// ─── Usage Tracking ───
+
+model UsageLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  action         String
+  tokensUsed     Int?
+  cost           Float?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+}
+
+// ─── Enums ───
+
+enum SourceType {
+  PROMPT_GENERATED
+  DATA_BASED
+  UPLOAD_BASED
+}
+
+enum StudyType {
+  INTERVIEW
+  SURVEY
+  FOCUS_GROUP
+  USABILITY_TEST
+  CARD_SORT
+}
+
+enum StudyStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum SessionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  FOLLOW_UP
+}
+
+enum MessageRole {
+  SYSTEM
+  INTERVIEWER
+  RESPONDENT
+}
+
+enum UploadType {
+  SURVEY
+  TRANSCRIPT
+  DATASET
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
