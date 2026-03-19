@@ -442,7 +442,7 @@ Branch Protection Rules require GitHub Pro (private repo). While on Free tier: C
 
 1. **Persona Framework v1.1 not yet implemented** — Schema extensions (`adoptionCurvePosition`, `incomeBracket`, etc.) are fully specified in `docs/PERSONA-FRAMEWORK.md` but not yet deployed. Requires Prisma migration.
 
-2. **Vercel Build Isolation** (Ignored Build Step) not yet set — every push deploys both projects even if only one changed. To set in Vercel Project Settings → Git → Ignored Build Step. Commands in `VERCEL-SETUP.md`.
+2. ~~**Vercel Build Isolation** — configured via `vercel.json` ignoreCommand in both projects.~~ ✅ (2026-03-19)
 
 3. **pgvector not used** — `embedding` fields on `Persona` and `DomainKnowledge` exist, but semantic search is not yet implemented.
 

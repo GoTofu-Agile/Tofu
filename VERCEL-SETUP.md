@@ -109,23 +109,16 @@ The MX + SPF records are for **Zoho Mail** (`admin@gotofu.io`). Without these re
 
 ## How Deploys Work
 
-- Push to `main` → **both** projects deploy automatically (same repo, GitHub Integration)
+- Push to `main` → each project deploys only if its own files changed (via `ignoreCommand` in `vercel.json`)
 - Landing Page (`apps/landing/`): ~15 seconds build (static site, no DB)
 - App (root `/`): ~45 seconds build (`prisma generate` + `next build`)
 
-### Build Isolation (recommended, not yet set)
+### Build Isolation ✅
 
-To avoid unnecessary deploys, set in Vercel Project Settings → **Git → Ignored Build Step**:
+Each project only rebuilds when its own files change. Configured via `ignoreCommand` in `vercel.json`:
 
-**gotofu-landing:**
-```bash
-git diff HEAD^ HEAD --quiet apps/landing
-```
-
-**gotofu-app:**
-```bash
-git diff HEAD^ HEAD --quiet -- . ':!apps/landing'
-```
+- **`vercel.json`** (root → `gotofu-app`): skips build if only `apps/landing/` changed
+- **`apps/landing/vercel.json`** (→ `gotofu-landing`): skips build if no `apps/landing/` files changed
 
 ---
 
