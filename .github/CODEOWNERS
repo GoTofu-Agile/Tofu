@@ -1,0 +1,9 @@
+# Default owners for entire repository.
+# Replace with your real GitHub user or team, for example:
+#   * @your-github-username
+#   * @GoTofu-Agile/engineering
+* @reginaldbaraza-code
+
+# Optional path-specific owners (uncomment/edit as needed):
+# /apps/landing/ @GoTofu-Agile/frontend
+# /src/app/api/ @GoTofu-Agile/backend
