@@ -56,6 +56,10 @@ jobs:
 
                 for (const c of comments) {
                   if (!c.body) continue;
+                  const author = (c.user?.login || "").toLowerCase();
+                  const isVercelBot =
+                    author === "vercel[bot]" || author === "vercel";
+                  if (!isVercelBot) continue;
                   const m = c.body.match(regex);
                   if (m && m[1]) return m[1];
                 }
