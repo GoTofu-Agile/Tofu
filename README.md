@@ -148,7 +148,7 @@ See [`.env.example`](.env.example) for all variables with descriptions.
 
 ---
 
-## Deployment
+## Deployment  
 
 One repo, two Vercel projects with different root directories:
 
