@@ -1,7 +1,7 @@
 # GoTofu — Agent Handover Document
 
 > **Read this document first.** It's the only entry point you need.
-> Last updated: 2026-03-18
+> Last updated: 2026-03-19
 
 ---
 
@@ -344,6 +344,9 @@ Organization (Multi-Tenant Root)
 - AI Assistant Sidebar (chat with platform context)
 - Admin Panel
 - Workspace Settings with AI Product Context
+- GitHub Actions CI (lint + build on PRs)
+- Branch-based development workflow
+- Loading skeletons for slow pages
 
 ### Planned / Not Yet Built ⏳
 
@@ -441,21 +444,28 @@ Branch Protection Rules require GitHub Pro (private repo). While on Free tier: C
 
 2. **Vercel Build Isolation** (Ignored Build Step) not yet set — every push deploys both projects even if only one changed. To set in Vercel Project Settings → Git → Ignored Build Step. Commands in `VERCEL-SETUP.md`.
 
-3. ~~**Old Vercel projects**~~ ✅ DONE — `gotofu`, `tofu`, `tofu-u2t4` deleted (2026-03-18).
+3. **pgvector not used** — `embedding` fields on `Persona` and `DomainKnowledge` exist, but semantic search is not yet implemented.
 
-4. ~~**Old Vercel project**~~ ✅ DONE — old projects cleaned up.
+4. **`www.gotofu.io`** is registered in the `gotofu-landing` project as redirect to `gotofu.io` but not yet verified.
 
-5. **pgvector not used** — `embedding` fields on `Persona` and `DomainKnowledge` exist, but semantic search is not yet implemented.
+5. **GitHub Organization cleanup** — App repo is on `habibidani/gotofu` (personal account). Should be transferred to `GoTofu-Agile` org. `GoTofu-Agile/Tofu` (167KB, public) and `GoTofu-Agile/LandingPage` (public) are unused repos that can be deleted.
 
-6. ~~**Inngest Webhook URL**~~ ✅ DONE (2026-03-18) — Inngest connected via Vercel Integration, auto-sync on every deploy. App: `https://app.gotofu.io/api/inngest`, Functions: `run-batch-interview`, `generate-insights`.
+6. **Old Git branches** — `dev/login-debug`, `feat/results-dashboard-landing-split`, `marc` — all fully merged into main, can be deleted.
 
-7. **`www.gotofu.io`** is registered in the `gotofu-landing` project as redirect to `gotofu.io` but not yet verified.
+7. **Marc's persona work** — Marc built persona section improvements on the `marc` branch, but all commits are already in main. Need to check with Marc if he has unpushed local changes.
 
-8. ~~**Batch interview parallelization**~~ ✅ DONE (2026-03-18) — Interviews now run in parallel batches of 3 via `Promise.all` + `step.run()`. ~3x faster.
+### Recently Completed
 
-9. ~~**Development workflow**~~ ✅ DONE (2026-03-18) — Branch-based workflow with GitHub Actions CI established. See Section 12.
-
-10. ~~**Login feedback improvement**~~ ✅ DONE (2026-03-18) — Fullscreen loading overlay on Login/Signup + Dashboard `loading.tsx`.
+- ~~Batch interview parallelization~~ ✅ (2026-03-18) — 3-parallel batches
+- ~~Development workflow~~ ✅ (2026-03-18) — Branch-based + GitHub Actions CI
+- ~~Login feedback~~ ✅ (2026-03-18) — Fullscreen loading overlay
+- ~~Old Vercel projects~~ ✅ (2026-03-18) — Cleaned up
+- ~~Inngest Webhook~~ ✅ (2026-03-18) — Connected via Vercel Integration
+- ~~All docs translated to English~~ ✅ (2026-03-19)
+- ~~Docs: wrong repo architecture~~ ✅ (2026-03-19) — Fixed: one repo, two Vercel projects (not two repos)
+- ~~Dead code cleanup~~ ✅ (2026-03-19) — Removed unused landing components, empty dirs
+- ~~Performance: DB query optimization~~ ✅ (2026-03-19) — Slim persona queries, parallel auth, lighter dashboard query
+- ~~Performance: loading skeletons~~ ✅ (2026-03-19) — Added for persona group, study detail, results pages
 
 ---
 
