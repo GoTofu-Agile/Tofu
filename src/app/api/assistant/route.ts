@@ -430,24 +430,21 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
           })
         ),
         execute: async ({ groupId, count, domainContext }) => {
-          const { generateAndSavePersonas } = await import("@/lib/ai/generate-personas");
           const contextStr = [
             domainContext,
             orgContext?.productDescription,
             orgContext?.targetAudience ? `Target audience: ${orgContext.targetAudience}` : "",
             orgContext?.industry ? `Industry: ${orgContext.industry}` : "",
           ].filter(Boolean).join("\n");
-
-          const result = await generateAndSavePersonas({
+          return {
+            message: `Starting generation of ${count} personas`,
+            url: `/personas/${groupId}`,
+            runId: `${groupId}:${Date.now()}`,
             groupId,
             count,
             domainContext: contextStr || undefined,
             sourceTypeOverride: "PROMPT_GENERATED",
-          });
-          return {
-            message: `Generated ${result.generated} personas`,
-            url: `/personas/${groupId}`,
-            count: result.generated,
+            status: "started",
           };
         },
       }),
