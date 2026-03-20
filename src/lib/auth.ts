@@ -65,3 +65,20 @@ export async function getActiveOrgId(organizations: Array<{ id: string }>) {
     organizations[0]?.id
   );
 }
+
+/**
+ * Resolve the active workspace for API routes: cookie if valid, otherwise first org.
+ * Matches dashboard layout behavior so client fetches work before `activeOrgId` is set in document.cookie.
+ */
+export async function resolveActiveOrganizationId(
+  cookieOrgId: string | undefined,
+  userId: string
+): Promise<string | null> {
+  const organizations = await getOrganizationsForUser(userId);
+  if (organizations.length === 0) return null;
+  return (
+    organizations.find((org) => org.id === cookieOrgId)?.id ??
+    organizations[0]?.id ??
+    null
+  );
+}

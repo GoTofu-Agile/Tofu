@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown } from "lucide-react";
 
@@ -45,11 +45,16 @@ export function ResultsThemes({ themes, quotes }: ResultsThemesProps) {
     setExpandedTheme(expandedTheme === name ? null : name);
   }
 
-  function getQuotesForTheme(themeName: string) {
-    return quotes.filter(
-      (q) => q.theme.toLowerCase() === themeName.toLowerCase()
-    );
-  }
+  const quotesByTheme = useMemo(() => {
+    const map = new Map<string, KeyQuote[]>();
+    for (const q of quotes) {
+      const key = q.theme.toLowerCase();
+      const arr = map.get(key);
+      if (arr) arr.push(q);
+      else map.set(key, [q]);
+    }
+    return map;
+  }, [quotes]);
 
   return (
     <div className="space-y-3">
@@ -59,7 +64,7 @@ export function ResultsThemes({ themes, quotes }: ResultsThemesProps) {
       <div className="space-y-2">
         {themes.map((theme) => {
           const isExpanded = expandedTheme === theme.name;
-          const themeQuotes = getQuotesForTheme(theme.name);
+          const themeQuotes = quotesByTheme.get(theme.name.toLowerCase()) ?? [];
 
           return (
             <div
@@ -121,9 +126,9 @@ export function ResultsThemes({ themes, quotes }: ResultsThemesProps) {
 
                   {themeQuotes.length > 0 && (
                     <div className="space-y-2">
-                      {themeQuotes.map((q, i) => (
+                      {themeQuotes.map((q) => (
                         <div
-                          key={i}
+                          key={`${q.personaName}-${q.context}-${q.quote.slice(0, 24)}`}
                           className="rounded-lg border-l-2 border-primary/30 bg-muted/10 p-3"
                         >
                           <p className="text-sm italic">
