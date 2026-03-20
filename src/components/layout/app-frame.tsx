@@ -1,10 +1,11 @@
 "use client";
 
 import { useAssistant } from "@/components/assistant/assistant-provider";
+import { AssistantAutopilotOverlay } from "@/components/assistant/assistant-autopilot-overlay";
 import { cn } from "@/lib/utils";
 
 export function AppFrame({ children }: { children: React.ReactNode }) {
-  const { isOpen } = useAssistant();
+  const { isOpen, autopilot } = useAssistant();
 
   return (
     <div
@@ -15,7 +16,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           : "top-0 left-0 bottom-0 right-0"
       )}
     >
-      {children}
+      <div className={cn("flex w-full", autopilot.active ? "transition-all duration-300 blur-[1px] saturate-75" : "")}>
+        {children}
+      </div>
+      <AssistantAutopilotOverlay />
     </div>
   );
 }

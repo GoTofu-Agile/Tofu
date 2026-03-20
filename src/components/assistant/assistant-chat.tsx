@@ -23,6 +23,7 @@ import {
   Search,
   FileText,
   Compass,
+  ArrowUpRight,
 } from "lucide-react";
 import type { UIMessage } from "ai";
 
@@ -31,6 +32,17 @@ interface ConversationItem {
   title: string | null;
   updatedAt: string;
   _count: { messages: number };
+}
+
+interface LivePersonaGeneration {
+  runId: string;
+  groupId: string;
+  total: number;
+  completed: number;
+  currentPersona?: string;
+  status: "running" | "done" | "error";
+  url?: string;
+  error?: string;
 }
 
 export function AssistantChat() {
@@ -43,12 +55,19 @@ export function AssistantChat() {
     conversationId,
     setConversationId,
     startNewChat,
+    startAutopilot,
+    updateAutopilot,
+    finishAutopilot,
+    failAutopilot,
+    clearAutopilot,
   } = useAssistant();
   const [inputValue, setInputValue] = useState("");
   const [history, setHistory] = useState<ConversationItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [liveGenerations, setLiveGenerations] = useState<Record<string, LivePersonaGeneration>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const startedGenerationIdsRef = useRef<Set<string>>(new Set());
 
   const transport = useMemo(
     () =>
@@ -94,6 +113,237 @@ export function AssistantChat() {
       }
     }
   }, [messages, router]);
+
+  const startLivePersonaGeneration = useCallback(
+    async (payload: {
+      runId: string;
+      groupId: string;
+      count: number;
+      domainContext?: string;
+      sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
+      url?: string;
+    }) => {
+      const { runId, groupId, count, domainContext, sourceTypeOverride, url } = payload;
+
+      setLiveGenerations((prev) => ({
+        ...prev,
+        [runId]: {
+          runId,
+          groupId,
+          total: count,
+          completed: 0,
+          status: "running",
+          url,
+        },
+      }));
+
+      startAutopilot("Creating personas", "Navigating to personas and starting generation...");
+      if (url) router.push(url);
+
+      try {
+        const res = await fetch("/api/personas/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            groupId,
+            count,
+            domainContext,
+            sourceTypeOverride,
+          }),
+        });
+
+        if (!res.ok || !res.body) {
+          const errText = await res.text().catch(() => "");
+          throw new Error(errText || `Failed to start generation (${res.status})`);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        updateAutopilot({
+          title: "Generating personas",
+          detail: "Agent is creating personas now...",
+          status: "running",
+        });
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex = buffer.indexOf("\n");
+          while (newlineIndex !== -1) {
+            const line = buffer.slice(0, newlineIndex).trim();
+            buffer = buffer.slice(newlineIndex + 1);
+
+            if (line) {
+              try {
+                const evt = JSON.parse(line) as
+                  | { type: "progress"; completed: number; total: number; personaName?: string }
+                  | { type: "done"; generated: number }
+                  | { type: "error"; message?: string };
+
+                if (evt.type === "progress") {
+                  updateAutopilot({
+                    title: "Generating personas",
+                    detail: evt.personaName
+                      ? `Created ${evt.personaName}. Continuing...`
+                      : "Creating personas...",
+                    progress: {
+                      completed: evt.completed,
+                      total: evt.total ?? count,
+                    },
+                    status: "running",
+                  });
+                  setLiveGenerations((prev) => ({
+                    ...prev,
+                    [runId]: {
+                      ...(prev[runId] ?? {
+                        runId,
+                        groupId,
+                        total: evt.total ?? count,
+                        completed: 0,
+                        status: "running",
+                        url,
+                      }),
+                      total: evt.total ?? prev[runId]?.total ?? count,
+                      completed: evt.completed,
+                      currentPersona: evt.personaName,
+                      status: "running",
+                    },
+                  }));
+                } else if (evt.type === "done") {
+                  updateAutopilot({
+                    title: "Finalizing",
+                    detail: "Wrapping up and syncing the final page...",
+                    status: "running",
+                  });
+                  finishAutopilot(`Done. Generated ${evt.generated} personas.`);
+                  setLiveGenerations((prev) => ({
+                    ...prev,
+                    [runId]: {
+                      ...(prev[runId] ?? {
+                        runId,
+                        groupId,
+                        total: count,
+                        completed: 0,
+                        status: "running",
+                        url,
+                      }),
+                      completed: evt.generated,
+                      status: "done",
+                    },
+                  }));
+                  if (url) router.push(url);
+                  setTimeout(() => {
+                    clearAutopilot();
+                  }, 1800);
+                } else if (evt.type === "error") {
+                  failAutopilot(evt.message || "Persona generation failed.");
+                  setLiveGenerations((prev) => ({
+                    ...prev,
+                    [runId]: {
+                      ...(prev[runId] ?? {
+                        runId,
+                        groupId,
+                        total: count,
+                        completed: 0,
+                        status: "running",
+                        url,
+                      }),
+                      status: "error",
+                      error: evt.message || "Generation failed",
+                    },
+                  }));
+                }
+              } catch {
+                // ignore malformed line
+              }
+            }
+
+            newlineIndex = buffer.indexOf("\n");
+          }
+        }
+      } catch (error) {
+        failAutopilot(error instanceof Error ? error.message : "Generation failed");
+        setLiveGenerations((prev) => ({
+          ...prev,
+          [runId]: {
+            ...(prev[runId] ?? {
+              runId,
+              groupId,
+              total: count,
+              completed: 0,
+              status: "running",
+              url,
+            }),
+            status: "error",
+            error: error instanceof Error ? error.message : "Generation failed",
+          },
+        }));
+        setTimeout(() => {
+          clearAutopilot();
+        }, 2500);
+      }
+    },
+    [
+      router,
+      startAutopilot,
+      updateAutopilot,
+      finishAutopilot,
+      failAutopilot,
+      clearAutopilot,
+    ]
+  );
+
+  useEffect(() => {
+    for (const message of messages) {
+      if (message.role !== "assistant") continue;
+      for (let i = 0; i < message.parts.length; i++) {
+        const part = message.parts[i];
+        if (
+          part.type !== "tool-generatePersonas" ||
+          !("state" in part) ||
+          part.state !== "output-available" ||
+          !("output" in part)
+        ) {
+          continue;
+        }
+
+        const output = part.output as {
+          runId?: string;
+          groupId?: string;
+          count?: number;
+          domainContext?: string;
+          sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
+          status?: string;
+          url?: string;
+        };
+
+        if (
+          output?.status !== "started" ||
+          !output?.runId ||
+          !output?.groupId ||
+          !output?.count
+        ) {
+          continue;
+        }
+
+        const dedupeKey = `${message.id}:${i}:${output.runId}`;
+        if (startedGenerationIdsRef.current.has(dedupeKey)) continue;
+        startedGenerationIdsRef.current.add(dedupeKey);
+
+        void startLivePersonaGeneration({
+          runId: output.runId,
+          groupId: output.groupId,
+          count: output.count,
+          domainContext: output.domainContext,
+          sourceTypeOverride: output.sourceTypeOverride,
+          url: output.url,
+        });
+      }
+    }
+  }, [messages, startLivePersonaGeneration]);
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
@@ -259,13 +509,20 @@ export function AssistantChat() {
                         toolName={tp.toolName}
                         state={tp.state}
                         result={tp.result}
+                        liveGeneration={
+                          tp.toolName === "generatePersonas" &&
+                          tp.result?.runId &&
+                          typeof tp.result.runId === "string"
+                            ? liveGenerations[tp.result.runId]
+                            : undefined
+                        }
                         onNavigate={(path) => router.push(path)}
                       />
                     ))}
 
                     {text && (
                       <div className="text-[13px] leading-5 text-stone-900">
-                        <p className="whitespace-pre-wrap break-words">{text}</p>
+                        <AssistantRichText text={text} onNavigate={(path) => router.push(path)} />
                       </div>
                     )}
                   </>
@@ -397,11 +654,13 @@ function ToolResultCard({
   toolName,
   state,
   result,
+  liveGeneration,
   onNavigate,
 }: {
   toolName: string;
   state: string;
   result?: Record<string, unknown>;
+  liveGeneration?: LivePersonaGeneration;
   onNavigate: (path: string) => void;
 }) {
   const label = TOOL_LABELS[toolName] || toolName;
@@ -421,6 +680,108 @@ function ToolResultCard({
   // Completed state — checkmark + label
   if (isDone && result) {
     const url = result.url as string | undefined;
+    const generationStatus = result.status as string | undefined;
+
+    if (toolName === "generatePersonas" && generationStatus === "started") {
+      const completed = liveGeneration?.completed ?? 0;
+      const total = liveGeneration?.total ?? ((result.count as number | undefined) ?? 0);
+      const progressPercent =
+        total > 0 ? Math.max(0, Math.min(100, Math.round((completed / total) * 100))) : 0;
+      const currentPersona = liveGeneration?.currentPersona;
+      const isRunning = !liveGeneration || liveGeneration.status === "running";
+      const isDoneLive = liveGeneration?.status === "done";
+      const isError = liveGeneration?.status === "error";
+
+      return (
+        <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3 shadow-xs">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "grid h-7 w-7 place-items-center rounded-full",
+                  isError
+                    ? "bg-red-100 text-red-700"
+                    : isDoneLive
+                      ? "bg-green-100 text-green-700"
+                      : "bg-stone-100 text-stone-600"
+                )}
+              >
+                {isRunning ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : isError ? (
+                  <X className="h-3.5 w-3.5" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+              </div>
+              <div>
+                <p className="text-[13px] font-medium text-stone-900">Persona generation</p>
+                <p className="text-[11px] text-stone-500">
+                  {isError
+                    ? "Stopped with an error"
+                    : isDoneLive
+                      ? "Completed successfully"
+                      : "Running live in this workspace"}
+                </p>
+              </div>
+            </div>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                isError
+                  ? "bg-red-100 text-red-700"
+                  : isDoneLive
+                    ? "bg-green-100 text-green-700"
+                    : "bg-stone-100 text-stone-600"
+              )}
+            >
+              {isError ? "Error" : isDoneLive ? "Done" : `${completed}/${total || "?"}`}
+            </span>
+          </div>
+
+          {!isError && (
+            <div className="mt-3">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    isDoneLive ? "bg-green-600" : "bg-stone-700"
+                  )}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-stone-500">
+                {isDoneLive
+                  ? `Generated ${completed} personas`
+                  : `Generating personas... ${progressPercent}%`}
+              </p>
+            </div>
+          )}
+
+          {currentPersona && isRunning && (
+            <p className="mt-2 rounded-lg bg-stone-50 px-2 py-1 text-[11px] text-stone-600">
+              Created: <span className="font-medium text-stone-800">{currentPersona}</span>
+            </p>
+          )}
+
+          {isError && (
+            <p className="mt-2 rounded-lg bg-red-50 px-2 py-1 text-[11px] text-red-700">
+              {liveGeneration?.error || "Persona generation failed"}
+            </p>
+          )}
+
+          {url && (
+            <button
+              onClick={() => onNavigate(url)}
+              className="mt-3 inline-flex items-center gap-1 rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-[11px] font-medium text-stone-700 transition-colors hover:bg-stone-100"
+            >
+              View live progress
+              <ArrowUpRight className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      );
+    }
 
     // List results (persona groups, studies)
     if (Array.isArray(result.items)) {
@@ -461,4 +822,87 @@ function ToolResultCard({
   }
 
   return null;
+}
+
+function AssistantRichText({
+  text,
+  onNavigate,
+}: {
+  text: string;
+  onNavigate: (path: string) => void;
+}) {
+  const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = regex.exec(text);
+  let key = 0;
+
+  while (match) {
+    if (match.index > lastIndex) {
+      nodes.push(
+        <span key={`t-${key++}`} className="whitespace-pre-wrap break-words">
+          {text.slice(lastIndex, match.index)}
+        </span>
+      );
+    }
+
+    const label = match[1];
+    const rawHref = match[2]?.trim() ?? "";
+    const href = normalizeAssistantHref(rawHref);
+
+    if (href.type === "internal") {
+      nodes.push(
+        <button
+          key={`l-${key++}`}
+          onClick={() => onNavigate(href.value)}
+          className="inline-flex items-center gap-1 rounded-md px-1 text-stone-900 underline underline-offset-2 hover:bg-stone-100"
+        >
+          {label}
+          <ArrowUpRight className="h-3 w-3" />
+        </button>
+      );
+    } else if (href.type === "external") {
+      nodes.push(
+        <a
+          key={`l-${key++}`}
+          href={href.value}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 rounded-md px-1 text-stone-900 underline underline-offset-2 hover:bg-stone-100"
+        >
+          {label}
+          <ArrowUpRight className="h-3 w-3" />
+        </a>
+      );
+    } else {
+      nodes.push(
+        <span key={`l-${key++}`} className="whitespace-pre-wrap break-words">
+          {match[0]}
+        </span>
+      );
+    }
+
+    lastIndex = regex.lastIndex;
+    match = regex.exec(text);
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(
+      <span key={`t-${key++}`} className="whitespace-pre-wrap break-words">
+        {text.slice(lastIndex)}
+      </span>
+    );
+  }
+
+  return <p>{nodes}</p>;
+}
+
+function normalizeAssistantHref(
+  href: string
+): { type: "internal" | "external" | "invalid"; value: string } {
+  if (!href) return { type: "invalid", value: href };
+  if (href.startsWith("#/")) return { type: "internal", value: href.slice(1) };
+  if (href.startsWith("/")) return { type: "internal", value: href };
+  if (/^https?:\/\//i.test(href)) return { type: "external", value: href };
+  return { type: "invalid", value: href };
 }
