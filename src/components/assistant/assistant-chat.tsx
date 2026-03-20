@@ -26,6 +26,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import type { UIMessage } from "ai";
+import { ASSISTANT_CONVERSATION_ID_HEADER } from "@/lib/assistant/constants";
 
 interface ConversationItem {
   id: string;
@@ -68,14 +69,26 @@ export function AssistantChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const startedGenerationIdsRef = useRef<Set<string>>(new Set());
+  const scrollRafRef = useRef<number | null>(null);
+  /** Latest thread id for request body; avoids recreating transport (which would reset useChat state). */
+  const conversationIdRef = useRef(conversationId);
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/assistant",
-        body: { conversationId },
+        body: () => ({ conversationId: conversationIdRef.current }),
+        fetch: async (input, init) => {
+          const res = await fetch(input, init);
+          const headerId = res.headers.get(ASSISTANT_CONVERSATION_ID_HEADER);
+          if (headerId) setConversationId(headerId);
+          return res;
+        },
       }),
-    [conversationId]
+    [setConversationId]
   );
 
   const { messages, sendMessage, status, setMessages } = useChat({
@@ -88,8 +101,16 @@ export function AssistantChat() {
   const isLoading = status === "streaming" || status === "submitted";
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+    scrollRafRef.current = requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: status === "streaming" ? "auto" : "smooth",
+      });
+    });
+    return () => {
+      if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+    };
+  }, [messages.length, status]);
 
   useEffect(() => {
     if (isOpen && chatView === "chat")
@@ -297,51 +318,51 @@ export function AssistantChat() {
   );
 
   useEffect(() => {
-    for (const message of messages) {
-      if (message.role !== "assistant") continue;
-      for (let i = 0; i < message.parts.length; i++) {
-        const part = message.parts[i];
-        if (
-          part.type !== "tool-generatePersonas" ||
-          !("state" in part) ||
-          part.state !== "output-available" ||
-          !("output" in part)
-        ) {
-          continue;
-        }
+    const message = messages[messages.length - 1];
+    if (!message || message.role !== "assistant") return;
 
-        const output = part.output as {
-          runId?: string;
-          groupId?: string;
-          count?: number;
-          domainContext?: string;
-          sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
-          status?: string;
-          url?: string;
-        };
-
-        if (
-          output?.status !== "started" ||
-          !output?.runId ||
-          !output?.groupId ||
-          !output?.count
-        ) {
-          continue;
-        }
-
-        const dedupeKey = `${message.id}:${i}:${output.runId}`;
-        if (startedGenerationIdsRef.current.has(dedupeKey)) continue;
-        startedGenerationIdsRef.current.add(dedupeKey);
-
-        void startLivePersonaGeneration({
-          runId: output.runId,
-          groupId: output.groupId,
-          count: output.count,
-          domainContext: output.domainContext,
-          sourceTypeOverride: output.sourceTypeOverride,
-          url: output.url,
-        });
+    for (let i = 0; i < message.parts.length; i++) {
+      const part = message.parts[i];
+      if (
+        part.type !== "tool-generatePersonas" ||
+        !("state" in part) ||
+        part.state !== "output-available" ||
+        !("output" in part)
+      ) {
+        continue;
       }
+
+      const output = part.output as {
+        runId?: string;
+        groupId?: string;
+        count?: number;
+        domainContext?: string;
+        sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
+        status?: string;
+        url?: string;
+      };
+
+      if (
+        output?.status !== "started" ||
+        !output?.runId ||
+        !output?.groupId ||
+        !output?.count
+      ) {
+        continue;
+      }
+
+      const dedupeKey = `${message.id}:${i}:${output.runId}`;
+      if (startedGenerationIdsRef.current.has(dedupeKey)) continue;
+      startedGenerationIdsRef.current.add(dedupeKey);
+
+      void startLivePersonaGeneration({
+        runId: output.runId,
+        groupId: output.groupId,
+        count: output.count,
+        domainContext: output.domainContext,
+        sourceTypeOverride: output.sourceTypeOverride,
+        url: output.url,
+      });
     }
   }, [messages, startLivePersonaGeneration]);
 
@@ -366,6 +387,7 @@ export function AssistantChat() {
         const res = await fetch(`/api/assistant/history/${id}`);
         if (res.ok) {
           const data = await res.json();
+          conversationIdRef.current = id;
           setConversationId(id);
           // Convert DB messages to UIMessage format
           const uiMessages: UIMessage[] = (data.messages ?? []).map(
@@ -430,6 +452,17 @@ export function AssistantChat() {
     return parts;
   }
 
+  const parsedMessages = useMemo(
+    () =>
+      messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        text: getMessageText(message),
+        toolParts: getToolParts(message),
+      })),
+    [messages]
+  );
+
   function formatTimeAgo(dateStr: string) {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -459,6 +492,7 @@ export function AssistantChat() {
           <div className="flex items-center gap-[1px]">
             <button
               onClick={() => {
+                conversationIdRef.current = null;
                 startNewChat();
                 setMessages([]);
               }}
@@ -488,22 +522,20 @@ export function AssistantChat() {
             </p>
           )}
 
-          {messages.map((message) => {
-            const text = getMessageText(message);
-            const toolParts = getToolParts(message);
+          {parsedMessages.map((message) => {
             const isUser = message.role === "user";
 
             return (
               <div key={message.id} className="my-1.5 space-y-1.5">
-                {isUser && text ? (
+                {isUser && message.text ? (
                   <div className="flex justify-end">
                     <div className="max-w-[85%] rounded-2xl bg-stone-200 px-4 py-3 text-[13px] leading-5 text-stone-900">
-                      <p className="whitespace-pre-wrap break-words">{text}</p>
+                      <p className="whitespace-pre-wrap break-words">{message.text}</p>
                     </div>
                   </div>
                 ) : (
                   <>
-                    {toolParts.map((tp, i) => (
+                    {message.toolParts.map((tp, i) => (
                       <ToolResultCard
                         key={`${message.id}-tool-${i}`}
                         toolName={tp.toolName}
@@ -520,9 +552,12 @@ export function AssistantChat() {
                       />
                     ))}
 
-                    {text && (
+                    {message.text && (
                       <div className="text-[13px] leading-5 text-stone-900">
-                        <AssistantRichText text={text} onNavigate={(path) => router.push(path)} />
+                        <AssistantRichText
+                          text={message.text}
+                          onNavigate={(path) => router.push(path)}
+                        />
                       </div>
                     )}
                   </>

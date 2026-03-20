@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface KeyQuote {
@@ -23,13 +23,18 @@ export function ResultsQuotes({
 }: ResultsQuotesProps) {
   const [themeFilter, setThemeFilter] = useState<string>("all");
   const [personaFilter, setPersonaFilter] = useState<string>("all");
+  const normalizedThemeFilter = themeFilter.toLowerCase();
 
-  const filtered = quotes.filter((q) => {
-    if (themeFilter !== "all" && q.theme.toLowerCase() !== themeFilter.toLowerCase())
-      return false;
-    if (personaFilter !== "all" && q.personaName !== personaFilter) return false;
-    return true;
-  });
+  const filtered = useMemo(
+    () =>
+      quotes.filter((q) => {
+        if (themeFilter !== "all" && q.theme.toLowerCase() !== normalizedThemeFilter)
+          return false;
+        if (personaFilter !== "all" && q.personaName !== personaFilter) return false;
+        return true;
+      }),
+    [quotes, themeFilter, normalizedThemeFilter, personaFilter]
+  );
 
   return (
     <div className="space-y-3">
@@ -71,9 +76,9 @@ export function ResultsQuotes({
             No quotes match the selected filters.
           </p>
         ) : (
-          filtered.map((q, i) => (
+          filtered.map((q) => (
             <div
-              key={i}
+              key={`${q.personaName}-${q.context}-${q.quote.slice(0, 24)}`}
               className="rounded-lg border-l-2 border-primary/30 bg-muted/10 p-3"
             >
               <p className="text-sm italic">&ldquo;{q.quote}&rdquo;</p>
