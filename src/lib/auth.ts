@@ -17,12 +17,9 @@ export async function requireAuth() {
     throw new Error("Not authenticated");
   }
 
-  // Upsert user — idempotent, works for both new and returning users
-  const dbUser = await upsertUser(
-    authUser.id,
-    authUser.email!,
-    authUser.user_metadata?.name
-  );
+  // Read first, only upsert on first login
+  const dbUser = (await getUser(authUser.id)) ??
+    await upsertUser(authUser.id, authUser.email!, authUser.user_metadata?.name);
 
   return dbUser;
 }
@@ -33,11 +30,15 @@ export async function requireAuthWithOrgs() {
     throw new Error("Not authenticated");
   }
 
-  // Upsert user + fetch orgs in parallel
-  const [dbUser, organizations] = await Promise.all([
-    upsertUser(authUser.id, authUser.email!, authUser.user_metadata?.name),
+  // Read user + fetch orgs in parallel (avoid DB write on every request)
+  const [existingUser, organizations] = await Promise.all([
+    getUser(authUser.id),
     getOrganizationsForUser(authUser.id),
   ]);
+
+  // Only upsert if user doesn't exist yet (first login)
+  const dbUser = existingUser ??
+    await upsertUser(authUser.id, authUser.email!, authUser.user_metadata?.name);
 
   // Ensure personal workspace exists
   if (organizations.length === 0) {
@@ -56,6 +57,25 @@ export async function requireAuthWithOrgs() {
   }
 
   return { user: dbUser, organizations };
+}
+
+/**
+ * Lightweight auth for pages — skips org fetching (layout already did it).
+ * Returns authenticated user + activeOrgId from cookie.
+ */
+export async function requireAuthWithActiveOrg() {
+  const user = await requireAuth();
+  const cookieStore = await cookies();
+  let activeOrgId = cookieStore.get("activeOrgId")?.value;
+
+  // Fallback: if no cookie, resolve from user's organizations
+  if (!activeOrgId) {
+    const organizations = await getOrganizationsForUser(user.id);
+    activeOrgId = organizations[0]?.id;
+    if (!activeOrgId) throw new Error("No active organization");
+  }
+
+  return { user, activeOrgId };
 }
 
 export async function getActiveOrgId(organizations: Array<{ id: string }>) {

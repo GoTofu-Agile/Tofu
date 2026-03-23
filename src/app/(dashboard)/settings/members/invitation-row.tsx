@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { Copy, Check } from "lucide-react";
 import { revokeInvite } from "./actions";
 
@@ -19,7 +18,6 @@ interface InvitationRowProps {
 }
 
 export function InvitationRow({ invitation, canManage }: InvitationRowProps) {
-  const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState(false);
 
@@ -47,7 +45,6 @@ export function InvitationRow({ invitation, canManage }: InvitationRowProps) {
       toast.error(result.error);
     } else {
       toast.success("Invitation revoked");
-      router.refresh();
     }
   }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -40,7 +39,6 @@ export function GeneratePersonasButton({
   domainContext,
   autoStart = false,
 }: GeneratePersonasButtonProps) {
-  const router = useRouter();
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<{
     completed: number;
@@ -113,7 +111,6 @@ export function GeneratePersonasButton({
         }
       }
 
-      router.refresh();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Generation failed"
@@ -122,7 +119,7 @@ export function GeneratePersonasButton({
       setGenerating(false);
       setProgress(null);
     }
-  }, [generating, groupId, defaultCount, domainContext, router]);
+  }, [generating, groupId, defaultCount, domainContext]);
 
   useEffect(() => {
     if (autoStart) {

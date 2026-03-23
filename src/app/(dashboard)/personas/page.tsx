@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
+import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getPersonaGroupsForOrg } from "@/lib/db/queries/personas";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus } from "lucide-react";
@@ -57,8 +57,7 @@ function computeGroupDisplay(group: {
 }
 
 export default async function PersonasPage() {
-  const { organizations } = await requireAuthWithOrgs();
-  const activeOrgId = await getActiveOrgId(organizations);
+  const { activeOrgId } = await requireAuthWithActiveOrg();
 
   const groups = await getPersonaGroupsForOrg(activeOrgId);
 

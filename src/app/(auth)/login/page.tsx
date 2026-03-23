@@ -22,29 +22,16 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
+  const next = searchParams.get("next");
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
-    try {
-      const result = await login(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
+    const result = await login(formData);
+    if (result?.error) {
+      setError(result.error);
       setLoading(false);
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-        <p className="mt-4 text-sm text-muted-foreground">Signing you in…</p>
-      </div>
-    );
   }
 
   return (
@@ -67,6 +54,7 @@ function LoginForm() {
           </p>
         )}
         <form action={handleSubmit} className="space-y-4">
+          {next && <input type="hidden" name="next" value={next} />}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -87,8 +75,15 @@ function LoginForm() {
               required
             />
           </div>
-          <Button type="submit" className="w-full cursor-pointer">
-            Sign in
+          <Button type="submit" className="w-full cursor-pointer" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              "Sign in"
+            )}
           </Button>
         </form>
       </CardContent>

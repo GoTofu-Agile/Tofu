@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
+import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getOrgProductContext } from "@/lib/db/queries/organizations";
 import { prisma } from "@/lib/db/prisma";
 import { FeatureCards } from "@/components/dashboard/feature-cards";
@@ -29,10 +29,12 @@ function getGreeting() {
 }
 
 export default async function DashboardPage() {
-  const { user, organizations } = await requireAuthWithOrgs();
-  const activeOrgId = await getActiveOrgId(organizations);
+  const { user, activeOrgId } = await requireAuthWithActiveOrg();
 
-  const activeOrg = organizations.find((o) => o.id === activeOrgId);
+  const activeOrg = await prisma.organization.findUnique({
+    where: { id: activeOrgId },
+    select: { name: true, isPersonal: true },
+  });
   const orgDisplayName = activeOrg?.isPersonal ? "Personal" : (activeOrg?.name ?? "Workspace");
 
   const [orgContext, personaGroupCount, studyCount, personaCount, recentStudies, recentGroups] =
