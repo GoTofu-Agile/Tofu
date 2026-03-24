@@ -17,6 +17,16 @@ import {
 import { Loader2 } from "lucide-react";
 import { login } from "../actions";
 
+function isRedirectError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "digest" in error &&
+    typeof error.digest === "string" &&
+    error.digest.includes("NEXT_REDIRECT")
+  );
+}
+
 function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -31,7 +41,11 @@ function LoginForm() {
       if (result?.error) {
         setError(result.error);
       }
-    } catch {
+    } catch (error) {
+      // Server action redirects throw NEXT_REDIRECT; treat that as success.
+      if (isRedirectError(error)) {
+        return;
+      }
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
