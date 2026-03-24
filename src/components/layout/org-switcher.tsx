@@ -18,8 +18,6 @@ interface OrgSwitcherProps {
     name: string;
     slug: string;
     isPersonal: boolean;
-    members: Array<{ role: string }>;
-    _count: { members: number };
   }>;
   activeOrgId: string;
   collapsed?: boolean;
