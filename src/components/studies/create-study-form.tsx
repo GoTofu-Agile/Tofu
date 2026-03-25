@@ -4,18 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createNewStudy } from "@/app/(dashboard)/studies/actions";
-import { StepType } from "./steps/step-type";
-import { StepAudience } from "./steps/step-audience";
+import { StepSetup } from "./steps/step-setup";
 import { StepQuestions, type SurveyQuestion } from "./steps/step-questions";
 import { StepReview } from "./steps/step-review";
 
 type StudyType = "INTERVIEW" | "SURVEY" | "FOCUS_GROUP" | "USABILITY_TEST";
-type Step = "type" | "audience" | "questions" | "review";
+type Step = "setup" | "questions" | "review";
 
-const STEP_ORDER: Step[] = ["type", "audience", "questions", "review"];
+const STEP_ORDER: Step[] = ["setup", "questions", "review"];
 const STEP_LABELS: Record<Step, string> = {
-  type: "Type",
-  audience: "Audience",
+  setup: "Setup",
   questions: "Questions",
   review: "Review",
 };
@@ -40,12 +38,19 @@ interface CreateStudyFormProps {
 
 export function CreateStudyForm({ personaGroups, orgContext }: CreateStudyFormProps) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("type");
+  const [step, setStep] = useState<Step>("setup");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [studyType, setStudyType] = useState<StudyType>("INTERVIEW");
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
-  const [title, setTitle] = useState("");
   const [interviewGuide, setInterviewGuide] = useState("");
   const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>([]);
+  const [qualityScore, setQualityScore] = useState<{
+    score: number;
+    evaluations: Array<{ questionIndex: number; score: number; issues: string[]; explanation: string; suggestion: string | null }>;
+    feedback: string;
+    missingTopics: string[];
+  } | null>(null);
 
   const currentStepIndex = STEP_ORDER.indexOf(step);
 
@@ -53,16 +58,11 @@ export function CreateStudyForm({ personaGroups, orgContext }: CreateStudyFormPr
     setStep(s);
   }
 
-  function handleTypeSelect(type: StudyType) {
-    setStudyType(type);
-    goTo("audience");
-  }
-
   async function handleCreate() {
     const result = await createNewStudy({
       title,
       studyType,
-      description: "",
+      description,
       interviewGuide: studyType === "INTERVIEW" ? interviewGuide : undefined,
       surveyQuestions: studyType === "SURVEY" ? surveyQuestions.filter((q) => q.text.trim()) : undefined,
       personaGroupIds: selectedGroupIds,
@@ -110,15 +110,18 @@ export function CreateStudyForm({ personaGroups, orgContext }: CreateStudyFormPr
       </div>
 
       {/* Steps */}
-      {step === "type" && <StepType onSelect={handleTypeSelect} />}
-
-      {step === "audience" && (
-        <StepAudience
+      {step === "setup" && (
+        <StepSetup
+          title={title}
+          onTitleChange={setTitle}
+          description={description}
+          onDescriptionChange={setDescription}
+          studyType={studyType}
+          onStudyTypeChange={setStudyType}
           groups={personaGroups}
-          selected={selectedGroupIds}
-          onSelect={setSelectedGroupIds}
+          selectedGroupIds={selectedGroupIds}
+          onGroupSelect={setSelectedGroupIds}
           onNext={() => goTo("questions")}
-          onBack={() => goTo("type")}
         />
       )}
 
@@ -133,7 +136,10 @@ export function CreateStudyForm({ personaGroups, orgContext }: CreateStudyFormPr
           onSurveyQuestionsChange={setSurveyQuestions}
           orgContext={orgContext}
           onNext={() => goTo("review")}
-          onBack={() => goTo("audience")}
+          onBack={() => goTo("setup")}
+          onEvaluationComplete={(score, evaluations, feedback, missingTopics) => {
+            setQualityScore({ score, evaluations, feedback, missingTopics });
+          }}
         />
       )}
 
@@ -144,7 +150,9 @@ export function CreateStudyForm({ personaGroups, orgContext }: CreateStudyFormPr
           interviewGuide={interviewGuide}
           surveyQuestions={surveyQuestions}
           selectedGroups={selectedGroups}
+          qualityScore={qualityScore}
           onBack={() => goTo("questions")}
+          onBackToQuestions={() => goTo("questions")}
           onCreate={handleCreate}
         />
       )}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
+import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getStudiesForOrg } from "@/lib/db/queries/studies";
 import { Badge } from "@/components/ui/badge";
 import { ClipboardList, Plus, MessageSquare, CheckCircle2, Clock } from "lucide-react";
@@ -20,8 +20,7 @@ const typeLabels: Record<string, string> = {
 };
 
 export default async function StudiesPage() {
-  const { organizations } = await requireAuthWithOrgs();
-  const activeOrgId = await getActiveOrgId(organizations);
+  const { activeOrgId } = await requireAuthWithActiveOrg();
 
   const studies = await getStudiesForOrg(activeOrgId);
 

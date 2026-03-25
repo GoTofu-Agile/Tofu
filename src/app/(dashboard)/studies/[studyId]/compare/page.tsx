@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
+import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getStudyTranscripts } from "@/lib/db/queries/studies";
 import { prisma } from "@/lib/db/prisma";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +12,7 @@ export default async function CompareSessionsPage({
   params: Promise<{ studyId: string }>;
 }) {
   const { studyId } = await params;
-  const { organizations } = await requireAuthWithOrgs();
-  const activeOrgId = await getActiveOrgId(organizations);
+  const { activeOrgId } = await requireAuthWithActiveOrg();
 
   const study = await prisma.study.findUnique({
     where: { id: studyId },
