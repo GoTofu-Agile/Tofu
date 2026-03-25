@@ -9,16 +9,8 @@ export type AppStoreReviewSnippet = {
   reviewUrl: string | null;
 };
 
-type DomainKnowledgeForSnippet = Pick<
-  DomainKnowledge,
-  "id" | "content" | "title" | "metadata" | "sourceUrl" | "sourceType"
->;
-
-type DataSourceWithKnowledge = Pick<
-  PersonaDataSource,
-  "id" | "personaId" | "domainKnowledgeId" | "influence"
-> & {
-  domainKnowledge: DomainKnowledgeForSnippet;
+type DataSourceWithKnowledge = PersonaDataSource & {
+  domainKnowledge: DomainKnowledge;
 };
 
 export function appStoreReviewSnippetsFromPersona(

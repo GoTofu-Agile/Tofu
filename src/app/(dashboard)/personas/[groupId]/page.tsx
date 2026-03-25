@@ -9,8 +9,6 @@ import { GeneratePersonasButton } from "@/components/personas/generate-personas-
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Users } from "lucide-react";
 import { SOURCE_LABELS } from "@/lib/constants/source-labels";
-import { resolvePersonaGroupDisplayName } from "@/lib/personas/legacy-group-display-name";
-import { HANDLY_TRACK_ORG_SLUGS } from "@/lib/seed/handlyTracks";
 
 export default async function PersonaGroupDetailPage({
   params,
@@ -38,11 +36,6 @@ export default async function PersonaGroupDetailPage({
   const count = query.count ? parseInt(query.count, 10) : 5;
   const domainContext = query.domainContext || group.domainContext || undefined;
 
-  const orgSlug = group.organization?.slug;
-  const showGroupDescription =
-    Boolean(group.description) &&
-    (!orgSlug || !HANDLY_TRACK_ORG_SLUGS.includes(orgSlug));
-
   return (
     <div className="space-y-6">
       <div>
@@ -56,11 +49,11 @@ export default async function PersonaGroupDetailPage({
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">
-              {resolvePersonaGroupDisplayName(group.name)}
+              {group.name}
             </h2>
-            {showGroupDescription ? (
+            {group.description && (
               <p className="mt-1 text-muted-foreground">{group.description}</p>
-            ) : null}
+            )}
             <div className="mt-2 flex items-center gap-3">
               {group.sourceType !== "PROMPT_GENERATED" ? (
                 <Badge

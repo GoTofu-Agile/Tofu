@@ -18,11 +18,11 @@
 
 ### GitHub
 
-**Repository:** [github.com/habibidani/gotofu](https://github.com/habibidani/gotofu) (private)
+**Repository:** [github.com/GoTofu-Agile/Tofu](https://github.com/GoTofu-Agile/Tofu) (private)
 
 ```bash
-git clone git@github.com:habibidani/gotofu.git
-cd gotofu
+git clone git@github.com:GoTofu-Agile/Tofu.git
+cd Tofu
 npm install
 ```
 

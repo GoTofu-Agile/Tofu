@@ -33,9 +33,11 @@ export function Topbar() {
     <header className="flex h-12 items-center justify-between px-4 border-b border-border">
       <div className="flex items-center gap-1.5">
         <button
+          type="button"
           onClick={toggleSidebar}
           className="rounded-md p-1.5 text-muted-foreground/50 hover:text-foreground transition-colors"
           title="Toggle sidebar"
+          aria-label="Toggle sidebar"
         >
           <PanelLeft className="h-4 w-4" />
         </button>
@@ -48,12 +50,16 @@ export function Topbar() {
       </div>
       <div className="flex items-center gap-1.5">
         <button
+          type="button"
           onClick={toggle}
           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-all ${
             isOpen
               ? "border-foreground bg-foreground text-background"
               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
           }`}
+          aria-label="Toggle Ask assistant"
+          aria-expanded={isOpen}
+          aria-controls="ask-panel"
         >
           <Sparkles className="h-3 w-3" />
           Ask

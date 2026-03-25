@@ -572,7 +572,7 @@ export function AssistantChat() {
         >
           {messages.length === 0 && (
             <p className="my-2 text-[14px] leading-6 text-stone-600">
-              I can create personas, set up studies, and summarize results. Try: &quot;Create 5 personas for B2B founders.&quot;
+              I can create personas, set up studies, and summarize results. Try: "Create 5 personas for B2B founders."
             </p>
           )}
 

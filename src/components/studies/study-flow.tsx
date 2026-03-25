@@ -112,10 +112,8 @@ export function StudyFlow({
 
   // Sync server props to client state after router.refresh()
   useEffect(() => {
-    queueMicrotask(() => {
-      setAnalysisReport(initialReport);
-      setAnalysisReports(initialReports);
-    });
+    setAnalysisReport(initialReport);
+    setAnalysisReports(initialReports);
   }, [initialReport, initialReports]);
 
   // Step completion checks

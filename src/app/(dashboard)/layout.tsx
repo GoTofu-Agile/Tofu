@@ -1,5 +1,6 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getActiveOrgId, requireAuthWithOrgs } from "@/lib/auth";
+import { requireAuthWithOrgs } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { AppFrame } from "@/components/layout/app-frame";
@@ -28,7 +29,12 @@ export default async function DashboardLayout({
     );
   }
 
-  const activeOrgId = await getActiveOrgId(organizations);
+  // Determine active org from cookie, default to first
+  const cookieStore = await cookies();
+  const cookieOrgId = cookieStore.get("activeOrgId")?.value;
+  const activeOrgId =
+    organizations.find((org) => org.id === cookieOrgId)?.id ??
+    organizations[0].id;
 
   const adminEmails = (process.env.GOTOFU_ADMIN_EMAILS ?? "")
     .split(",")

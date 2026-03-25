@@ -775,36 +775,6 @@ Die Visualisierung zeigt eine sequenzielle Schritt-Liste, die sich wie „Live L
 - Der letzte Schritt (Generation) bleibt visuell aktiv, bis der Streaming-Worker „done“ signalisiert; erst dann wechselt der UI-Status auf `done`.
 - Step Labels sind **kontext-aware** (z.B. public vs. corporate web addresses) und variieren pro Run, während die Gesamtpipeline (Tavily / App Store Reviews / Generation) konsistent bleibt.
 
-### Handly-Pilot: Track-Workspaces, neue Persona-Gruppen & begleitende UX
-
-Umsetzung (Code-Pfade als Referenz):
-
-- **Seed & Datenmodell (ohne Schema-Änderung):** Zentrale Specs in [`src/lib/seed/handlyTracks.ts`](src/lib/seed/handlyTracks.ts):
-  - Zwei Track-Organisationen: **Track 1 — Go-to-Market** (`handly-gtm`), **Track 2 — Product** (`handly-product`); exportierte Slug-Liste `HANDLY_TRACK_ORG_SLUGS` für UI-Bedingungen.
-  - Gemeinsamer englischer Produktkontext `HANDLY_PRODUCT_CONTEXT_EN` (Dachdecker-Partner in Deutschland, Website/SEO/Ads, App für Angebot/PM/Buchhaltung, Telefon-Office usw.).
-  - `HANDLY_TRACK_GROUPS` pro Track: mehrere `PersonaGroup`-Vorlagen mit `label`, optional `notes` (landen als `PersonaGroup.description` in der DB beim Seed).
-  - Helfer `buildHandlyOrgProductContextFields()` / `buildHandlyPersonaGroupDomainContext()` für Org-Felder und Gruppen-`domainContext`.
-- **Admin-Seeding:** [`src/app/api/admin/seed-handly-tracks/route.ts`](src/app/api/admin/seed-handly-tracks/route.ts) legt/aktualisiert Orgs, Produktkontext und Gruppen idempotent (inkl. optionalem Remapping alter Anzeigenamen, z. B. Sales Rep).
-- **Auth & Workspace-Zugang:** In [`src/lib/auth.ts`](src/lib/auth.ts): `ensureHandlyTrackMemberships` — wenn `activeOrgSlug === "handly"`, werden Nutzer:innen automatisch Mitglied in `handly-gtm` und `handly-product`, damit beide Tracks im Switcher erscheinen.
-- **Gruppenseite nur für Handly:** Auf [`src/app/(dashboard)/personas/[groupId]/page.tsx`](src/app/(dashboard)/personas/[groupId]/page.tsx) wird die graue zweite Zeile (`group.description`) **nur für Handly-Track-Orgs unterdrückt**; andere Workspaces behalten die Beschreibung.
-- **Anzeigenamen für ältere Daten:** [`src/lib/personas/legacy-group-display-name.ts`](src/lib/personas/legacy-group-display-name.ts) mappt gespeicherte Legacy-Labels (z. B. Handly-interne Namen) auf die gewünschte UI-Überschrift.
-
-### `/personas/new`: Chat-Leiste vergrößert & Datenquellen („Data Pillars“)
-
-- **Komponente:** [`src/components/personas/creation/persona-chat-bar.tsx`](src/components/personas/creation/persona-chat-bar.tsx), eingebunden im **Unified Creation Flow** ([`src/components/personas/creation/unified-creation-flow.tsx`](src/components/personas/creation/unified-creation-flow.tsx)).
-- **Chatfenster wächst nach unten:** `Textarea` mit `rows={1}`, `resize-none`, `overflow-hidden`; ein `useEffect` setzt `style.height` auf `scrollHeight`, sodass mehrzeilige Eingaben die Leiste nach unten erweitern (kein fester Einzeiler mehr).
-- **Datenquellen / „Data pillars“:** Dropdown `DATA_SOURCES` mit Einträgen u. a. *All Data Sources*, *Templates*, *App Store reviews*, *CVs*, *Company URLs*, *Deep search* — nach Absenden des Prompts wird der passende Erstellungspfad gewählt (Icons + Labels in der Leiste).
-
-### Persona-Generierung: aktualisierter System-Prompt (Layer 1)
-
-- In [`src/lib/ai/generate-personas.ts`](src/lib/ai/generate-personas.ts) baut `buildPrompt` u. a. **Layer 1** als „demographic simulation engine“ mit **CRITICAL RULES**: Priorität psychologischer Tiefe und Verhaltensspezifik gegenüber bloßer Demografie; mindestens eine innere Widersprüchlichkeit; keine stereotype Kopplung Demografie → Persönlichkeit; Backstory mit konkreten Lebensereignissen; Zitat und Werte sollen authentisch wirken — nicht generisch.
-
-### Persona-Detail: Badge für echte Erstellungs-Herkunft (Handly / Tavily)
-
-- [`getPersona`](src/lib/db/queries/personas.ts) lädt verknüpfte `PersonaDataSource` inkl. `domainKnowledge` (nicht nur App-Review-Links), damit die Seite Tavily-/Scrape-Herkunft sieht.
-- [`src/lib/personas/persona-creation-provenance.ts`](src/lib/personas/persona-creation-provenance.ts): `formatPersonaCreationProvenance` liefert kurze Badge-Texte (z. B. **„Web research & scraped sources“** bei `searchQuery` + `sourceUrl`); App-Store-Fälle und Fallbacks für prompt-only sind abgedeckt.
-- Auf der Persona-Detailseite ersetzt das **zweite** Pill neben „Quality“ diese Herkunft; **`domainExpertise`** erscheint separat als dezente Zeile (nicht mehr als irreführendes „Provenance“-Badge).
-
 ### Batch Processing & Kosten-Optimierung
 
 | Strategie | Ersparnis | Details |

@@ -14,11 +14,9 @@ export function FeedbackOverlay() {
 
   useEffect(() => {
     // Start near bottom-left once viewport dimensions are available.
-    queueMicrotask(() => {
-      const y = Math.max(16, window.innerHeight - 72);
-      setPosition({ x: 16, y });
-      setReady(true);
-    });
+    const y = Math.max(16, window.innerHeight - 72);
+    setPosition({ x: 16, y });
+    setReady(true);
   }, []);
 
   useEffect(() => {
