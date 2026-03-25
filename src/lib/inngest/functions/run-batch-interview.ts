@@ -9,8 +9,8 @@ import {
   getMessageCount,
 } from "@/lib/db/queries/studies";
 
-const MAX_TURNS = 8;
-const MIN_TURNS = 5;
+const MAX_TURNS = 6;
+const MIN_TURNS = 4;
 
 /**
  * Parse interview guide into individual questions.
@@ -119,8 +119,8 @@ export const runBatchInterview = inngest.createFunction(
 
     let completedCount = 0;
 
-    // Interview personas in parallel batches of 3
-    const BATCH_SIZE = 3;
+    // Interview personas in parallel batches of 5
+    const BATCH_SIZE = 5;
     for (let i = 0; i < personas.length; i += BATCH_SIZE) {
       const batch = personas.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(
@@ -154,36 +154,11 @@ export const runBatchInterview = inngest.createFunction(
             let sequence = 0;
 
             for (let turn = 0; turn < numTurns; turn++) {
-              // Generate interviewer question
-              let question: string;
-              if (turn === 0) {
-                question =
-                  remainingQuestions.shift() ||
-                  "Tell me about yourself and your work.";
-              } else if (remainingQuestions.length > 0) {
-                // Use guide question, but may adapt based on conversation
-                question = await generateFollowUp(
-                  persona,
-                  conversation.map((m) => ({
-                    role: m.role === "user" ? "INTERVIEWER" : "RESPONDENT",
-                    content: m.content,
-                  })),
-                  study.interviewGuide || "",
-                  remainingQuestions
-                );
-                // Remove the first remaining question (already used as context for follow-up)
-                remainingQuestions.shift();
-              } else {
-                question = await generateFollowUp(
-                  persona,
-                  conversation.map((m) => ({
-                    role: m.role === "user" ? "INTERVIEWER" : "RESPONDENT",
-                    content: m.content,
-                  })),
-                  study.interviewGuide || "",
-                  []
-                );
-              }
+              // Use guide questions directly — no extra LLM call for follow-ups
+              const question = remainingQuestions.shift() ||
+                (turn === 0
+                  ? "Tell me about yourself and your work."
+                  : "Is there anything else you'd like to share about your experience?");
 
               // Save interviewer message
               sequence++;
@@ -200,7 +175,7 @@ export const runBatchInterview = inngest.createFunction(
                 model: getModel(),
                 system: fullSystemPrompt,
                 messages: conversation,
-                maxOutputTokens: 500,
+                maxOutputTokens: 300,
               });
 
               // Save respondent message

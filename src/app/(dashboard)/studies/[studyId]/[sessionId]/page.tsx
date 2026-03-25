@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
+import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getSession } from "@/lib/db/queries/studies";
 import { InterviewChat } from "@/components/studies/interview-chat";
 
@@ -9,8 +9,7 @@ export default async function SessionPage({
   params: Promise<{ studyId: string; sessionId: string }>;
 }) {
   const { studyId, sessionId } = await params;
-  const { organizations } = await requireAuthWithOrgs();
-  const activeOrgId = await getActiveOrgId(organizations);
+  const { activeOrgId } = await requireAuthWithActiveOrg();
 
   const session = await getSession(sessionId);
   if (

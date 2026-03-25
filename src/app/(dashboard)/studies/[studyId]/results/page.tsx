@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
+import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getStudyResults } from "@/lib/db/queries/studies";
 import { Badge } from "@/components/ui/badge";
 import { ResultsSummary } from "@/components/studies/results-summary";
@@ -45,8 +45,7 @@ export default async function StudyResultsPage({
   params: Promise<{ studyId: string }>;
 }) {
   const { studyId } = await params;
-  const { organizations } = await requireAuthWithOrgs();
-  const activeOrgId = await getActiveOrgId(organizations);
+  const { activeOrgId } = await requireAuthWithActiveOrg();
 
   const data = await getStudyResults(studyId);
   if (!data || data.study.organizationId !== activeOrgId) {
