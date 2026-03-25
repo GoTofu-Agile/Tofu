@@ -4,6 +4,19 @@ import { createContext, useContext, useState, useCallback } from "react";
 
 type ChatView = "chat" | "history";
 
+export type AssistantAutopilotState = {
+  active: boolean;
+  status: "running" | "done" | "error";
+  title?: string;
+  detail?: string;
+  progress?: { completed: number; total: number };
+};
+
+const INACTIVE_AUTOPILOT: AssistantAutopilotState = {
+  active: false,
+  status: "done",
+};
+
 interface AssistantContextType {
   // Chat panel
   isOpen: boolean;
@@ -19,6 +32,8 @@ interface AssistantContextType {
   conversationId: string | null;
   setConversationId: (id: string | null) => void;
   startNewChat: () => void;
+  /** Reserved for future autopilot UX; inactive by default. */
+  autopilot: AssistantAutopilotState;
 }
 
 const AssistantContext = createContext<AssistantContextType>({
@@ -33,6 +48,7 @@ const AssistantContext = createContext<AssistantContextType>({
   conversationId: null,
   setConversationId: () => {},
   startNewChat: () => {},
+  autopilot: INACTIVE_AUTOPILOT,
 });
 
 export function useAssistant() {
@@ -80,6 +96,7 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
         conversationId,
         setConversationId,
         startNewChat,
+        autopilot: INACTIVE_AUTOPILOT,
       }}
     >
       {children}

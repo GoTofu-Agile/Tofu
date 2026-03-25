@@ -89,8 +89,11 @@ export function BatchRunButton({
   useEffect(() => {
     if (!polling) return;
     const interval = setInterval(pollStatus, POLL_INTERVAL);
-    pollStatus(); // Immediate first poll
-    return () => clearInterval(interval);
+    const t = window.setTimeout(() => pollStatus(), 0);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(t);
+    };
   }, [polling, pollStatus]);
 
   async function handleRun() {

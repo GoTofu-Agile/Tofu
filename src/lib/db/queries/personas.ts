@@ -52,17 +52,10 @@ const appReviewDataSourcesInclude = {
   },
 } as const;
 
-/** Full provenance on persona detail (Tavily, scrapes, reviews); list views stay APP_REVIEW-only. */
+/** Persona detail needs full DomainKnowledge for review snippets + provenance labels. */
 const personaDetailDataSourcesInclude = {
   include: {
-    domainKnowledge: {
-      select: {
-        sourceType: true,
-        searchQuery: true,
-        sourceUrl: true,
-        sourceDomain: true,
-      },
-    },
+    domainKnowledge: true,
   },
 } as const;
 
@@ -106,6 +99,25 @@ export async function getPersonasForGroupList(groupId: string) {
           neuroticism: true,
           communicationStyle: true,
           criticalFeedbackTendency: true,
+        },
+      },
+      dataSources: {
+        where: { domainKnowledge: { sourceType: "APP_REVIEW" } },
+        select: {
+          id: true,
+          personaId: true,
+          domainKnowledgeId: true,
+          influence: true,
+          domainKnowledge: {
+            select: {
+              id: true,
+              content: true,
+              title: true,
+              metadata: true,
+              sourceUrl: true,
+              sourceType: true,
+            },
+          },
         },
       },
     },

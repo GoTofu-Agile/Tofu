@@ -47,7 +47,11 @@ export const generateInsights = inngest.createFunction(
   { id: "generate-study-insights", concurrency: { limit: 2 } },
   { event: "study/generate-insights" },
   async ({ event, step }) => {
-    const { studyId } = event.data;
+    const { studyId, analysisTypes, customPrompt } = event.data as {
+      studyId: string;
+      analysisTypes?: string[];
+      customPrompt?: string;
+    };
 
     // Load study + all transcripts
     const [study, transcripts] = await step.run("load-data", async () => {
@@ -80,12 +84,21 @@ export const generateInsights = inngest.createFunction(
 
     // Generate insights via LLM
     const insights = await step.run("analyze", async () => {
+      const analysisFocus =
+        analysisTypes && analysisTypes.length > 0
+          ? `\n## Requested analysis focus\nPrioritize these angles (IDs): ${analysisTypes.join(", ")}\n`
+          : "";
+      const customInstructions = customPrompt?.trim()
+        ? `\n## Additional instructions from the researcher\n${customPrompt.trim()}\n`
+        : "";
+
       const { object } = await generateObject({
         model: getModel(),
         schema: insightsSchema,
         prompt: `You are an expert user researcher analyzing interview transcripts from a study titled "${study.title}".
 
 ${study.interviewGuide ? `Interview Guide: ${study.interviewGuide}\n` : ""}
+${analysisFocus}${customInstructions}
 
 ${transcripts.length} interviews were conducted with synthetic personas. Analyze ALL transcripts and extract:
 

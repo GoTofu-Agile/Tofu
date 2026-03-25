@@ -44,7 +44,7 @@ export function StepDescribe({
 
   useEffect(() => {
     if (!isControlled && initialText !== undefined) {
-      setInternalText(initialText);
+      queueMicrotask(() => setInternalText(initialText));
     }
   }, [initialText, isControlled]);
 
