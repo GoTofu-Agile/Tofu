@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import {
   updateOrganization,
@@ -22,8 +21,6 @@ export async function updateWorkspaceName(orgId: string, name: string) {
   }
 
   await updateOrganization(orgId, { name: name.trim() });
-  revalidatePath("/settings");
-  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -42,8 +39,6 @@ export async function createWorkspace(name: string) {
 
   try {
     const org = await createOrganization(name.trim(), slug, user.id);
-    revalidatePath("/settings");
-    revalidatePath("/dashboard");
     return { success: true, orgId: org.id };
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unique constraint")) {

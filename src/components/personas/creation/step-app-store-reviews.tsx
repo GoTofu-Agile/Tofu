@@ -85,17 +85,22 @@ export function StepAppStoreReviews({
   const [text, setText] = useState(initialText ?? "");
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync controlled prop
-    if (initialText !== undefined) setText(initialText);
+    if (initialText !== undefined) {
+      queueMicrotask(() => setText(initialText));
+    }
   }, [initialText]);
 
   useEffect(() => {
     if (mode === "app") onClearAudienceMapping?.();
   }, [mode, onClearAudienceMapping]);
 
-  const examples = useMemo(() => {
-    if (mode === "app") return APP_EXAMPLES;
-    return AUDIENCE_EXAMPLES.map((t) => ({ label: t, value: t }));
+  type ExampleRow =
+    | { label: string; url: string; kind: "app" }
+    | { label: string; value: string; kind: "audience" };
+
+  const examples = useMemo((): ExampleRow[] => {
+    if (mode === "app") return APP_EXAMPLES.map((e) => ({ ...e, kind: "app" as const }));
+    return AUDIENCE_EXAMPLES.map((t) => ({ label: t, value: t, kind: "audience" as const }));
   }, [mode]);
 
   const placeholder =
@@ -179,7 +184,9 @@ export function StepAppStoreReviews({
             <button
               key={ex.label}
               type="button"
-              onClick={() => setText(mode === "app" ? ("url" in ex ? ex.url : "") : ("value" in ex ? ex.value : ""))}
+              onClick={() =>
+                setText(ex.kind === "app" ? ex.url : ex.value)
+              }
               disabled={loading}
               className="rounded-full border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
             >

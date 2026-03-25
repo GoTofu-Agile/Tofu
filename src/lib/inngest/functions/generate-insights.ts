@@ -67,9 +67,6 @@ export const generateInsights = inngest.createFunction(
       return [s, t] as const;
     });
 
-    // Extract persona names for the prompt
-    const personaNames = transcripts.map((s) => s.persona.name);
-
     // Format transcripts for LLM
     const formattedTranscripts = transcripts
       .map((session) => {
@@ -85,37 +82,33 @@ export const generateInsights = inngest.createFunction(
       })
       .join("\n\n===\n\n");
 
-    // Generate insights via LLM — use dynamic schema to enforce min quotes
-    const dynamicSchema = insightsSchema.extend({
-      keyQuotes: z.array(
-        z.object({
-          quote: z.string(),
-          personaName: z.string(),
-          context: z.string(),
-          theme: z.string(),
-        })
-      ).min(personaNames.length),
-    });
-
+    // Generate insights via LLM
     const insights = await step.run("analyze", async () => {
+      const analysisFocus =
+        analysisTypes && analysisTypes.length > 0
+          ? `\n## Requested analysis focus\nPrioritize these angles (IDs): ${analysisTypes.join(", ")}\n`
+          : "";
+      const customInstructions = customPrompt?.trim()
+        ? `\n## Additional instructions from the researcher\n${customPrompt.trim()}\n`
+        : "";
+
       const { object } = await generateObject({
         model: getModel(),
-        schema: dynamicSchema,
+        schema: insightsSchema,
         prompt: `You are an expert user researcher analyzing interview transcripts from a study titled "${study.title}".
 
 ${study.interviewGuide ? `Interview Guide: ${study.interviewGuide}\n` : ""}
-${customPrompt ? `\nSpecific analysis request from the researcher: "${customPrompt}"\n` : ""}
-${analysisTypes?.length ? `\nFocus areas requested: ${analysisTypes.join(", ").replace(/_/g, " ")}\n` : ""}
+${analysisFocus}${customInstructions}
 
 ${transcripts.length} interviews were conducted with synthetic personas. Analyze ALL transcripts and extract:
 
 1. **Summary**: 2-3 sentence executive summary of the key findings
 2. **Themes**: Recurring themes across interviews. Include name, description, how many interviews mentioned it, overall sentiment, and the exact persona names who mentioned it
-3. **Key Quotes**: You MUST include at least one representative quote from EACH of these ${personaNames.length} personas: ${personaNames.join(", ")}. Return a minimum of ${personaNames.length} quotes. Each quote must include the persona's exact name, context, and which theme it relates to. This is a HARD REQUIREMENT — every single persona must appear at least once in keyQuotes.
+3. **Key Quotes**: 5-10 most insightful/representative quotes with persona name, context, and which theme they relate to
 4. **Sentiment Breakdown**: Overall sentiment distribution across all interviews (positive/negative/neutral percentages)
 5. **Recommendations**: 3-5 actionable recommendations based on the findings, with priority and supporting evidence
 
-Be specific and cite actual content from the interviews. Don't be generic. Double-check that every persona listed above has at least one entry in keyQuotes before returning.
+Be specific and cite actual content from the interviews. Don't be generic.
 
 TRANSCRIPTS:
 ${formattedTranscripts}`,

@@ -24,6 +24,8 @@ interface SidebarProps {
     name: string;
     slug: string;
     isPersonal: boolean;
+    members: Array<{ role: string }>;
+    _count: { members: number };
   }>;
   activeOrgId: string;
   isAdmin?: boolean;
@@ -42,8 +44,23 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
   const isPersonalWorkspace = activeOrg?.isPersonal ?? false;
 
   useEffect(() => {
+    const m = pathname?.match(/^\/o\/([^/]+)/);
+    const pathSlug = m?.[1];
+    const orgFromPath = pathSlug
+      ? organizations.find((o) => o.slug === pathSlug)
+      : undefined;
+
+    if (orgFromPath) {
+      document.cookie = `activeOrgId=${orgFromPath.id}; path=/; max-age=31536000`;
+      document.cookie = `activeOrgSlug=${orgFromPath.slug}; path=/; max-age=31536000`;
+      return;
+    }
+
     document.cookie = `activeOrgId=${activeOrgId}; path=/; max-age=31536000`;
-  }, [activeOrgId]);
+    if (activeOrg?.slug) {
+      document.cookie = `activeOrgSlug=${activeOrg.slug}; path=/; max-age=31536000`;
+    }
+  }, [activeOrgId, activeOrg?.slug, pathname, organizations]);
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";

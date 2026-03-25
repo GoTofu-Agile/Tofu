@@ -5,11 +5,12 @@ export async function getOrganizationsForUser(userId: string) {
     where: {
       members: { some: { userId } },
     },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      isPersonal: true,
+    include: {
+      members: {
+        where: { userId },
+        select: { role: true },
+      },
+      _count: { select: { members: true } },
     },
     orderBy: { createdAt: "asc" },
   });

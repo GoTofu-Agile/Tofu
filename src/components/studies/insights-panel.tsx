@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -73,6 +74,7 @@ export function InsightsPanel({
   report,
   hasCompletedSessions,
 }: InsightsPanelProps) {
+  const router = useRouter();
   const [generating, setGenerating] = useState(false);
 
   async function handleGenerate() {
@@ -85,6 +87,7 @@ export function InsightsPanel({
     }
     toast.success("Generating insights in the background. Refresh in a moment.");
     setTimeout(() => {
+      router.refresh();
       setGenerating(false);
     }, 5000);
   }

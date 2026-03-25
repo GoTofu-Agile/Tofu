@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
 import { getPersonaGroup } from "@/lib/db/queries/personas";
 import { getUserRole } from "@/lib/db/queries/organizations";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { fetchAppStoreReviews } from "@/lib/reviews/outscraper";
 
@@ -91,8 +92,12 @@ export async function POST(request: NextRequest) {
 
   // Persist as DomainKnowledge (APP_REVIEW)
   const nowSession = crypto.randomUUID();
+  type AppReviewDomainRow = Prisma.DomainKnowledgeCreateManyInput & {
+    sourceType: "APP_REVIEW";
+  };
+
   const rows = reviews
-    .map((r) => {
+    .map((r): AppReviewDomainRow | null => {
       const text = (r.text || "").trim();
       if (!text) return null;
       const title = (r.title || "App Store review").trim();
@@ -119,13 +124,12 @@ export async function POST(request: NextRequest) {
         },
       };
     })
-    .filter(Boolean);
+    .filter((row): row is AppReviewDomainRow => row !== null);
 
   if (rows.length > 0) {
     // createMany is faster; we don't require individual ids here
     await prisma.domainKnowledge.createMany({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma createMany expects exact model input, .filter(Boolean) narrows runtime but not TS
-      data: rows as any,
+      data: rows,
     });
   }
 

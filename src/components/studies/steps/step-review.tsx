@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Loader2, MessageSquare, ClipboardList, Users } from "lucide-react";
 import type { SurveyQuestion } from "./step-questions";
-import { QualityScore } from "@/components/studies/quality-score";
 
 interface StepReviewProps {
   studyType: "INTERVIEW" | "SURVEY";
@@ -11,14 +10,7 @@ interface StepReviewProps {
   interviewGuide: string;
   surveyQuestions: SurveyQuestion[];
   selectedGroups: { id: string; name: string; personaCount: number }[];
-  qualityScore?: {
-    score: number;
-    evaluations: Array<{ questionIndex: number; score: number; issues: string[]; explanation: string }>;
-    feedback: string;
-    missingTopics: string[];
-  } | null;
   onBack: () => void;
-  onBackToQuestions?: () => void;
   onCreate: () => Promise<void>;
 }
 
@@ -28,9 +20,7 @@ export function StepReview({
   interviewGuide,
   surveyQuestions,
   selectedGroups,
-  qualityScore: qualityScoreData,
   onBack,
-  onBackToQuestions,
   onCreate,
 }: StepReviewProps) {
   const [creating, setCreating] = useState(false);
@@ -54,19 +44,10 @@ export function StepReview({
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold">Review your study</h3>
-        <p className="text-sm text-muted-foreground mt-1">Everything looks good? Let&apos;s create it.</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Everything looks good? Let&apos;s create it.
+        </p>
       </div>
-
-      {/* Quality Score */}
-      {qualityScoreData && studyType === "INTERVIEW" && (
-        <QualityScore
-          score={qualityScoreData.score}
-          feedback={qualityScoreData.feedback}
-          evaluations={qualityScoreData.evaluations}
-          missingTopics={qualityScoreData.missingTopics}
-          onGoBack={onBackToQuestions}
-        />
-      )}
 
       {/* Summary Cards */}
       <div className="space-y-3">

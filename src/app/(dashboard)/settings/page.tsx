@@ -1,15 +1,12 @@
-import { requireAuthWithActiveOrg } from "@/lib/auth";
-import { prisma } from "@/lib/db/prisma";
+import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { getOrgProductContext } from "@/lib/db/queries/organizations";
 import { SettingsForm } from "./settings-form";
 import { OrgSetupChat } from "@/components/org/org-setup-chat";
 
 export default async function SettingsPage() {
-  const { activeOrgId } = await requireAuthWithActiveOrg();
-  const activeOrg = await prisma.organization.findUnique({
-    where: { id: activeOrgId },
-    select: { name: true, isPersonal: true },
-  });
+  const { organizations } = await requireAuthWithOrgs();
+  const activeOrgId = await getActiveOrgId(organizations);
+  const activeOrg = organizations.find((o) => o.id === activeOrgId);
   const productContext = await getOrgProductContext(activeOrgId);
 
   return (
@@ -23,7 +20,7 @@ export default async function SettingsPage() {
 
       <SettingsForm
         orgId={activeOrgId}
-        orgName={activeOrg?.name ?? "Workspace"}
+        orgName={activeOrg?.name ?? ""}
       />
 
       <div className="space-y-3">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { kickMember, changeMemberRole } from "./actions";
 
 type OrgRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
@@ -24,6 +25,7 @@ const roleColors: Record<OrgRole, string> = {
 };
 
 export function MemberRow({ member, currentUserId, canManage }: MemberRowProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const isSelf = member.user.id === currentUserId;
   const isOwner = member.role === "OWNER";
@@ -38,6 +40,7 @@ export function MemberRow({ member, currentUserId, canManage }: MemberRowProps) 
       toast.error(result.error);
     } else {
       toast.success("Member removed");
+      router.refresh();
     }
   }
 
@@ -49,6 +52,7 @@ export function MemberRow({ member, currentUserId, canManage }: MemberRowProps) 
       toast.error(result.error);
     } else {
       toast.success("Role updated");
+      router.refresh();
     }
   }
 

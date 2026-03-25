@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
@@ -15,6 +16,7 @@ export function RegenerateButton({
   studyId,
   label = "Regenerate Insights",
 }: RegenerateButtonProps) {
+  const router = useRouter();
   const [generating, setGenerating] = useState(false);
 
   async function handleGenerate() {
@@ -29,6 +31,7 @@ export function RegenerateButton({
       "Generating insights in the background. Refresh in a moment."
     );
     setTimeout(() => {
+      router.refresh();
       setGenerating(false);
     }, 8000);
   }

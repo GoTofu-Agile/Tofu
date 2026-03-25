@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Sparkles,
@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const PERSONA_PRESETS = [5, 10, 20, 50] as const;
-const PERSONA_MAX = 500;
+const PERSONA_MAX = 100;
 
 interface PersonaChatBarProps {
   value: string;
@@ -54,6 +55,14 @@ export function PersonaChatBar({
 }: PersonaChatBarProps) {
   const [dataSource, setDataSource] = useState<(typeof DATA_SOURCES)[0]>(DATA_SOURCES[0]);
   const [customDraft, setCustomDraft] = useState<string>("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
 
   function clampCount(n: number) {
     return Math.min(PERSONA_MAX, Math.max(1, Math.round(n)));
@@ -75,35 +84,23 @@ export function PersonaChatBar({
 
   const DataSourceIcon = dataSource.icon;
   return (
-    <div className="mb-6 flex flex-col gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-      <div className="flex items-start gap-2">
-        <Sparkles className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
-        <textarea
-          ref={(el) => {
-            if (el) {
-              el.style.height = "auto";
-              el.style.height = el.scrollHeight + "px";
-            }
-          }}
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            e.target.style.height = "auto";
-            e.target.style.height = e.target.scrollHeight + "px";
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit();
-            }
-          }}
-          placeholder="Describe your target users in one sentence…"
-          disabled={loading}
-          rows={1}
-          className="min-w-0 flex-1 resize-none border-0 bg-transparent px-0 py-1 text-sm shadow-none outline-none placeholder:text-muted-foreground/50 focus-visible:ring-0 disabled:opacity-50"
-        />
-      </div>
-      <div className="flex items-center gap-2 self-end">
+    <div className="mb-6 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
+      <Sparkles className="h-5 w-5 shrink-0 text-muted-foreground" />
+      <Textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit();
+          }
+        }}
+        rows={1}
+        placeholder="Describe your target users in one sentence…"
+        disabled={loading}
+        className="mt-0.5 h-8 min-h-8 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-0 py-1.5 leading-5 shadow-none focus-visible:ring-0"
+      />
       <DropdownMenu>
         <DropdownMenuTrigger
           type="button"
@@ -161,6 +158,7 @@ export function PersonaChatBar({
           <Separator />
           <div
             className="p-3"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-xs font-medium text-muted-foreground">Custom (1–{PERSONA_MAX})</p>
@@ -204,7 +202,6 @@ export function PersonaChatBar({
       >
         <ArrowRight className="h-4 w-4" />
       </Button>
-      </div>
     </div>
   );
 }

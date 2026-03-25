@@ -36,7 +36,7 @@ export async function createOrgForCustomer(name: string, founderEmail: string) {
   const invitation = await createInvitation(org.id, founderEmail, "ADMIN");
 
   const headersList = await headers();
-  const host = headersList.get("host") ?? "localhost:3004";
+  const host = headersList.get("host") ?? "localhost:3000";
   const proto = headersList.get("x-forwarded-proto") ?? "http";
   const origin = `${proto}://${host}`;
 
@@ -53,7 +53,7 @@ export async function generateAdminInviteLink(orgId: string, email: string, role
   const invitation = await createInvitation(orgId, email || "invite@placeholder.local", role);
 
   const headersList = await headers();
-  const host = headersList.get("host") ?? "localhost:3004";
+  const host = headersList.get("host") ?? "localhost:3000";
   const proto = headersList.get("x-forwarded-proto") ?? "http";
   const origin = `${proto}://${host}`;
 
