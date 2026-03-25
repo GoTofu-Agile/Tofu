@@ -48,10 +48,12 @@ export async function requireAuth() {
     throw new Error("Not authenticated");
   }
 
-  // Read first, only upsert on first login (main performance path)
-  const dbUser =
-    (await getUser(authUser.id)) ??
-    (await upsertUser(authUser.id, authUser.email!, authUser.user_metadata?.name));
+  // Upsert user — idempotent, works for both new and returning users
+  const dbUser = await upsertUser(
+    authUser.id,
+    authUser.email!,
+    authUser.user_metadata?.name
+  );
 
   return dbUser;
 }
@@ -62,14 +64,17 @@ export async function requireAuthWithOrgs() {
     throw new Error("Not authenticated");
   }
 
-  const existingUser = await getUser(authUser.id);
-  const dbUser =
-    existingUser ??
-    (await upsertUser(authUser.id, authUser.email!, authUser.user_metadata?.name));
+  // Upsert user + fetch orgs in parallel
+  const [dbUser, organizations] = await Promise.all([
+    upsertUser(authUser.id, authUser.email!, authUser.user_metadata?.name),
+    getOrganizationsForUser(authUser.id),
+  ]);
 
   // If user landed via /o/handly, ensure they are added to Track 1 + Track 2
+  // so they show up immediately in the workspace switcher.
   await ensureHandlyTrackMemberships(authUser.id);
 
+  // Re-fetch orgs after potential membership updates
   const organizationsAfterHandly = await getOrganizationsForUser(authUser.id);
 
   // Ensure personal workspace exists
@@ -83,6 +88,7 @@ export async function requireAuthWithOrgs() {
         throw error;
       }
     }
+    // Re-fetch orgs after creating workspace
     const updatedOrgs = await getOrganizationsForUser(authUser.id);
     return { user: dbUser, organizations: updatedOrgs };
   }
@@ -90,45 +96,10 @@ export async function requireAuthWithOrgs() {
   return { user: dbUser, organizations: organizationsAfterHandly };
 }
 
-/**
- * Lightweight auth for pages — skips org fetching (layout already did it).
- * Returns authenticated user + activeOrgId from cookie.
- */
-export async function requireAuthWithActiveOrg() {
-  const user = await requireAuth();
-  const cookieStore = await cookies();
-  let activeOrgId = cookieStore.get("activeOrgId")?.value;
-
-  if (!activeOrgId) {
-    const organizations = await getOrganizationsForUser(user.id);
-    activeOrgId = organizations[0]?.id;
-    if (!activeOrgId) throw new Error("No active organization");
-  }
-
-  return { user, activeOrgId };
-}
-
 export async function getActiveOrgId(organizations: Array<{ id: string }>) {
   const cookieStore = await cookies();
   return (
     organizations.find((org) => org.id === cookieStore.get("activeOrgId")?.value)?.id ??
     organizations[0]?.id
-  );
-}
-
-/**
- * Resolve the active workspace for API routes: cookie if valid, otherwise first org.
- * Matches dashboard layout behavior so client fetches work before `activeOrgId` is set in document.cookie.
- */
-export async function resolveActiveOrganizationId(
-  cookieOrgId: string | undefined,
-  userId: string
-): Promise<string | null> {
-  const organizations = await getOrganizationsForUser(userId);
-  if (organizations.length === 0) return null;
-  return (
-    organizations.find((org) => org.id === cookieOrgId)?.id ??
-    organizations[0]?.id ??
-    null
   );
 }
