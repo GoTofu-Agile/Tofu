@@ -36,6 +36,7 @@ function LoginForm() {
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
+    let isRedirecting = false;
     try {
       const result = await login(formData);
       if (result?.error) {
@@ -44,11 +45,14 @@ function LoginForm() {
     } catch (error) {
       // Server action redirects throw NEXT_REDIRECT; treat that as success.
       if (isRedirectError(error)) {
+        isRedirecting = true;
         return;
       }
       setError("Something went wrong. Please try again.");
     } finally {
-      setLoading(false);
+      if (!isRedirecting) {
+        setLoading(false);
+      }
     }
   }
 
