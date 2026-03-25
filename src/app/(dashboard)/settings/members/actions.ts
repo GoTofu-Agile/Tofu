@@ -43,7 +43,7 @@ export async function createInviteLink(email: string, role: "ADMIN" | "MEMBER" |
   const invitation = await createInvitation(ctx.activeOrgId, email || "invite@placeholder.local", role);
 
   const headersList = await headers();
-  const host = headersList.get("host") ?? "localhost:3004";
+  const host = headersList.get("host") ?? "localhost:3000";
   const proto = headersList.get("x-forwarded-proto") ?? "http";
   const origin = `${proto}://${host}`;
 

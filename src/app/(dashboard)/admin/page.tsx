@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireAuth } from "@/lib/auth";
+import { requireAuthWithOrgs } from "@/lib/auth";
 import { getAllOrganizations, getPendingInvitations, getOrganization } from "@/lib/db/queries/organizations";
 import { CreateOrgForm } from "./create-org-form";
 import { OrgInviteGenerator } from "./org-invite-generator";
@@ -7,7 +7,7 @@ import { CopyInviteButton } from "./copy-invite-button";
 import { Building2, Users, BookOpen } from "lucide-react";
 
 export default async function AdminPage() {
-  const user = await requireAuth();
+  const { user } = await requireAuthWithOrgs();
 
   const adminEmails = (process.env.GOTOFU_ADMIN_EMAILS ?? "").split(",").map((e) => e.trim());
   if (!adminEmails.includes(user.email)) {

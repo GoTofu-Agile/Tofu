@@ -44,7 +44,6 @@ export function StepDescribe({
 
   useEffect(() => {
     if (!isControlled && initialText !== undefined) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync controlled prop
       setInternalText(initialText);
     }
   }, [initialText, isControlled]);

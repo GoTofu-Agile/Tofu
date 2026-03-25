@@ -8,12 +8,8 @@ import {
   createStudy,
   createSession,
   updateStudyStatus,
-  updateStudy,
-  addGroupToStudy,
-  removeGroupFromStudy,
   deleteStudy,
   getStudy,
-  getSession,
   completeSession,
 } from "@/lib/db/queries/studies";
 import type { StudyType } from "@prisma/client";
@@ -28,19 +24,6 @@ async function getActiveOrg() {
   if (!role) throw new Error("Not a member of this organization");
 
   return { user, activeOrgId, role };
-}
-
-export async function createDraftStudyAction() {
-  const { user, activeOrgId } = await getActiveOrg();
-
-  const { createDraftStudy } = await import("@/lib/db/queries/studies");
-  const study = await createDraftStudy({
-    organizationId: activeOrgId,
-    createdById: user.id,
-  });
-
-  revalidatePath("/studies");
-  return { success: true, studyId: study.id };
 }
 
 export async function createNewStudy(data: {
@@ -137,10 +120,7 @@ export async function runBatchInterviews(studyId: string) {
   return { success: true, pendingCount };
 }
 
-export async function triggerInsights(
-  studyId: string,
-  options?: { analysisTypes?: string[]; customPrompt?: string }
-) {
+export async function triggerInsights(studyId: string) {
   const { activeOrgId } = await getActiveOrg();
 
   const study = await getStudy(studyId);
@@ -158,11 +138,7 @@ export async function triggerInsights(
   const { inngest } = await import("@/lib/inngest/client");
   await inngest.send({
     name: "study/generate-insights",
-    data: {
-      studyId,
-      analysisTypes: options?.analysisTypes,
-      customPrompt: options?.customPrompt,
-    },
+    data: { studyId },
   });
 
   revalidatePath(`/studies/${studyId}`);
@@ -184,81 +160,4 @@ export async function removeStudy(studyId: string) {
   await deleteStudy(studyId);
   revalidatePath("/studies");
   return { success: true };
-}
-
-// --- Inline editing actions for unified study workspace ---
-
-export async function updateStudyTitle(studyId: string, title: string) {
-  const { activeOrgId } = await getActiveOrg();
-  const study = await getStudy(studyId);
-  if (!study || study.organizationId !== activeOrgId) {
-    return { error: "Study not found" };
-  }
-  await updateStudy(studyId, { title: title.trim() || "Untitled Study" });
-  revalidatePath(`/studies/${studyId}`);
-  return { success: true };
-}
-
-export async function updateStudyType(studyId: string, studyType: StudyType) {
-  const { activeOrgId } = await getActiveOrg();
-  const study = await getStudy(studyId);
-  if (!study || study.organizationId !== activeOrgId) {
-    return { error: "Study not found" };
-  }
-  await updateStudy(studyId, { studyType });
-  revalidatePath(`/studies/${studyId}`);
-  return { success: true };
-}
-
-export async function updateStudyDescription(studyId: string, description: string) {
-  const { activeOrgId } = await getActiveOrg();
-  const study = await getStudy(studyId);
-  if (!study || study.organizationId !== activeOrgId) {
-    return { error: "Study not found" };
-  }
-  await updateStudy(studyId, { description });
-  revalidatePath(`/studies/${studyId}`);
-  return { success: true };
-}
-
-export async function updateStudyGuide(studyId: string, guide: string) {
-  const { activeOrgId } = await getActiveOrg();
-  const study = await getStudy(studyId);
-  if (!study || study.organizationId !== activeOrgId) {
-    return { error: "Study not found" };
-  }
-  await updateStudy(studyId, { interviewGuide: guide });
-  revalidatePath(`/studies/${studyId}`);
-  return { success: true };
-}
-
-export async function toggleStudyGroup(studyId: string, groupId: string, add: boolean) {
-  const { activeOrgId } = await getActiveOrg();
-  const study = await getStudy(studyId);
-  if (!study || study.organizationId !== activeOrgId) {
-    return { error: "Study not found" };
-  }
-  if (add) {
-    await addGroupToStudy(studyId, groupId);
-  } else {
-    await removeGroupFromStudy(studyId, groupId);
-  }
-  revalidatePath(`/studies/${studyId}`);
-  return { success: true };
-}
-
-export async function getSessionMessages(sessionId: string) {
-  const { activeOrgId } = await getActiveOrg();
-  const session = await getSession(sessionId);
-  if (!session || session.study.organizationId !== activeOrgId) {
-    return { error: "Session not found", messages: [] };
-  }
-  const messages = session.messages
-    .filter((m) => m.role !== "SYSTEM")
-    .map((m) => ({
-      id: m.id,
-      role: m.role === "INTERVIEWER" ? ("user" as const) : ("assistant" as const),
-      content: m.content,
-    }));
-  return { messages };
 }

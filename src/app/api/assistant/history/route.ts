@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
 import { getConversationsForUser } from "@/lib/db/queries/chat";
-import { resolveActiveOrganizationId } from "@/lib/auth";
 
 export async function GET() {
   const supabase = await createClient();
@@ -13,10 +12,7 @@ export async function GET() {
   if (!dbUser) return Response.json({ error: "User not found" }, { status: 401 });
 
   const cookieStore = await cookies();
-  const activeOrgId = await resolveActiveOrganizationId(
-    cookieStore.get("activeOrgId")?.value,
-    dbUser.id
-  );
+  const activeOrgId = cookieStore.get("activeOrgId")?.value;
   if (!activeOrgId) return Response.json({ conversations: [] });
 
   const conversations = await getConversationsForUser(dbUser.id, activeOrgId);

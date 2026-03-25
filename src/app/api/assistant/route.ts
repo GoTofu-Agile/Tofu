@@ -25,8 +25,6 @@ import {
   addChatMessage,
   updateConversationTitle,
 } from "@/lib/db/queries/chat";
-import { resolveActiveOrganizationId } from "@/lib/auth";
-import { ASSISTANT_CONVERSATION_ID_HEADER } from "@/lib/assistant/constants";
 import type { StudyType } from "@prisma/client";
 
 export async function POST(request: Request) {
@@ -43,12 +41,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "User not found" }, { status: 401 });
   }
 
-  // Active org (cookie if set; else first org — same as dashboard layout)
+  // Active org
   const cookieStore = await cookies();
-  const activeOrgId = await resolveActiveOrganizationId(
-    cookieStore.get("activeOrgId")?.value,
-    dbUser.id
-  );
+  const activeOrgId = cookieStore.get("activeOrgId")?.value;
   if (!activeOrgId) {
     return Response.json({ error: "No active workspace" }, { status: 400 });
   }
@@ -141,7 +136,7 @@ BEHAVIOR RULES:
 - After generating personas, call navigateTo to show the persona group page so the user can watch progress.
 - When user asks to open/show/go to something, use navigateTo — the user sees the app navigate live in the window next to this chat.
 - Be concise — one or two sentences max after tool execution.
-- Always respond in English, regardless of the language the user writes in.`,
+- Respond in the user's language.`,
     messages,
     stopWhen: stepCountIs(8),
     tools: {
@@ -435,21 +430,24 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
           })
         ),
         execute: async ({ groupId, count, domainContext }) => {
+          const { generateAndSavePersonas } = await import("@/lib/ai/generate-personas");
           const contextStr = [
             domainContext,
             orgContext?.productDescription,
             orgContext?.targetAudience ? `Target audience: ${orgContext.targetAudience}` : "",
             orgContext?.industry ? `Industry: ${orgContext.industry}` : "",
           ].filter(Boolean).join("\n");
-          return {
-            message: `Starting generation of ${count} personas`,
-            url: `/personas/${groupId}`,
-            runId: `${groupId}:${Date.now()}`,
+
+          const result = await generateAndSavePersonas({
             groupId,
             count,
             domainContext: contextStr || undefined,
             sourceTypeOverride: "PROMPT_GENERATED",
-            status: "started",
+          });
+          return {
+            message: `Generated ${result.generated} personas`,
+            url: `/personas/${groupId}`,
+            count: result.generated,
           };
         },
       }),
@@ -540,15 +538,5 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
     },
   });
 
-  const streamResponse = result.toUIMessageStreamResponse();
-  if (!convId) {
-    return streamResponse;
-  }
-  const headers = new Headers(streamResponse.headers);
-  headers.set(ASSISTANT_CONVERSATION_ID_HEADER, convId);
-  return new Response(streamResponse.body, {
-    status: streamResponse.status,
-    statusText: streamResponse.statusText,
-    headers,
-  });
+  return result.toUIMessageStreamResponse();
 }

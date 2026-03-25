@@ -85,7 +85,6 @@ export default async function AcceptInvitePage({ params, searchParams }: Props) 
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        {/* eslint-disable-next-line react-hooks/purity */}
         Invite expires in {Math.ceil((new Date(invitation.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days.
       </p>
     </div>

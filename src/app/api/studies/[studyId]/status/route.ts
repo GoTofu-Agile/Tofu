@@ -22,24 +22,30 @@ export async function GET(
     return Response.json({ error: "User not found" }, { status: 401 });
   }
 
-  // Lightweight query: only counts + running session name
   const study = await prisma.study.findUnique({
     where: { id: studyId },
     select: {
       organizationId: true,
       personaGroups: {
-        select: {
+        include: {
           personaGroup: {
-            select: {
-              _count: { select: { personas: { where: { isActive: true } } } },
+            include: {
+              personas: {
+                where: { isActive: true },
+                select: { id: true },
+              },
             },
           },
         },
       },
-      _count: {
+      sessions: {
         select: {
-          sessions: { where: { status: "COMPLETED" } },
+          id: true,
+          status: true,
+          personaId: true,
+          persona: { select: { name: true } },
         },
+        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -53,28 +59,17 @@ export async function GET(
     return Response.json({ error: "Access denied" }, { status: 403 });
   }
 
-  // Find currently running session (separate lightweight query)
-  const [running, reportCount] = await Promise.all([
-    prisma.session.findFirst({
-      where: { studyId, status: "RUNNING" },
-      select: { persona: { select: { name: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.analysisReport.count({ where: { studyId } }),
-  ]);
-
   const totalPersonas = study.personaGroups.reduce(
-    (sum, spg) => sum + spg.personaGroup._count.personas,
+    (sum, spg) => sum + spg.personaGroup.personas.length,
     0
   );
-  const completed = study._count.sessions;
+  const completed = study.sessions.filter((s) => s.status === "COMPLETED").length;
+  const running = study.sessions.find((s) => s.status === "RUNNING");
 
   return Response.json({
     total: totalPersonas,
     completed,
-    running: running ? { personaName: running.persona?.name } : null,
+    running: running ? { personaName: running.persona.name } : null,
     done: completed >= totalPersonas && totalPersonas > 0,
-    hasReport: reportCount > 0,
-    reportCount,
   });
 }

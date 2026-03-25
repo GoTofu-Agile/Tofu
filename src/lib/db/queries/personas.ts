@@ -16,6 +16,7 @@ export async function getPersonaGroup(groupId: string) {
     where: { id: groupId },
     include: {
       _count: { select: { personas: true } },
+      organization: { select: { slug: true } },
     },
   });
 }
@@ -48,6 +49,20 @@ const appReviewDataSourcesInclude = {
   where: { domainKnowledge: { sourceType: "APP_REVIEW" as const } },
   include: {
     domainKnowledge: true,
+  },
+} as const;
+
+/** Full provenance on persona detail (Tavily, scrapes, reviews); list views stay APP_REVIEW-only. */
+const personaDetailDataSourcesInclude = {
+  include: {
+    domainKnowledge: {
+      select: {
+        sourceType: true,
+        searchQuery: true,
+        sourceUrl: true,
+        sourceDomain: true,
+      },
+    },
   },
 } as const;
 
@@ -93,9 +108,6 @@ export async function getPersonasForGroupList(groupId: string) {
           criticalFeedbackTendency: true,
         },
       },
-      // Needed for `appStoreReviewSnippetsFromPersona(persona.dataSources)`
-      // on the persona list/card view.
-      dataSources: appReviewDataSourcesInclude,
     },
     orderBy: { createdAt: "asc" },
   });
@@ -106,7 +118,7 @@ export async function getPersona(personaId: string) {
     where: { id: personaId },
     include: {
       personality: true,
-      dataSources: appReviewDataSourcesInclude,
+      dataSources: personaDetailDataSourcesInclude,
       personaGroup: {
         select: { id: true, name: true, organizationId: true },
       },

@@ -150,31 +150,25 @@ export async function saveResearchResults(
   searchQuery: string,
   searchSession: string
 ) {
-  if (results.length === 0) return [];
-
-  const data = results.map((result) => ({
-    personaGroupId: groupId,
-    title: result.title,
-    content: result.content,
-    sourceType: result.sourceType,
-    sourceUrl: result.url,
-    sourceDomain: result.domain,
-    publishedAt: result.publishedDate ? new Date(result.publishedDate) : null,
-    relevanceScore: result.score,
-    searchQuery,
-    searchSession,
-  }));
-
-  await prisma.domainKnowledge.createMany({ data });
-
-  // Fetch records for this query/session to keep API response shape stable.
-  return prisma.domainKnowledge.findMany({
-    where: {
-      personaGroupId: groupId,
-      searchSession,
-      searchQuery,
-    },
-    orderBy: { createdAt: "desc" },
-    take: data.length,
-  });
+  const created = [];
+  for (const result of results) {
+    const record = await prisma.domainKnowledge.create({
+      data: {
+        personaGroupId: groupId,
+        title: result.title,
+        content: result.content,
+        sourceType: result.sourceType,
+        sourceUrl: result.url,
+        sourceDomain: result.domain,
+        publishedAt: result.publishedDate
+          ? new Date(result.publishedDate)
+          : null,
+        relevanceScore: result.score,
+        searchQuery,
+        searchSession,
+      },
+    });
+    created.push(record);
+  }
+  return created;
 }

@@ -36,13 +36,9 @@ const STUDY_TYPES = [
 
 interface StepTypeProps {
   onSelect: (type: "INTERVIEW" | "SURVEY" | "FOCUS_GROUP" | "USABILITY_TEST") => void;
-  researchObjective?: string;
 }
 
-export function StepType({ onSelect, researchObjective }: StepTypeProps) {
-  // Simple heuristic: recommend Interview for most qualitative research
-  const hasObjective = !!researchObjective?.trim();
-  const recommendedType = hasObjective ? "INTERVIEW" : null;
+export function StepType({ onSelect }: StepTypeProps) {
   return (
     <div className="space-y-6">
       <div>
@@ -69,11 +65,6 @@ export function StepType({ onSelect, researchObjective }: StepTypeProps) {
                 <div className="absolute top-3 right-3 flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Lock className="h-3 w-3" />
                   Soon
-                </div>
-              )}
-              {st.enabled && recommendedType === st.type && (
-                <div className="absolute top-3 right-3 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                  Recommended
                 </div>
               )}
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-stone-100 mb-3">

@@ -3,6 +3,7 @@
 import { useChat, type UseChatHelpers } from "@ai-sdk/react";
 import { TextStreamChatTransport } from "ai";
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -43,6 +44,7 @@ export function InterviewChat({
   initialMessages,
   isCompleted: initialCompleted,
 }: InterviewChatProps) {
+  const router = useRouter();
   const [completed, setCompleted] = useState(initialCompleted);
   const [ending, setEnding] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -97,6 +99,7 @@ export function InterviewChat({
       await endSession(sessionId);
       setCompleted(true);
       toast.success("Interview completed");
+      router.refresh();
     } catch {
       toast.error("Failed to end session");
     } finally {
@@ -277,45 +280,59 @@ export function InterviewChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input — always shown, even after completion */}
-      <div className="shrink-0 border-t p-4">
-        <div className="flex items-end gap-2">
-          <div className="relative flex-1">
-            <textarea
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={completed ? `Continue chatting with ${persona.name}...` : `Ask ${persona.name} a question...`}
-              rows={1}
-              className="w-full resize-none rounded-xl border bg-background px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              style={{
-                minHeight: "44px",
-                maxHeight: "120px",
-                height: "auto",
-              }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = "auto";
-                target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
-              }}
-            />
+      {/* Input */}
+      {!completed ? (
+        <div className="shrink-0 border-t p-4">
+          <div className="flex items-end gap-2">
+            <div className="relative flex-1">
+              <textarea
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={`Ask ${persona.name} a question...`}
+                rows={1}
+                className="w-full resize-none rounded-xl border bg-background px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                style={{
+                  minHeight: "44px",
+                  maxHeight: "120px",
+                  height: "auto",
+                }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = "auto";
+                  target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+                }}
+              />
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              disabled={!inputValue.trim() || isLoading}
+              onClick={handleSend}
+              className="h-[44px] w-[44px] shrink-0 rounded-xl"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-          <Button
-            type="button"
-            size="icon"
-            disabled={!inputValue.trim() || isLoading}
-            onClick={handleSend}
-            className="h-[44px] w-[44px] shrink-0 rounded-xl"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
         </div>
-      </div>
+      ) : (
+        <div className="shrink-0 border-t p-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            This interview has been completed.
+          </p>
+          <Link
+            href={`/studies/${studyId}`}
+            className="mt-1 text-sm text-primary hover:underline"
+          >
+            Back to study
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

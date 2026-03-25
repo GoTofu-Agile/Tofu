@@ -15,8 +15,7 @@ export async function login(formData: FormData) {
     return { error: error.message };
   }
 
-  const next = formData.get("next") as string | null;
-  redirect(next?.startsWith("/") ? next : "/dashboard");
+  redirect("/dashboard");
 }
 
 export async function signup(formData: FormData) {
@@ -38,8 +37,7 @@ export async function signup(formData: FormData) {
     return { error: error.message };
   }
 
-  const next = formData.get("next") as string | null;
-  redirect(next?.startsWith("/") ? next : "/dashboard");
+  redirect("/login?message=Check your email to confirm your account");
 }
 
 export async function signOut() {

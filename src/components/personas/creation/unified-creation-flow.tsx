@@ -822,6 +822,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
             toast.success(`Generated ${event.generated} personas!`);
             setTimeout(() => {
               router.push(`/personas/${gId}`);
+              router.refresh();
             }, 1000);
           } else if (event.type === "error") {
             toast.error(event.message);

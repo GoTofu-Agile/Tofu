@@ -1,7 +1,6 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { getUser } from "@/lib/db/queries/users";
 import { getModel } from "@/lib/ai/provider";
 
 const surveySchema = z.object({
@@ -26,10 +25,6 @@ export async function POST(request: Request) {
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
-  const dbUser = await getUser(user.id);
-  if (!dbUser) {
-    return Response.json({ error: "User not found" }, { status: 401 });
-  }
 
   const body = await request.json();
   const { description, orgContext } = body;
@@ -44,11 +39,10 @@ Target audience: ${orgContext.targetAudience || "Unknown"}
 Industry: ${orgContext.industry || "Unknown"}`
     : "";
 
-  try {
-    const { object } = await generateObject({
-      model: getModel(),
-      schema: surveySchema,
-      prompt: `Generate a survey for: "${description}"
+  const { object } = await generateObject({
+    model: getModel(),
+    schema: surveySchema,
+    prompt: `Generate a survey for: "${description}"
 
 ${contextStr}
 
@@ -60,12 +54,7 @@ Generate 6-10 survey questions. Mix question types:
 Start with easy questions, get more specific.
 Generate a concise title (5-10 words).
 Each question needs a unique id (use q1, q2, etc).`,
-    });
+  });
 
-    return Response.json(object);
-  } catch (error) {
-    console.error("[study/generate-survey] AI generation failed:", error);
-    const message = error instanceof Error ? error.message : "AI generation failed";
-    return Response.json({ error: message }, { status: 500 });
-  }
+  return Response.json(object);
 }

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { requireAuthWithActiveOrg } from "@/lib/auth";
+import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
 import { getPersonaGroupsForOrg } from "@/lib/db/queries/personas";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus } from "lucide-react";
 import { SOURCE_LABELS } from "@/lib/constants/source-labels";
+import { resolvePersonaGroupDisplayName } from "@/lib/personas/legacy-group-display-name";
 
 function parseDomainContext(domainContext?: string | null) {
   const ctx = domainContext ?? "";
@@ -29,11 +30,12 @@ function computeGroupDisplay(group: {
   domainContext?: string | null;
 }) {
   const rawName = (group.name ?? "").trim();
+  const displayName = resolvePersonaGroupDisplayName(group.name);
   const isPlaceholder = rawName.length === 0 || rawName.toLowerCase() === "persona group";
 
   const ctx = parseDomainContext(group.domainContext);
   const titleCandidate =
-    (!isPlaceholder && rawName) ||
+    (!isPlaceholder && displayName) ||
     ctx.audience ||
     ctx.userDesc ||
     (group.description ?? "").trim();
@@ -57,7 +59,8 @@ function computeGroupDisplay(group: {
 }
 
 export default async function PersonasPage() {
-  const { activeOrgId } = await requireAuthWithActiveOrg();
+  const { organizations } = await requireAuthWithOrgs();
+  const activeOrgId = await getActiveOrgId(organizations);
 
   const groups = await getPersonaGroupsForOrg(activeOrgId);
 

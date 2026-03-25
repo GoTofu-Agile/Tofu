@@ -19,24 +19,6 @@ interface AssistantContextType {
   conversationId: string | null;
   setConversationId: (id: string | null) => void;
   startNewChat: () => void;
-  // Autopilot overlay state (agent-driven UI flow)
-  autopilot: {
-    active: boolean;
-    title: string;
-    detail?: string;
-    progress?: { completed: number; total: number };
-    status: "running" | "done" | "error";
-  };
-  startAutopilot: (title: string, detail?: string) => void;
-  updateAutopilot: (update: {
-    title?: string;
-    detail?: string;
-    progress?: { completed: number; total: number };
-    status?: "running" | "done" | "error";
-  }) => void;
-  finishAutopilot: (detail?: string) => void;
-  failAutopilot: (detail?: string) => void;
-  clearAutopilot: () => void;
 }
 
 const AssistantContext = createContext<AssistantContextType>({
@@ -51,16 +33,6 @@ const AssistantContext = createContext<AssistantContextType>({
   conversationId: null,
   setConversationId: () => {},
   startNewChat: () => {},
-  autopilot: {
-    active: false,
-    title: "",
-    status: "running",
-  },
-  startAutopilot: () => {},
-  updateAutopilot: () => {},
-  finishAutopilot: () => {},
-  failAutopilot: () => {},
-  clearAutopilot: () => {},
 });
 
 export function useAssistant() {
@@ -72,11 +44,6 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatView, setChatView] = useState<ChatView>("chat");
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [autopilot, setAutopilot] = useState<AssistantContextType["autopilot"]>({
-    active: false,
-    title: "",
-    status: "running",
-  });
 
   const toggle = useCallback(() => {
     setIsOpen((p) => {
@@ -99,57 +66,6 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
     setChatView("chat");
   }, []);
 
-  const startAutopilot = useCallback((title: string, detail?: string) => {
-    setAutopilot({
-      active: true,
-      title,
-      detail,
-      status: "running",
-    });
-  }, []);
-
-  const updateAutopilot = useCallback(
-    (update: {
-      title?: string;
-      detail?: string;
-      progress?: { completed: number; total: number };
-      status?: "running" | "done" | "error";
-    }) => {
-      setAutopilot((prev) => ({
-        ...prev,
-        active: true,
-        ...update,
-      }));
-    },
-    []
-  );
-
-  const finishAutopilot = useCallback((detail?: string) => {
-    setAutopilot((prev) => ({
-      ...prev,
-      active: true,
-      status: "done",
-      detail: detail ?? prev.detail,
-    }));
-  }, []);
-
-  const failAutopilot = useCallback((detail?: string) => {
-    setAutopilot((prev) => ({
-      ...prev,
-      active: true,
-      status: "error",
-      detail: detail ?? prev.detail,
-    }));
-  }, []);
-
-  const clearAutopilot = useCallback(() => {
-    setAutopilot({
-      active: false,
-      title: "",
-      status: "running",
-    });
-  }, []);
-
   return (
     <AssistantContext.Provider
       value={{
@@ -164,12 +80,6 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
         conversationId,
         setConversationId,
         startNewChat,
-        autopilot,
-        startAutopilot,
-        updateAutopilot,
-        finishAutopilot,
-        failAutopilot,
-        clearAutopilot,
       }}
     >
       {children}

@@ -1,12 +1,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { requireAuthWithOrgs } from "@/lib/auth";
+import { getActiveOrgId, requireAuthWithOrgs } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { AppFrame } from "@/components/layout/app-frame";
 import { AssistantProvider } from "@/components/assistant/assistant-provider";
-import { AssistantChatLazy } from "@/components/assistant/assistant-chat-lazy";
-import { FeedbackOverlay } from "@/components/feedback/feedback-overlay";
+import { AssistantChat } from "@/components/assistant/assistant-chat";
 
 
 export default async function DashboardLayout({
@@ -29,12 +28,8 @@ export default async function DashboardLayout({
     );
   }
 
-  // Determine active org from cookie, default to first
   const cookieStore = await cookies();
-  const cookieOrgId = cookieStore.get("activeOrgId")?.value;
-  const activeOrgId =
-    organizations.find((org) => org.id === cookieOrgId)?.id ??
-    organizations[0].id;
+  const activeOrgId = await getActiveOrgId(organizations);
 
   const adminEmails = (process.env.GOTOFU_ADMIN_EMAILS ?? "")
     .split(",")
@@ -56,8 +51,7 @@ export default async function DashboardLayout({
             <main className="flex-1 overflow-y-auto px-8 py-6">{children}</main>
           </div>
         </AppFrame>
-        <AssistantChatLazy />
-        <FeedbackOverlay />
+        <AssistantChat />
       </div>
     </AssistantProvider>
   );

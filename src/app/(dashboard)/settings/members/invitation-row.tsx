@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { Copy, Check } from "lucide-react";
 import { revokeInvite } from "./actions";
 
@@ -18,16 +19,15 @@ interface InvitationRowProps {
 }
 
 export function InvitationRow({ invitation, canManage }: InvitationRowProps) {
+  const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState(false);
 
-  /* eslint-disable react-hooks/purity */
   const daysLeft = Math.ceil(
     (new Date(invitation.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
 
   const inviteUrl = `${window.location.origin}/accept-invite/${invitation.token}`;
-  /* eslint-enable react-hooks/purity */
 
   async function handleCopy() {
     await navigator.clipboard.writeText(inviteUrl);
@@ -45,6 +45,7 @@ export function InvitationRow({ invitation, canManage }: InvitationRowProps) {
       toast.error(result.error);
     } else {
       toast.success("Invitation revoked");
+      router.refresh();
     }
   }
 

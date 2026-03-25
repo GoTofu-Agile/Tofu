@@ -10,8 +10,8 @@ B2B SaaS platform for synthetic user research. Create AI-generated personas from
 
 ```bash
 # 1. Clone & install
-git clone https://github.com/GoTofu-Agile/Tofu.git
-cd Tofu
+git clone https://github.com/habibidani/gotofu.git
+cd gotofu
 npm install
 
 # 2. Set up environment (get values from Daniel)
@@ -148,7 +148,7 @@ See [`.env.example`](.env.example) for all variables with descriptions.
 
 ---
 
-## Deployment  
+## Deployment
 
 One repo, two Vercel projects with different root directories:
 
