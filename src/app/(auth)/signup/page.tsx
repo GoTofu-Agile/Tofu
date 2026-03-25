@@ -23,25 +23,11 @@ export default function SignupPage() {
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
-    try {
-      const result = await signup(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
+    const result = await signup(formData);
+    if (result?.error) {
+      setError(result.error);
       setLoading(false);
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-        <p className="mt-4 text-sm text-muted-foreground">Creating your account…</p>
-      </div>
-    );
   }
 
   return (
@@ -90,8 +76,15 @@ export default function SignupPage() {
               minLength={6}
             />
           </div>
-          <Button type="submit" className="w-full cursor-pointer">
-            Sign up
+          <Button type="submit" className="w-full cursor-pointer" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating account...
+              </>
+            ) : (
+              "Sign up"
+            )}
           </Button>
         </form>
       </CardContent>

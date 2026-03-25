@@ -1,4 +1,4 @@
-import { requireAuthWithOrgs, getActiveOrgId } from "@/lib/auth";
+import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getOrganization, getPendingInvitations, getUserRole } from "@/lib/db/queries/organizations";
 import { notFound } from "next/navigation";
 import { InviteForm } from "./invite-form";
@@ -6,8 +6,7 @@ import { MemberRow } from "./member-row";
 import { InvitationRow } from "./invitation-row";
 
 export default async function MembersPage() {
-  const { user, organizations } = await requireAuthWithOrgs();
-  const activeOrgId = await getActiveOrgId(organizations);
+  const { user, activeOrgId } = await requireAuthWithActiveOrg();
 
   const [org, pendingInvitations, myRole] = await Promise.all([
     getOrganization(activeOrgId),

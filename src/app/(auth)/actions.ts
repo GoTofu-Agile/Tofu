@@ -15,7 +15,8 @@ export async function login(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  const next = formData.get("next") as string | null;
+  redirect(next?.startsWith("/") ? next : "/dashboard");
 }
 
 export async function signup(formData: FormData) {
@@ -37,7 +38,8 @@ export async function signup(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  const next = formData.get("next") as string | null;
+  redirect(next?.startsWith("/") ? next : "/dashboard");
 }
 
 export async function signOut() {

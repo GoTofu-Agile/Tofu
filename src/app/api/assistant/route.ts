@@ -141,7 +141,7 @@ BEHAVIOR RULES:
 - After generating personas, call navigateTo to show the persona group page so the user can watch progress.
 - When user asks to open/show/go to something, use navigateTo — the user sees the app navigate live in the window next to this chat.
 - Be concise — one or two sentences max after tool execution.
-- Respond in the user's language.`,
+- Always respond in English, regardless of the language the user writes in.`,
     messages,
     stopWhen: stepCountIs(8),
     tools: {
