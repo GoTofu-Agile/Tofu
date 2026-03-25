@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Plus, Trash2, GripVertical } from "lucide-react";
+import { Sparkles, Loader2, Plus, Trash2, ShieldCheck } from "lucide-react";
+import { QuestionFeedback } from "@/components/studies/question-feedback";
+import type { MomTestIssue } from "@/lib/ai/mom-test-rules";
 
 export interface SurveyQuestion {
   id: string;
@@ -11,6 +13,14 @@ export interface SurveyQuestion {
   options?: string[];
   scaleMin?: number;
   scaleMax?: number;
+}
+
+interface EvaluationResult {
+  questionIndex: number;
+  score: number;
+  issues: MomTestIssue[];
+  explanation: string;
+  suggestion: string | null;
 }
 
 interface StepQuestionsProps {
@@ -27,6 +37,7 @@ interface StepQuestionsProps {
   orgContext: { productName?: string | null; productDescription?: string | null; targetAudience?: string | null; industry?: string | null } | null;
   onNext: () => void;
   onBack: () => void;
+  onEvaluationComplete?: (score: number, evaluations: EvaluationResult[], feedback: string, missingTopics: string[]) => void;
 }
 
 export function StepQuestions({
@@ -40,9 +51,57 @@ export function StepQuestions({
   orgContext,
   onNext,
   onBack,
+  onEvaluationComplete,
 }: StepQuestionsProps) {
   const [generating, setGenerating] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [evaluations, setEvaluations] = useState<EvaluationResult[]>([]);
+  const [evaluating, setEvaluating] = useState(false);
+
+  const evaluateGuide = useCallback(async () => {
+    const questions = interviewGuide.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (questions.length < 2) {
+      toast.error("Add at least 2 questions to evaluate.");
+      return;
+    }
+
+    setEvaluating(true);
+    try {
+      const res = await fetch("/api/studies/evaluate-guide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questions, studyType }),
+      });
+
+      if (!res.ok) {
+        toast.error("Evaluation failed. Try again.");
+        return;
+      }
+
+      const data = await res.json();
+      setEvaluations(data.evaluations || []);
+      onEvaluationComplete?.(data.overallScore, data.evaluations, data.overallFeedback, data.missingTopics);
+      toast.success(`Quality score: ${data.overallScore}/10`);
+    } catch {
+      toast.error("Evaluation failed.");
+    } finally {
+      setEvaluating(false);
+    }
+  }, [interviewGuide, studyType, onEvaluationComplete]);
+
+  function handleApplySuggestion(questionIndex: number, suggestion: string) {
+    const lines = interviewGuide.split("\n");
+    const nonEmptyIndices: number[] = [];
+    lines.forEach((line, i) => {
+      if (line.trim()) nonEmptyIndices.push(i);
+    });
+
+    const lineIndex = nonEmptyIndices[questionIndex];
+    if (lineIndex !== undefined) {
+      lines[lineIndex] = suggestion;
+      onGuideChange(lines.join("\n"));
+    }
+  }
 
   async function handleGenerate() {
     if (!aiPrompt.trim()) return;
@@ -101,10 +160,9 @@ export function StepQuestions({
   }
 
   const canContinue =
-    title.trim() &&
-    (studyType === "INTERVIEW"
+    studyType === "INTERVIEW"
       ? interviewGuide.trim().length > 0
-      : surveyQuestions.some((q) => q.text.trim()));
+      : surveyQuestions.some((q) => q.text.trim());
 
   return (
     <div className="space-y-6">
@@ -138,28 +196,56 @@ export function StepQuestions({
         </button>
       </div>
 
-      {/* Title */}
-      <div>
-        <label className="text-xs font-medium text-muted-foreground">Study title</label>
-        <input
-          value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
-          placeholder="e.g. Onboarding Experience Research"
-          className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-foreground/30"
-        />
-      </div>
-
-      {/* Interview Guide */}
+      {/* Interview Guide with optional Mom Test evaluation */}
       {studyType === "INTERVIEW" && (
-        <div>
+        <div className="space-y-3">
           <label className="text-xs font-medium text-muted-foreground">Interview questions (one per line)</label>
           <textarea
             value={interviewGuide}
             onChange={(e) => onGuideChange(e.target.value)}
             placeholder={"1. Can you tell me about your experience with...?\n2. What challenges do you face when...?\n3. How do you currently...?"}
             rows={10}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-foreground/30 resize-none"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-foreground/30 resize-none"
           />
+
+          {/* Explicit evaluate button */}
+          {interviewGuide.trim() && (
+            <button
+              onClick={evaluateGuide}
+              disabled={evaluating}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-stone-50 disabled:opacity-50"
+            >
+              {evaluating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-3 w-3" />
+              )}
+              {evaluating ? "Evaluating..." : "Evaluate quality"}
+            </button>
+          )}
+
+          {/* Per-question Mom Test feedback */}
+          {evaluations.length > 0 && (
+            <div className="space-y-2">
+              {interviewGuide
+                .split("\n")
+                .map((l) => l.trim())
+                .filter(Boolean)
+                .map((question, i) => {
+                  const evaluation = evaluations.find((e) => e.questionIndex === i);
+                  if (!evaluation) return null;
+                  return (
+                    <div key={i} className="rounded-lg border border-border/50 p-3">
+                      <p className="text-xs font-medium">{i + 1}. {question}</p>
+                      <QuestionFeedback
+                        evaluation={evaluation}
+                        onApplySuggestion={handleApplySuggestion}
+                      />
+                    </div>
+                  );
+                })}
+            </div>
+          )}
         </div>
       )}
 

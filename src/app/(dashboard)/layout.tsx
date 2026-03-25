@@ -6,6 +6,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { AppFrame } from "@/components/layout/app-frame";
 import { AssistantProvider } from "@/components/assistant/assistant-provider";
 import { AssistantChatLazy } from "@/components/assistant/assistant-chat-lazy";
+import { FeedbackOverlay } from "@/components/feedback/feedback-overlay";
 
 
 export default async function DashboardLayout({
@@ -56,6 +57,7 @@ export default async function DashboardLayout({
           </div>
         </AppFrame>
         <AssistantChatLazy />
+        <FeedbackOverlay />
       </div>
     </AssistantProvider>
   );

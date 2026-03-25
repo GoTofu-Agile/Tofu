@@ -86,6 +86,74 @@ export async function createStudy(data: {
   });
 }
 
+export async function findOrCreateDraft(data: {
+  organizationId: string;
+  createdById: string;
+}) {
+  // Reuse an untouched draft from the last 24h to avoid orphaned studies
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const existing = await prisma.study.findFirst({
+    where: {
+      organizationId: data.organizationId,
+      createdById: data.createdById,
+      status: "DRAFT",
+      title: "Untitled Study",
+      interviewGuide: null,
+      description: null,
+      createdAt: { gte: cutoff },
+      sessions: { none: {} },
+      personaGroups: { none: {} },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (existing) return existing;
+
+  return prisma.study.create({
+    data: {
+      organizationId: data.organizationId,
+      createdById: data.createdById,
+      title: "Untitled Study",
+      studyType: "INTERVIEW",
+      status: "DRAFT",
+    },
+  });
+}
+
+export async function createDraftStudy(data: {
+  organizationId: string;
+  createdById: string;
+}) {
+  return findOrCreateDraft(data);
+}
+
+export async function updateStudy(
+  studyId: string,
+  data: {
+    title?: string;
+    description?: string;
+    studyType?: StudyType;
+    interviewGuide?: string;
+  }
+) {
+  return prisma.study.update({
+    where: { id: studyId },
+    data,
+  });
+}
+
+export async function addGroupToStudy(studyId: string, personaGroupId: string) {
+  return prisma.studyPersonaGroup.create({
+    data: { studyId, personaGroupId },
+  });
+}
+
+export async function removeGroupFromStudy(studyId: string, personaGroupId: string) {
+  return prisma.studyPersonaGroup.deleteMany({
+    where: { studyId, personaGroupId },
+  });
+}
+
 export async function updateStudyStatus(
   studyId: string,
   status: StudyStatus
@@ -160,6 +228,14 @@ export async function getAnalysisReport(studyId: string) {
   return prisma.analysisReport.findFirst({
     where: { studyId },
     orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getAnalysisReports(studyId: string, limit = 5) {
+  return prisma.analysisReport.findMany({
+    where: { studyId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
   });
 }
 
