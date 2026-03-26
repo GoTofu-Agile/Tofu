@@ -56,7 +56,7 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
   return (
     <aside
       className={cn(
-        "flex h-screen flex-col transition-all duration-200 overflow-hidden bg-stone-50",
+        "flex h-full flex-col transition-all duration-200 overflow-hidden bg-stone-50",
         collapsed ? "w-14" : "w-52"
       )}
     >
