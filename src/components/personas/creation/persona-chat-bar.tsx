@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Sparkles,
@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -54,6 +55,14 @@ export function PersonaChatBar({
 }: PersonaChatBarProps) {
   const [dataSource, setDataSource] = useState<(typeof DATA_SOURCES)[0]>(DATA_SOURCES[0]);
   const [customDraft, setCustomDraft] = useState<string>("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
 
   function clampCount(n: number) {
     return Math.min(PERSONA_MAX, Math.max(1, Math.round(n)));
@@ -77,7 +86,8 @@ export function PersonaChatBar({
   return (
     <div className="mb-6 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
       <Sparkles className="h-5 w-5 shrink-0 text-muted-foreground" />
-      <Input
+      <Textarea
+        ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
@@ -86,9 +96,10 @@ export function PersonaChatBar({
             handleSubmit();
           }
         }}
+        rows={1}
         placeholder="Describe your target users in one sentence…"
         disabled={loading}
-        className="min-w-0 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+        className="mt-0.5 h-8 min-h-8 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-0 py-1.5 leading-5 shadow-none focus-visible:ring-0"
       />
       <DropdownMenu>
         <DropdownMenuTrigger

@@ -25,6 +25,7 @@ import {
   addChatMessage,
   updateConversationTitle,
 } from "@/lib/db/queries/chat";
+import { resolveActiveOrganizationId } from "@/lib/auth";
 import type { StudyType } from "@prisma/client";
 
 export async function POST(request: Request) {
@@ -41,9 +42,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "User not found" }, { status: 401 });
   }
 
-  // Active org
   const cookieStore = await cookies();
-  const activeOrgId = cookieStore.get("activeOrgId")?.value;
+  const activeOrgId = await resolveActiveOrganizationId(
+    cookieStore.get("activeOrgId")?.value,
+    dbUser.id
+  );
   if (!activeOrgId) {
     return Response.json({ error: "No active workspace" }, { status: 400 });
   }

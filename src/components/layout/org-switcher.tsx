@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import {
@@ -27,12 +29,52 @@ interface OrgSwitcherProps {
 
 export function OrgSwitcher({ organizations, activeOrgId, collapsed }: OrgSwitcherProps) {
   const router = useRouter();
-  const activeOrg = organizations.find((org) => org.id === activeOrgId);
+  const pathname = usePathname();
+  const [pendingOrgId, setPendingOrgId] = useState<string | null>(null);
+  const pathOrgSlug = useMemo(() => {
+    const m = pathname?.match(/^\/o\/([^/]+)/);
+    return m?.[1] ?? null;
+  }, [pathname]);
+  const pathOrgId = useMemo(
+    () => (pathOrgSlug ? organizations.find((org) => org.slug === pathOrgSlug)?.id ?? null : null),
+    [organizations, pathOrgSlug]
+  );
+  const effectiveOrgId = pendingOrgId ?? pathOrgId ?? activeOrgId;
+  const activeOrg = organizations.find((org) => org.id === effectiveOrgId);
   const displayName = activeOrg?.isPersonal ? "Personal" : activeOrg?.name ?? "Workspace";
 
+  useEffect(() => {
+    if (pendingOrgId && pendingOrgId === activeOrgId) {
+      setPendingOrgId(null);
+    }
+  }, [activeOrgId, pendingOrgId]);
+
+  useEffect(() => {
+    if (!pendingOrgId) return;
+    if (pathOrgId && pathOrgId === pendingOrgId) {
+      setPendingOrgId(null);
+    }
+  }, [pathOrgId, pendingOrgId]);
+
+  useEffect(() => {
+    if (!pathname && pendingOrgId) {
+      setPendingOrgId(null);
+    }
+  }, [pathname, pendingOrgId]);
+
   function switchOrg(orgId: string) {
+    if (orgId === effectiveOrgId) return;
+    const selected = organizations.find((org) => org.id === orgId);
+    if (!selected) return;
+    setPendingOrgId(orgId);
     // eslint-disable-next-line react-hooks/immutability
     document.cookie = `activeOrgId=${orgId}; path=/; max-age=31536000`;
+    // eslint-disable-next-line react-hooks/immutability
+    document.cookie = `activeOrgSlug=${selected.slug}; path=/; max-age=31536000`;
+    const path = window.location.pathname.replace(/^\/o\/[^/]+/, "") || "/dashboard";
+    const next = path.startsWith("/") ? path : `/${path}`;
+    const target = `/o/${selected.slug}${next}`;
+    router.push(target);
     router.refresh();
   }
 
@@ -49,9 +91,13 @@ export function OrgSwitcher({ organizations, activeOrgId, collapsed }: OrgSwitch
           <DropdownMenuGroup>
             <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
             {organizations.map((org) => (
-              <DropdownMenuItem key={org.id} onClick={() => switchOrg(org.id)} className="cursor-pointer">
+              <DropdownMenuItem
+                key={org.id}
+                onClick={() => switchOrg(org.id)}
+                className="cursor-pointer"
+              >
                 <span className="flex-1 truncate">{org.isPersonal ? "Personal" : org.name}</span>
-                {org.id === activeOrgId && <Check className="h-3.5 w-3.5 text-primary" />}
+                {org.id === effectiveOrgId && <Check className="h-3.5 w-3.5 text-primary" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
@@ -79,9 +125,13 @@ export function OrgSwitcher({ organizations, activeOrgId, collapsed }: OrgSwitch
         <DropdownMenuGroup>
           <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
           {organizations.map((org) => (
-            <DropdownMenuItem key={org.id} onClick={() => switchOrg(org.id)} className="cursor-pointer">
+            <DropdownMenuItem
+              key={org.id}
+              onClick={() => switchOrg(org.id)}
+              className="cursor-pointer"
+            >
               <span className="flex-1 truncate">{org.isPersonal ? "Personal" : org.name}</span>
-              {org.id === activeOrgId && <Check className="h-3.5 w-3.5 text-primary" />}
+              {org.id === effectiveOrgId && <Check className="h-3.5 w-3.5 text-primary" />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>

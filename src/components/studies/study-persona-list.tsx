@@ -32,16 +32,45 @@ export function StudyPersonaList({
   personas,
   studyId,
   personaSessionMap,
+  onPersonaSelect,
+  selectedPersonaId,
+  /** When true, persona grid starts inside a collapsed disclosure (post-interview workspace). */
+  defaultCollapsed = false,
 }: {
   personas: Persona[];
   studyId: string;
   personaSessionMap: Record<string, SessionInfo>;
+  /** When set, clicking a persona invokes this instead of navigating away (e.g. inline transcript panel). */
+  onPersonaSelect?: (personaId: string) => void | Promise<void>;
+  selectedPersonaId?: string;
+  defaultCollapsed?: boolean;
 }) {
   const router = useRouter();
   const [starting, setStarting] = useState<string | null>(null);
 
   async function handleClick(personaId: string) {
     const existing = personaSessionMap[personaId];
+
+    if (onPersonaSelect) {
+      if (existing) {
+        await onPersonaSelect(personaId);
+        return;
+      }
+      setStarting(personaId);
+      try {
+        const result = await startSession(studyId, personaId);
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        await onPersonaSelect(personaId);
+      } catch {
+        toast.error("Failed to start session");
+      } finally {
+        setStarting(null);
+      }
+      return;
+    }
 
     // If session exists, navigate to it
     if (existing) {
@@ -65,13 +94,14 @@ export function StudyPersonaList({
     }
   }
 
-  return (
+  const grid = (
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
       {personas.map((persona) => {
         const session = personaSessionMap[persona.id];
         const isStarting = starting === persona.id;
         const isCompleted = session?.status === "COMPLETED";
         const isRunning = session?.status === "RUNNING";
+        const isSelected = selectedPersonaId === persona.id;
 
         return (
           <button
@@ -79,6 +109,8 @@ export function StudyPersonaList({
             onClick={() => handleClick(persona.id)}
             disabled={isStarting}
             className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors disabled:opacity-50 ${
+              isSelected ? "ring-2 ring-foreground/20 ring-offset-2 ring-offset-background " : ""
+            }${
               isCompleted
                 ? "border-green-200 bg-green-50/50 hover:bg-green-50 dark:border-green-900/30 dark:bg-green-900/10 dark:hover:bg-green-900/20"
                 : isRunning
@@ -139,4 +171,17 @@ export function StudyPersonaList({
       })}
     </div>
   );
+
+  if (defaultCollapsed) {
+    return (
+      <details className="rounded-lg border border-border/60">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50">
+          Personas ({personas.length})
+        </summary>
+        <div className="border-t p-2">{grid}</div>
+      </details>
+    );
+  }
+
+  return grid;
 }

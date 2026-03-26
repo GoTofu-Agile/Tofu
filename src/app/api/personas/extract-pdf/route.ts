@@ -26,8 +26,7 @@ export async function POST(request: NextRequest) {
     const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
     const parsed = await pdfParse(buffer);
     pdfText = parsed.text;
-  } catch (err) {
-    console.error("[extract-pdf] PDF parse failed:", err);
+  } catch {
     return Response.json({ error: "Could not parse PDF" }, { status: 400 });
   }
 
@@ -38,11 +37,10 @@ export async function POST(request: NextRequest) {
   // Truncate to avoid token overflow (LinkedIn PDFs are typically short)
   const truncated = pdfText.slice(0, 6000);
 
-  try {
-    const { object } = await generateObject({
-      model: getModel(),
-      schema: extractedContextSchema,
-      prompt: `You are helping create a synthetic persona based on a LinkedIn profile PDF.
+  const { object } = await generateObject({
+    model: getModel(),
+    schema: extractedContextSchema,
+    prompt: `You are helping create a synthetic persona based on a LinkedIn profile PDF.
 
 LinkedIn profile content:
 ${truncated}
@@ -54,12 +52,7 @@ Extract a persona based on this real professional profile:
 - painPoints: Infer 3-5 realistic pain points for someone in their role/industry
 - demographicsHints: Location, seniority level, career stage from the profile
 - domainContext: A rich paragraph describing this type of user — their background, expertise, challenges, and what makes them tick. Use the profile as inspiration but generalize slightly to represent a persona type, not just this one person.`,
-    });
+  });
 
-    return Response.json(object);
-  } catch (error) {
-    console.error("[extract-pdf] AI generation failed:", error);
-    const message = error instanceof Error ? error.message : "Failed to analyze PDF content";
-    return Response.json({ error: message }, { status: 500 });
-  }
+  return Response.json(object);
 }

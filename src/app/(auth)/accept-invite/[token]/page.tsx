@@ -53,6 +53,10 @@ export default async function AcceptInvitePage({ params, searchParams }: Props) 
 
   const orgName = invitation.organization.name;
   const roleName = invitation.role.charAt(0) + invitation.role.slice(1).toLowerCase();
+  const nowMs = new Date().getTime();
+  const daysUntilExpiry = Math.ceil(
+    (new Date(invitation.expiresAt).getTime() - nowMs) / (1000 * 60 * 60 * 24)
+  );
 
   return (
     <div className="space-y-6">
@@ -85,8 +89,7 @@ export default async function AcceptInvitePage({ params, searchParams }: Props) 
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        {/* eslint-disable-next-line react-hooks/purity */}
-        Invite expires in {Math.ceil((new Date(invitation.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days.
+        Invite expires in {daysUntilExpiry} days.
       </p>
     </div>
   );

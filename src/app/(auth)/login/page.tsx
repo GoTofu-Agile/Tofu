@@ -26,14 +26,9 @@ function LoginForm() {
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
-    try {
-      const result = await login(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
+    const result = await login(formData);
+    if (result?.error) {
+      setError(result.error);
       setLoading(false);
     }
   }

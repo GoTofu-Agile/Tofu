@@ -44,7 +44,9 @@ export function StepReview({
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold">Review your study</h3>
-        <p className="text-sm text-muted-foreground mt-1">Everything looks good? Let&apos;s create it.</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Everything looks good? Let&apos;s create it.
+        </p>
       </div>
 
       {/* Summary Cards */}

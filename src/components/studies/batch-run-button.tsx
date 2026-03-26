@@ -89,30 +89,29 @@ export function BatchRunButton({
   useEffect(() => {
     if (!polling) return;
     const interval = setInterval(pollStatus, POLL_INTERVAL);
-    pollStatus(); // Immediate first poll
-    return () => clearInterval(interval);
+    const t = window.setTimeout(() => pollStatus(), 0);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(t);
+    };
   }, [polling, pollStatus]);
 
   async function handleRun() {
     setStarting(true);
     setError(null);
-    try {
-      const result = await runBatchInterviews(studyId);
+    const result = await runBatchInterviews(studyId);
 
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-
-      toast.success(`Batch started for ${result.pendingCount} personas!`);
-      pollingStartTime.current = Date.now();
-      consecutiveErrors.current = 0;
-      setPolling(true);
-    } catch {
-      setError("Failed to start batch interviews. Please try again.");
-    } finally {
+    if (result.error) {
+      toast.error(result.error);
       setStarting(false);
+      return;
     }
+
+    toast.success(`Batch started for ${result.pendingCount} personas!`);
+    setStarting(false);
+    pollingStartTime.current = Date.now();
+    consecutiveErrors.current = 0;
+    setPolling(true);
   }
 
   // Error state

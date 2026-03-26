@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
+import { resolvePersonaGroupDisplayName } from "@/lib/personas/legacy-group-display-name";
+import { formatPersonaCreationProvenance } from "@/lib/personas/persona-creation-provenance";
 
 export default async function PersonaDetailPage({
   params,
@@ -39,7 +41,7 @@ export default async function PersonaDetailPage({
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Back to {persona.personaGroup.name}
+          Back to {resolvePersonaGroupDisplayName(persona.personaGroup.name)}
         </Link>
 
         <div className="flex items-start justify-between">
@@ -61,16 +63,24 @@ export default async function PersonaDetailPage({
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            {persona.domainExpertise ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Domain expertise: {persona.domainExpertise}
+              </p>
+            ) : null}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
             {persona.qualityScore !== null && (
               <Badge variant="outline">
                 Quality: {Math.round(persona.qualityScore * 100)}%
               </Badge>
             )}
-            {persona.domainExpertise && (
-              <Badge variant="secondary">{persona.domainExpertise}</Badge>
-            )}
+            <Badge variant="secondary" className="max-w-[min(100%,14rem)] text-right leading-snug">
+              {formatPersonaCreationProvenance({
+                sourceType: persona.sourceType,
+                dataSources: persona.dataSources,
+              })}
+            </Badge>
           </div>
         </div>
 

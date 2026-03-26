@@ -229,10 +229,10 @@ export default function RootPage() { redirect("/login"); }
 **Fix:** Always use `printf '%s'` instead of `echo`:
 ```bash
 # CORRECT:
-printf '%s' "sk-proj-..." | npx vercel env add OPENAI_API_KEY production --scope gotofus-projects
+printf '%s' "<openai-api-key>" | npx vercel env add OPENAI_API_KEY production --scope gotofus-projects
 
 # WRONG:
-echo "sk-proj-..." | npx vercel env add OPENAI_API_KEY production --scope gotofus-projects
+echo "<openai-api-key>" | npx vercel env add OPENAI_API_KEY production --scope gotofus-projects
 ```
 
 ### Problem 8: MaxClientsInSessionMode (DB connection limit)

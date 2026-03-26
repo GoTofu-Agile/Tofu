@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import type { StudyType, StudyStatus, SessionStatus } from "@prisma/client";
+import type { Prisma, StudyType, StudyStatus, SessionStatus } from "@prisma/client";
 
 // ─── Study CRUD ───
 
@@ -93,6 +93,13 @@ export async function updateStudyStatus(
   return prisma.study.update({
     where: { id: studyId },
     data: { status },
+  });
+}
+
+export async function updateStudy(studyId: string, data: Prisma.StudyUpdateInput) {
+  return prisma.study.update({
+    where: { id: studyId },
+    data,
   });
 }
 

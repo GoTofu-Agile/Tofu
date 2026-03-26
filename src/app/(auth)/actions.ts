@@ -37,7 +37,7 @@ export async function signup(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  redirect("/login?message=Check your email to confirm your account");
 }
 
 export async function signOut() {

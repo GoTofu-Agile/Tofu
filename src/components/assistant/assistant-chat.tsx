@@ -233,8 +233,9 @@ export function AssistantChat() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-1.5 pb-32 space-y-1.5">
           {messages.length === 0 && (
-            <p className="my-1.5 text-[13px] leading-5 text-stone-500">
-              Hi! How can I help you today?
+            <p className="my-2 text-[14px] leading-6 text-stone-600">
+              I can create personas, set up studies, and summarize results. Try: &quot;Create 5
+              personas for B2B founders.&quot;
             </p>
           )}
 

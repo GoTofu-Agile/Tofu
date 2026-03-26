@@ -11,7 +11,9 @@ import {
   deleteStudy,
   getStudy,
   completeSession,
+  updateStudy,
 } from "@/lib/db/queries/studies";
+import { prisma } from "@/lib/db/prisma";
 import type { StudyType } from "@prisma/client";
 
 async function getActiveOrg() {
@@ -88,6 +90,125 @@ export async function endSession(sessionId: string) {
   return { success: true };
 }
 
+export async function updateStudyTitle(studyId: string, title: string) {
+  const { activeOrgId, role } = await getActiveOrg();
+  if (role === "VIEWER") {
+    return { error: "Insufficient permissions" };
+  }
+  const study = await getStudy(studyId);
+  if (!study || study.organizationId !== activeOrgId) {
+    return { error: "Study not found" };
+  }
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return { error: "Title is required" };
+  }
+  await updateStudy(studyId, { title: trimmed });
+  revalidatePath(`/studies/${studyId}`);
+  return { success: true };
+}
+
+export async function updateStudyType(studyId: string, studyType: StudyType) {
+  const { activeOrgId, role } = await getActiveOrg();
+  if (role === "VIEWER") {
+    return { error: "Insufficient permissions" };
+  }
+  const study = await getStudy(studyId);
+  if (!study || study.organizationId !== activeOrgId) {
+    return { error: "Study not found" };
+  }
+  await updateStudy(studyId, { studyType });
+  revalidatePath(`/studies/${studyId}`);
+  return { success: true };
+}
+
+export async function updateStudyDescription(studyId: string, description: string) {
+  const { activeOrgId, role } = await getActiveOrg();
+  if (role === "VIEWER") {
+    return { error: "Insufficient permissions" };
+  }
+  const study = await getStudy(studyId);
+  if (!study || study.organizationId !== activeOrgId) {
+    return { error: "Study not found" };
+  }
+  await updateStudy(studyId, { description: description.trim() || null });
+  revalidatePath(`/studies/${studyId}`);
+  return { success: true };
+}
+
+export async function updateStudyGuide(studyId: string, interviewGuide: string) {
+  const { activeOrgId, role } = await getActiveOrg();
+  if (role === "VIEWER") {
+    return { error: "Insufficient permissions" };
+  }
+  const study = await getStudy(studyId);
+  if (!study || study.organizationId !== activeOrgId) {
+    return { error: "Study not found" };
+  }
+  await updateStudy(studyId, { interviewGuide });
+  revalidatePath(`/studies/${studyId}`);
+  return { success: true };
+}
+
+export async function toggleStudyGroup(
+  studyId: string,
+  groupId: string,
+  selected: boolean
+) {
+  const { activeOrgId, role } = await getActiveOrg();
+  if (role === "VIEWER") {
+    return { error: "Insufficient permissions" };
+  }
+  const study = await getStudy(studyId);
+  if (!study || study.organizationId !== activeOrgId) {
+    return { error: "Study not found" };
+  }
+  const group = await prisma.personaGroup.findUnique({
+    where: { id: groupId },
+    select: { organizationId: true },
+  });
+  if (!group || group.organizationId !== activeOrgId) {
+    return { error: "Persona group not found" };
+  }
+  if (selected) {
+    await prisma.studyPersonaGroup.upsert({
+      where: {
+        studyId_personaGroupId: { studyId, personaGroupId: groupId },
+      },
+      update: {},
+      create: { studyId, personaGroupId: groupId },
+    });
+  } else {
+    await prisma.studyPersonaGroup.deleteMany({
+      where: { studyId, personaGroupId: groupId },
+    });
+  }
+  revalidatePath(`/studies/${studyId}`);
+  return { success: true };
+}
+
+export async function getSessionMessages(sessionId: string) {
+  const { activeOrgId } = await getActiveOrg();
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    include: {
+      study: { select: { organizationId: true } },
+      messages: { orderBy: { sequence: "asc" } },
+    },
+  });
+  if (!session || session.study.organizationId !== activeOrgId) {
+    return { messages: [] as Array<{ id: string; role: "user" | "assistant"; content: string }> };
+  }
+  const messages = session.messages
+    .filter((m) => m.role === "INTERVIEWER" || m.role === "RESPONDENT")
+    .map((m) => ({
+      id: m.id,
+      role: m.role === "INTERVIEWER" ? ("user" as const) : ("assistant" as const),
+      content: m.content,
+    }));
+  return { messages };
+}
+
 export async function runBatchInterviews(studyId: string) {
   const { activeOrgId } = await getActiveOrg();
 
@@ -120,7 +241,10 @@ export async function runBatchInterviews(studyId: string) {
   return { success: true, pendingCount };
 }
 
-export async function triggerInsights(studyId: string) {
+export async function triggerInsights(
+  studyId: string,
+  options?: { analysisTypes?: string[]; customPrompt?: string }
+) {
   const { activeOrgId } = await getActiveOrg();
 
   const study = await getStudy(studyId);
@@ -138,7 +262,11 @@ export async function triggerInsights(studyId: string) {
   const { inngest } = await import("@/lib/inngest/client");
   await inngest.send({
     name: "study/generate-insights",
-    data: { studyId },
+    data: {
+      studyId,
+      ...(options?.analysisTypes?.length ? { analysisTypes: options.analysisTypes } : {}),
+      ...(options?.customPrompt ? { customPrompt: options.customPrompt } : {}),
+    },
   });
 
   revalidatePath(`/studies/${studyId}`);
