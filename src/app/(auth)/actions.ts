@@ -3,6 +3,14 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+function getSafeNextPath(formData: FormData): string | null {
+  const nextRaw = formData.get("next");
+  if (typeof nextRaw !== "string") return null;
+  if (!nextRaw.startsWith("/")) return null;
+  if (nextRaw.startsWith("//")) return null;
+  return nextRaw;
+}
+
 export async function login(formData: FormData) {
   const supabase = await createClient();
 
@@ -15,7 +23,8 @@ export async function login(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  const nextPath = getSafeNextPath(formData);
+  redirect(nextPath ?? "/dashboard");
 }
 
 export async function signup(formData: FormData) {
@@ -37,7 +46,9 @@ export async function signup(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/login?message=Check your email to confirm your account");
+  const nextPath = getSafeNextPath(formData);
+  const nextQuery = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
+  redirect(`/login?message=Check your email to confirm your account${nextQuery}`);
 }
 
 export async function signOut() {

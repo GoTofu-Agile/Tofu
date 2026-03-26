@@ -1,12 +1,19 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUser, upsertUser } from "@/lib/db/queries/users";
-import { getOrganizationsForUser, createPersonalWorkspace } from "@/lib/db/queries/organizations";
+import {
+  getOrganizationsForUser,
+  createPersonalWorkspace,
+  getOrganizationBySlug,
+} from "@/lib/db/queries/organizations";
 import { prisma } from "@/lib/db/prisma";
 
-async function ensureHandlyTrackMemberships(userId: string) {
-  const cookieStore = await cookies();
-  const slug = cookieStore.get("activeOrgSlug")?.value;
+async function ensureHandlyTrackMemberships(userId: string, activeOrgSlug?: string) {
+  const slug =
+    activeOrgSlug ??
+    (await cookies())
+      .get("activeOrgSlug")
+      ?.value;
   if (slug !== "handly") return;
 
   const [gtm, product] = await Promise.all([
@@ -127,4 +134,50 @@ export async function resolveActiveOrganizationId(
     organizations[0]?.id ??
     null
   );
+}
+
+type ActiveOrgCookieValues = {
+  activeOrgId: string;
+  activeOrgSlug: string;
+};
+
+/**
+ * Resolve an org slug for the authenticated user and return cookie values.
+ * Special-cases `/o/handly` to keep the Handly track context behavior.
+ */
+export async function resolveActiveOrgCookiesFromSlug(
+  slug: string,
+  userId: string
+): Promise<ActiveOrgCookieValues | null> {
+  if (slug === "handly") {
+    await ensureHandlyTrackMemberships(userId, "handly");
+
+    const handlyTrack = await getOrganizationBySlug("handly-gtm");
+    if (!handlyTrack) return null;
+
+    return {
+      activeOrgId: handlyTrack.id,
+      activeOrgSlug: "handly",
+    };
+  }
+
+  const organization = await getOrganizationBySlug(slug);
+  if (!organization) return null;
+
+  const member = await prisma.organizationMember.findUnique({
+    where: {
+      organizationId_userId: {
+        organizationId: organization.id,
+        userId,
+      },
+    },
+    select: { userId: true },
+  });
+
+  if (!member) return null;
+
+  return {
+    activeOrgId: organization.id,
+    activeOrgSlug: organization.slug,
+  };
 }
