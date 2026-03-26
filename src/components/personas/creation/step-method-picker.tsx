@@ -41,7 +41,7 @@ const METHODS: Method[] = [
     id: "ai-generate",
     icon: Zap,
     title: "App Store Reviews",
-    description: "Use real App Store reviews and AI to synthesize personas.",
+    description: "Best for mobile apps. Use real App Store reviews and AI to synthesize personas.",
     label: "Data Backed",
     labelClass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   },

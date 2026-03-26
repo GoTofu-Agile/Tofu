@@ -133,6 +133,9 @@ export function FlowStepSetup({
         {/* Study Type — boxes in a row */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Study type</label>
+          <p className="text-xs text-muted-foreground">
+            Interview is available now.
+          </p>
           <div className="flex gap-2 flex-wrap">
             {STUDY_TYPES.map((st) => {
               const Icon = st.icon;
@@ -166,7 +169,7 @@ export function FlowStepSetup({
             What do you want to learn?
           </label>
           <p className="text-xs text-muted-foreground">
-            This shapes your interview guide in the next step.
+            This shapes your interview guide.
           </p>
           <textarea
             value={objective}
@@ -176,6 +179,13 @@ export function FlowStepSetup({
             rows={3}
             className="w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-foreground/30"
           />
+          {savingObjective ? (
+            <p className="text-xs text-muted-foreground">Saving...</p>
+          ) : objective.trim() ? (
+            <p className="text-xs text-muted-foreground">Saved on blur.</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Add one clear goal to continue.</p>
+          )}
         </div>
 
         {/* Persona Groups */}
@@ -194,7 +204,7 @@ export function FlowStepSetup({
               </p>
               <p className="text-xs text-muted-foreground/60 mt-1">
                 <Link href="/personas/new" className="underline">
-                  Create personas first
+                  Create a persona group first
                 </Link>
                 , then come back.
               </p>

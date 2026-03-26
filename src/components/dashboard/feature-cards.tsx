@@ -32,14 +32,14 @@ const featureCards: FeatureCard[] = [
   },
   {
     title: "New Study",
-    description: "Set up interviews with AI",
+    description: "Run interviews and get insights",
     icon: FlaskConical,
     href: "/studies/new",
     color: "bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400",
   },
   {
     title: "Product Context",
-    description: "Describe your product for better results",
+    description: "Improve persona and study quality",
     icon: Settings,
     href: "/settings",
     color: "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400",

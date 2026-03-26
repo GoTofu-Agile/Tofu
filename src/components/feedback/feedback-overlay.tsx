@@ -15,8 +15,10 @@ export function FeedbackOverlay() {
   useEffect(() => {
     // Start near bottom-left once viewport dimensions are available.
     const y = Math.max(16, window.innerHeight - 72);
-    setPosition({ x: 16, y });
-    setReady(true);
+    requestAnimationFrame(() => {
+      setPosition({ x: 16, y });
+      setReady(true);
+    });
   }, []);
 
   useEffect(() => {

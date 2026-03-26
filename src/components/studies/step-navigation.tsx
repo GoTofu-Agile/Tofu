@@ -6,9 +6,15 @@ import type { FlowStep } from "./study-flow-stepper";
 import { FLOW_STEPS } from "./study-flow-stepper";
 
 const STEP_HINTS: Record<string, string> = {
-  setup: "Your guide will be generated from your objective",
-  guide: "Start interviewing your personas",
-  interviews: "Analyze your interview data",
+  setup: "Next: generate your interview guide",
+  guide: "Next: run interviews",
+  interviews: "Next: generate insights",
+};
+
+const STEP_BLOCKERS: Record<string, string> = {
+  setup: "Select at least one persona group to continue.",
+  guide: "Add at least one interview question to continue.",
+  interviews: "Complete at least one interview to continue.",
 };
 
 interface StepNavigationProps {
@@ -31,7 +37,7 @@ export function StepNavigation({
   const currentIndex = FLOW_STEPS.findIndex((s) => s.key === activeStep);
   const isFirst = currentIndex === 0;
   const isLast = currentIndex === FLOW_STEPS.length - 1;
-  const hint = STEP_HINTS[activeStep];
+  const hint = canGoNext ? STEP_HINTS[activeStep] : STEP_BLOCKERS[activeStep];
 
   return (
     <div className="sticky bottom-0 z-10 bg-background border-t py-3">
@@ -63,7 +69,7 @@ export function StepNavigation({
               {nextLabel || "Continue"}
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
-            {hint && canGoNext && (
+            {hint && (
               <span className="text-[10px] text-muted-foreground/60">
                 {hint}
               </span>

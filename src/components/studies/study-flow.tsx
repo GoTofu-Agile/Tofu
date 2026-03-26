@@ -112,8 +112,10 @@ export function StudyFlow({
 
   // Sync server props to client state after router.refresh()
   useEffect(() => {
-    setAnalysisReport(initialReport);
-    setAnalysisReports(initialReports);
+    requestAnimationFrame(() => {
+      setAnalysisReport(initialReport);
+      setAnalysisReports(initialReports);
+    });
   }, [initialReport, initialReports]);
 
   // Step completion checks
@@ -253,9 +255,6 @@ export function StudyFlow({
       }
     }, 1000);
   }
-
-  // Steps that handle their own right panel internally
-  const stepHandlesOwnPanel = activeStep === "interviews" || activeStep === "insights";
 
   return (
     <div className="space-y-6">

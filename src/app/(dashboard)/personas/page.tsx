@@ -67,7 +67,7 @@ export default async function PersonasPage() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Personas</h2>
           <p className="text-muted-foreground">
-            Manage your persona groups and individual personas.
+            Create persona groups for your studies.
           </p>
         </div>
         <Link
@@ -84,14 +84,17 @@ export default async function PersonasPage() {
           <Users className="mx-auto h-10 w-10 text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium">No persona groups yet</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Create your first persona group to get started.
+            Start with one audience-focused group (for example: &ldquo;SMB founders evaluating analytics tools&rdquo;).
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Tip: adding Product Context in Settings improves persona quality.
           </p>
           <Link
             href="/personas/new"
             className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 h-9 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
           >
             <Plus className="h-4 w-4" />
-            Get Started
+            Create persona group
           </Link>
         </div>
       ) : (

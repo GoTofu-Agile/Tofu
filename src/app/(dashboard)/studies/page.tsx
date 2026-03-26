@@ -30,7 +30,7 @@ export default async function StudiesPage() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Studies</h2>
           <p className="text-muted-foreground">
-            Run interviews with your synthetic personas to gather insights.
+            Run interview studies with your personas and turn sessions into insights.
           </p>
         </div>
         <Link
@@ -47,7 +47,7 @@ export default async function StudiesPage() {
           <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium">No studies yet</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Create a study and start interviewing your synthetic personas.
+            Create a study to generate a guide, run interviews, and get an insights report.
           </p>
           <Link
             href="/studies/new"
