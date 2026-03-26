@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ import { signup } from "../actions";
 export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
@@ -45,6 +48,7 @@ export default function SignupPage() {
           </p>
         )}
         <form action={handleSubmit} className="space-y-4">
+          {next ? <input type="hidden" name="next" value={next} /> : null}
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
@@ -92,7 +96,7 @@ export default function SignupPage() {
         <p className="text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link
-            href="/login"
+            href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
             Sign in
