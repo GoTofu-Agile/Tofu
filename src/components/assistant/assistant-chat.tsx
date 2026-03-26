@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,9 @@ import {
   Send,
   Plus,
   Loader2,
+  Shuffle,
+  Copy,
+  RotateCcw,
   Users,
   FlaskConical,
   Settings,
@@ -46,6 +50,26 @@ interface LivePersonaGeneration {
   error?: string;
 }
 
+interface PendingPersonaDesign {
+  dedupeKey: string;
+  runId: string;
+  groupId: string;
+  count: number;
+  domainContext?: string;
+  sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
+}
+
+const ASK_DRAFT_STORAGE_KEY = "gotofu.ask.draft";
+
+function trackAssistantEvent(event: string, payload?: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("assistant:telemetry", {
+      detail: { event, payload, ts: Date.now() },
+    })
+  );
+}
+
 export function AssistantChat() {
   const router = useRouter();
   const {
@@ -67,10 +91,19 @@ export function AssistantChat() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
   const [liveGenerations, setLiveGenerations] = useState<Record<string, LivePersonaGeneration>>({});
+  const [pendingPersonaDesign, setPendingPersonaDesign] = useState<PendingPersonaDesign | null>(null);
+  const [personaDesignCount, setPersonaDesignCount] = useState(5);
+  const [personaDesignPrompt, setPersonaDesignPrompt] = useState("");
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [lastUserPrompt, setLastUserPrompt] = useState("");
+  const [expandedResponses, setExpandedResponses] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const startedGenerationIdsRef = useRef<Set<string>>(new Set());
+  const dismissedGenerationIdsRef = useRef<Set<string>>(new Set());
   const scrollRafRef = useRef<number | null>(null);
+  const hasLoadedDraftRef = useRef(false);
+  const [isClient, setIsClient] = useState(false);
   /** Latest thread id for request body; avoids recreating transport (which would reset useChat state). */
   const conversationIdRef = useRef(conversationId);
   useEffect(() => {
@@ -95,7 +128,9 @@ export function AssistantChat() {
   const { messages, sendMessage, status, setMessages } = useChat({
     transport,
     onError(error) {
-      toast.error(error.message || "Something went wrong");
+      const msg = error.message || "Something went wrong";
+      setChatError(msg);
+      toast.error(msg);
     },
   });
 
@@ -108,17 +143,38 @@ export function AssistantChat() {
     if (!query) return true;
     return (conv.title || "Untitled chat").toLowerCase().includes(query);
   });
+  const suggestedPrompts = useMemo(
+    () => [
+      "Create 5 personas for B2B SaaS founders",
+      "Set up a study to understand onboarding friction",
+      "Summarize insights from my latest study",
+      "Invite a teammate as MEMBER",
+    ],
+    []
+  );
+  const latestAssistantMessageId = useMemo(
+    () => [...messages].reverse().find((m) => m.role === "assistant")?.id ?? null,
+    [messages]
+  );
 
   useEffect(() => {
     if (!isOpen) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (pendingPersonaDesign) {
+          dismissedGenerationIdsRef.current.add(pendingPersonaDesign.dedupeKey);
+          setPendingPersonaDesign(null);
+          setPersonaDesignCount(5);
+          setPersonaDesignPrompt("");
+          toast.message("Persona creation canceled.");
+          return;
+        }
         close();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, close]);
+  }, [isOpen, close, pendingPersonaDesign]);
 
   useEffect(() => {
     if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
@@ -136,6 +192,33 @@ export function AssistantChat() {
     if (isOpen && chatView === "chat")
       setTimeout(() => inputRef.current?.focus(), 100);
   }, [isOpen, chatView]);
+
+  useEffect(() => {
+    if (!isOpen || hasLoadedDraftRef.current) return;
+    hasLoadedDraftRef.current = true;
+    try {
+      const saved = window.localStorage.getItem(ASK_DRAFT_STORAGE_KEY);
+      if (saved) setInputValue(saved);
+    } catch {
+      // ignore
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (inputValue.trim()) {
+        window.localStorage.setItem(ASK_DRAFT_STORAGE_KEY, inputValue);
+      } else {
+        window.localStorage.removeItem(ASK_DRAFT_STORAGE_KEY);
+      }
+    } catch {
+      // ignore
+    }
+  }, [inputValue]);
 
   // Handle navigation tool results
   useEffect(() => {
@@ -373,18 +456,19 @@ export function AssistantChat() {
 
       const dedupeKey = `${message.id}:${i}:${output.runId}`;
       if (startedGenerationIdsRef.current.has(dedupeKey)) continue;
-      startedGenerationIdsRef.current.add(dedupeKey);
+      if (dismissedGenerationIdsRef.current.has(dedupeKey)) continue;
+      if (pendingPersonaDesign?.dedupeKey === dedupeKey) continue;
 
-      void startLivePersonaGeneration({
+      setPendingPersonaDesign({
+        dedupeKey,
         runId: output.runId,
         groupId: output.groupId,
         count: output.count,
         domainContext: output.domainContext,
         sourceTypeOverride: output.sourceTypeOverride,
-        url: output.url,
       });
     }
-  }, [messages, startLivePersonaGeneration]);
+  }, [messages, pendingPersonaDesign]);
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
@@ -429,11 +513,58 @@ export function AssistantChat() {
   );
 
   function handleSend(text?: string) {
-    const msg = text || inputValue.trim();
+    const msg = (text ?? inputValue).trim();
     if (!msg || isLoading) return;
+    if (msg.length > 2000) {
+      toast.error("Message is too long. Keep it under 2000 characters.");
+      return;
+    }
+    setChatError(null);
+    setLastUserPrompt(msg);
+    trackAssistantEvent("ask_send", { source: text ? "suggestion_or_action" : "input" });
     sendMessage({ text: msg });
     setInputValue("");
     if (inputRef.current) inputRef.current.style.height = "24px";
+  }
+
+  function handleRetry() {
+    if (!lastUserPrompt || isLoading) return;
+    setChatError(null);
+    trackAssistantEvent("ask_retry");
+    sendMessage({ text: lastUserPrompt });
+  }
+
+  function handleRegenerate() {
+    if (!lastUserPrompt || isLoading) return;
+    setChatError(null);
+    trackAssistantEvent("ask_regenerate");
+    sendMessage({ text: `Regenerate your previous answer. Keep the same intent, but improve clarity and structure.` });
+  }
+
+  function handleImproveAnswer() {
+    if (isLoading) return;
+    setChatError(null);
+    trackAssistantEvent("ask_improve");
+    sendMessage({
+      text: "Improve your previous answer: make it more actionable, concise, and better structured with clear next steps.",
+    });
+  }
+
+  function handleContinueAnswer() {
+    if (isLoading) return;
+    setChatError(null);
+    trackAssistantEvent("ask_continue");
+    sendMessage({ text: "Continue your previous answer from where you stopped." });
+  }
+
+  async function handleCopy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      trackAssistantEvent("ask_copy_response");
+      toast.success("Copied");
+    } catch {
+      toast.error("Could not copy");
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -490,6 +621,31 @@ export function AssistantChat() {
     [messages]
   );
 
+  useEffect(() => {
+    if (!pendingPersonaDesign) return;
+    setPersonaDesignCount(pendingPersonaDesign.count);
+    // Prefill from the user's latest ask (not injected workspace context).
+    const latestUserText = [...messages]
+      .reverse()
+      .find((message) => message.role === "user")
+      ?.parts.filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .map((part) => part.text)
+      .join("")
+      .trim();
+    setPersonaDesignPrompt(latestUserText || "");
+  }, [pendingPersonaDesign, messages]);
+
+  const personaPromptPresets = useMemo(
+    () => [
+      "B2B SaaS founders at seed to Series A stage. Include distinct growth, product, and operations mindsets.",
+      "Freelancers and solo creators in Europe who juggle client work, admin, and cash-flow uncertainty.",
+      "Product managers at mid-size tech companies balancing roadmap pressure, stakeholder alignment, and research gaps.",
+      "E-commerce operators focused on repeat purchases, margins, and operational efficiency across small teams.",
+      "HR and People Ops leaders in scaling startups navigating hiring velocity, retention, and culture consistency.",
+    ],
+    []
+  );
+
   function formatTimeAgo(dateStr: string) {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -500,18 +656,66 @@ export function AssistantChat() {
     return `${days}d ago`;
   }
 
+  function handleCancelPersonaDesign() {
+    if (pendingPersonaDesign) {
+      dismissedGenerationIdsRef.current.add(pendingPersonaDesign.dedupeKey);
+    }
+    setPendingPersonaDesign(null);
+    setPersonaDesignCount(5);
+    setPersonaDesignPrompt("");
+    toast.message("Persona creation canceled.");
+  }
+
+  function handleConfirmPersonaDesign() {
+    if (!pendingPersonaDesign) return;
+    const finalCount = Math.max(1, Math.min(10, personaDesignCount || pendingPersonaDesign.count));
+    if (!finalCount) {
+      toast.error("Please choose how many personas to generate.");
+      return;
+    }
+
+    startedGenerationIdsRef.current.add(pendingPersonaDesign.dedupeKey);
+    void startLivePersonaGeneration({
+      runId: pendingPersonaDesign.runId,
+      groupId: pendingPersonaDesign.groupId,
+      count: finalCount,
+      domainContext: personaDesignPrompt.trim() || undefined,
+      sourceTypeOverride: pendingPersonaDesign.sourceTypeOverride,
+      url: `/personas/${pendingPersonaDesign.groupId}`,
+    });
+    setPendingPersonaDesign(null);
+    setPersonaDesignCount(5);
+    setPersonaDesignPrompt("");
+  }
+
+  function shufflePersonaPrompt() {
+    if (personaPromptPresets.length === 0) return;
+    const randomPrompt =
+      personaPromptPresets[Math.floor(Math.random() * personaPromptPresets.length)];
+    setPersonaDesignPrompt(randomPrompt);
+  }
+
   // ── Single aside with Chat + History overlay ──
-  return (
-    <aside
-      id="ask-panel"
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby="ask-panel-title"
-      className={cn(
-      "fixed top-4 bottom-4 right-0 w-[23rem] flex flex-col transition-all duration-300 ease-out",
-      isOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"
+  const askLayer = (
+    <>
+      {isOpen && pendingPersonaDesign && (
+        <div className="pointer-events-auto fixed inset-y-0 left-0 right-[23rem] z-40 bg-stone-900/20 backdrop-blur-[1px] max-md:hidden" />
       )}
-    >
+
+      <aside
+        id="ask-panel"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="ask-panel-title"
+        className={cn(
+        "fixed z-50 flex flex-col transition-all duration-300 ease-out",
+        "inset-0 h-dvh w-screen rounded-none sm:top-2 sm:bottom-2 sm:right-0 sm:left-auto sm:h-auto sm:w-[min(23rem,100vw-0.75rem)] sm:rounded-l-2xl",
+        isOpen
+          ? "translate-x-0 opacity-100"
+          : "translate-y-full sm:translate-y-0 sm:translate-x-full opacity-0 pointer-events-none"
+        )}
+      >
+
       {/* Chat content (always rendered) */}
       <div className={cn(
         "relative flex flex-col h-full transition-all duration-200",
@@ -571,9 +775,40 @@ export function AssistantChat() {
           className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-3 pb-32 space-y-3"
         >
           {messages.length === 0 && (
-            <p className="my-2 text-[14px] leading-6 text-stone-600">
-              I can create personas, set up studies, and summarize results. Try: "Create 5 personas for B2B founders."
-            </p>
+            <div className="my-2 space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-3">
+              <p className="text-[14px] leading-6 text-stone-700">
+                Ask can create personas, set up studies, run interviews, and summarize insights.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {suggestedPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => {
+                      trackAssistantEvent("ask_click_suggestion", { prompt });
+                      handleSend(prompt);
+                    }}
+                    className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[12px] text-stone-700 hover:bg-stone-100"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {chatError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">
+              <p>{chatError}</p>
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="mt-1 inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-100"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Retry
+              </button>
+            </div>
           )}
 
           {parsedMessages.map((message) => {
@@ -611,7 +846,57 @@ export function AssistantChat() {
                         <AssistantRichText
                           text={message.text}
                           onNavigate={(path) => router.push(path)}
+                          collapsed={!expandedResponses[message.id]}
                         />
+                        {message.text.length > 700 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedResponses((prev) => ({
+                                ...prev,
+                                [message.id]: !prev[message.id],
+                              }))
+                            }
+                            className="mt-1 text-[12px] font-medium text-stone-600 hover:text-stone-900"
+                          >
+                            {expandedResponses[message.id] ? "Show less" : "Show more"}
+                          </button>
+                        )}
+                        {message.id === latestAssistantMessageId && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(message.text)}
+                            className="rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] text-stone-700 hover:bg-stone-50"
+                          >
+                            <span className="inline-flex items-center gap-1"><Copy className="h-3 w-3" />Copy</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleRegenerate}
+                            disabled={isLoading}
+                            className="rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                          >
+                            Regenerate
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleImproveAnswer}
+                            disabled={isLoading}
+                            className="rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                          >
+                            Improve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleContinueAnswer}
+                            disabled={isLoading}
+                            className="rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                          >
+                            Continue
+                          </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </>
@@ -639,7 +924,7 @@ export function AssistantChat() {
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me to create personas, start a study, or find insights..."
+            placeholder="Ask anything about personas, studies, or insights..."
             rows={1}
             className="w-full resize-none rounded-2xl border border-stone-300 bg-white px-3 py-2.5 pb-10 text-[14px] text-stone-900 placeholder:text-stone-500 focus-visible:outline-none focus-visible:border-stone-500 transition-colors"
             style={{ minHeight: "2.75rem", maxHeight: "10rem" }}
@@ -659,6 +944,12 @@ export function AssistantChat() {
                 <Send className="h-3.5 w-3.5" />
               )}
             </button>
+          </div>
+          <div className="absolute bottom-2.5 left-3 text-[11px] text-stone-400">
+            {inputValue.trim().length}/2000
+          </div>
+          <div className="absolute -bottom-5 left-0 text-[11px] text-stone-400">
+            Press Enter to send, Shift+Enter for a new line
           </div>
         </div>
       </div>
@@ -736,6 +1027,9 @@ export function AssistantChat() {
                         <span className="text-[12px] text-stone-500">
                           {formatTimeAgo(conv.updatedAt)}
                         </span>
+                        <span className="mt-1 inline-flex w-fit rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600">
+                          {conv._count.messages} messages
+                        </span>
                       </button>
                     </li>
                   ))}
@@ -745,8 +1039,121 @@ export function AssistantChat() {
           </div>
         </div>
       )}
-    </aside>
+
+      </aside>
+
+      {isOpen && pendingPersonaDesign && (
+        <div className="pointer-events-none fixed inset-y-0 left-0 right-[23rem] z-[45] flex items-center justify-center p-6 max-md:inset-x-0 max-md:right-0 max-md:items-end max-md:p-3">
+          <div className="pointer-events-auto w-[min(30rem,calc(100vw-26rem))] min-w-[22rem] max-w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl max-md:min-w-0 max-md:w-full">
+            <div className="px-5 pt-5 pb-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-11 w-11 place-items-center rounded-xl border border-stone-200 bg-stone-50 text-stone-700">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-semibold tracking-tight text-stone-900">Persona Design</p>
+                    <p className="mt-1 text-sm text-stone-600">
+                      Review and tweak your generation setup before we start.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelPersonaDesign}
+                  className="rounded-md p-1 text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+                  aria-label="Close persona design"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3.5 px-4 pb-3.5">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="persona-design-prompt"
+                    className="text-sm font-medium text-stone-900"
+                  >
+                    Prompt
+                  </label>
+                  <button
+                    type="button"
+                    onClick={shufflePersonaPrompt}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                  >
+                    <Shuffle className="h-3.5 w-3.5" />
+                    Shuffle idea
+                  </button>
+                </div>
+                <textarea
+                  id="persona-design-prompt"
+                  value={personaDesignPrompt}
+                  onChange={(e) => setPersonaDesignPrompt(e.target.value)}
+                  placeholder="Describe who these personas should represent..."
+                  rows={5}
+                  className="w-full resize-none rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-500 focus-visible:outline-none focus-visible:border-stone-500"
+                />
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {personaPromptPresets.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setPersonaDesignPrompt(preset)}
+                    className="shrink-0 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-50"
+                  >
+                    {preset.split(".")[0]}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="persona-design-count" className="text-sm font-medium text-stone-900">
+                  Number of personas
+                </label>
+                <input
+                  id="persona-design-count"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={personaDesignCount}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setPersonaDesignCount(Number.isFinite(value) ? value : 1);
+                  }}
+                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus-visible:outline-none focus-visible:border-stone-500"
+                />
+                <p className="text-xs text-stone-500">Choose between 1 and 10 personas.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-stone-200 bg-stone-50/60 px-4 py-3">
+              <button
+                type="button"
+                onClick={handleCancelPersonaDesign}
+                className="inline-flex items-center justify-center rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPersonaDesign}
+                className="inline-flex items-center justify-center rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
+              >
+                Start creation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
+
+  if (!isClient) return null;
+  return createPortal(askLayer, document.body);
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -762,22 +1169,6 @@ const TOOL_LABELS: Record<string, string> = {
   getPersonaDetails: "Loading persona details",
   getStudyInsights: "Loading study insights",
   inviteTeamMember: "Sending invitation",
-};
-
-const TOOL_ICONS: Record<string, typeof Users> = {
-  createPersonaGroup: Users,
-  createStudy: FlaskConical,
-  setupStudyFromDescription: FlaskConical,
-  listPersonaGroups: Users,
-  listStudies: FlaskConical,
-  runBatchInterviews: MessageSquare,
-  getWorkspaceInfo: Settings,
-  navigateTo: Compass,
-  updateProductContext: Settings,
-  generatePersonas: Sparkles,
-  getPersonaDetails: Search,
-  getStudyInsights: FileText,
-  inviteTeamMember: UserPlus,
 };
 
 function ToolResultCard({
@@ -994,10 +1385,61 @@ function ToolResultCard({
 function AssistantRichText({
   text,
   onNavigate,
+  collapsed,
 }: {
   text: string;
   onNavigate: (path: string) => void;
+  collapsed?: boolean;
 }) {
+  const segments: Array<{ type: "text" | "code"; content: string }> = [];
+  const codeBlockRegex = /```([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = codeBlockRegex.exec(text);
+
+  while (match) {
+    if (match.index > lastIndex) {
+      segments.push({ type: "text", content: text.slice(lastIndex, match.index) });
+    }
+    segments.push({ type: "code", content: match[1].trim() });
+    lastIndex = codeBlockRegex.lastIndex;
+    match = codeBlockRegex.exec(text);
+  }
+  if (lastIndex < text.length) {
+    segments.push({ type: "text", content: text.slice(lastIndex) });
+  }
+
+  return (
+    <div
+      className={cn(
+        "overflow-hidden transition-all",
+        collapsed ? "max-h-40 [mask-image:linear-gradient(to_bottom,black_70%,transparent)]" : ""
+      )}
+    >
+      <div className="space-y-2">
+        {segments.map((segment, idx) => {
+          if (segment.type === "code") {
+            return (
+              <pre
+                key={`code-${idx}`}
+                className="overflow-x-auto rounded-lg border border-stone-200 bg-stone-900 p-3 text-[12px] text-stone-100"
+              >
+                <code>{segment.content}</code>
+              </pre>
+            );
+          }
+
+          return (
+            <p key={`text-${idx}`} className="whitespace-pre-wrap break-words">
+              {renderInlineLinks(segment.content, onNavigate)}
+            </p>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function renderInlineLinks(text: string, onNavigate: (path: string) => void): React.ReactNode[] {
   const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
   const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -1007,16 +1449,11 @@ function AssistantRichText({
   while (match) {
     if (match.index > lastIndex) {
       nodes.push(
-        <span key={`t-${key++}`} className="whitespace-pre-wrap break-words">
-          {text.slice(lastIndex, match.index)}
-        </span>
+        <span key={`t-${key++}`}>{text.slice(lastIndex, match.index)}</span>
       );
     }
-
     const label = match[1];
-    const rawHref = match[2]?.trim() ?? "";
-    const href = normalizeAssistantHref(rawHref);
-
+    const href = normalizeAssistantHref((match[2] ?? "").trim());
     if (href.type === "internal") {
       nodes.push(
         <button
@@ -1042,26 +1479,16 @@ function AssistantRichText({
         </a>
       );
     } else {
-      nodes.push(
-        <span key={`l-${key++}`} className="whitespace-pre-wrap break-words">
-          {match[0]}
-        </span>
-      );
+      nodes.push(<span key={`l-${key++}`}>{match[0]}</span>);
     }
-
     lastIndex = regex.lastIndex;
     match = regex.exec(text);
   }
 
   if (lastIndex < text.length) {
-    nodes.push(
-      <span key={`t-${key++}`} className="whitespace-pre-wrap break-words">
-        {text.slice(lastIndex)}
-      </span>
-    );
+    nodes.push(<span key={`t-${key++}`}>{text.slice(lastIndex)}</span>);
   }
-
-  return <p>{nodes}</p>;
+  return nodes;
 }
 
 function normalizeAssistantHref(
