@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
-import { getAuthUser, resolveActiveOrgCookiesFromSlug } from "@/lib/auth";
+import {
+  getAuthUser,
+  requireAuth,
+  resolveActiveOrgCookiesFromSlug,
+} from "@/lib/auth";
 import { WorkspaceCookieRedirect } from "@/components/layout/workspace-cookie-redirect";
 
 export default async function WorkspaceSlugDashboardPage({
@@ -14,7 +18,9 @@ export default async function WorkspaceSlugDashboardPage({
     redirect(`/login?next=/o/${slug}/dashboard`);
   }
 
-  const activeOrg = await resolveActiveOrgCookiesFromSlug(slug, user.id);
+  // Ensure the auth user is persisted in DB before membership checks.
+  const dbUser = await requireAuth();
+  const activeOrg = await resolveActiveOrgCookiesFromSlug(slug, dbUser.id);
   if (!activeOrg) {
     redirect("/dashboard");
   }
