@@ -5,8 +5,10 @@ export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    // Keep env var naming consistent with the rest of the app (middleware/client).
+    // This project currently provides these via NEXT_PUBLIC_*.
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {

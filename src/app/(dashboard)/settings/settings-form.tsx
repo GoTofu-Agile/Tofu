@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +23,6 @@ export function SettingsForm({
   orgId: string;
   orgName: string;
 }) {
-  const router = useRouter();
   const [name, setName] = useState(orgName);
   const [saving, setSaving] = useState(false);
   const [newName, setNewName] = useState("");
@@ -39,7 +37,6 @@ export function SettingsForm({
       toast.error(result.error);
     } else {
       toast.success("Workspace name updated");
-      router.refresh();
     }
   }
 
@@ -53,7 +50,6 @@ export function SettingsForm({
     } else {
       toast.success("Workspace created");
       setNewName("");
-      router.refresh();
     }
   }
 

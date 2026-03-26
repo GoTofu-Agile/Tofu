@@ -263,98 +263,115 @@ export async function generateAndSavePersonas(
     : undefined;
   const sourceType = sourceTypeOverride ?? (knowledge.length > 0 ? "DATA_BASED" : "PROMPT_GENERATED");
 
+  const BATCH_SIZE = 3;
   const previousPersonas: { name: string; archetype: string }[] = [];
   const errors: string[] = [];
   let generated = 0;
 
-  for (let i = 0; i < count; i++) {
-    try {
-      const prompt = buildPrompt({
-        index: i,
-        count,
-        domainContext,
-        ragContext,
-        templateConfig,
-        previousPersonas,
-      });
+  for (let batchStart = 0; batchStart < count; batchStart += BATCH_SIZE) {
+    const batchIndices = Array.from(
+      { length: Math.min(BATCH_SIZE, count - batchStart) },
+      (_, k) => batchStart + k
+    );
 
-      const { object: persona } = await generateObject({
-        model: getModel(),
-        schema: personaSchema,
-        prompt,
-      });
+    // Snapshot so all personas in this batch see the same prior list
+    const previousSnapshot = [...previousPersonas];
 
-      const qualityScore = computeQualityScore(persona);
-      const llmSystemPrompt = buildSystemPrompt(persona);
+    const results = await Promise.allSettled(
+      batchIndices.map(async (i) => {
+        const prompt = buildPrompt({
+          index: i,
+          count,
+          domainContext,
+          ragContext,
+          templateConfig,
+          previousPersonas: previousSnapshot,
+        });
 
-      const createdPersona = await prisma.persona.create({
-        data: {
-          personaGroupId: groupId,
-          name: persona.name,
-          age: persona.age,
-          gender: persona.gender,
-          location: persona.location,
-          occupation: persona.occupation,
-          bio: persona.bio,
-          backstory: persona.backstory,
-          goals: persona.goals,
-          frustrations: persona.frustrations,
-          behaviors: persona.behaviors,
-          sourceType,
-          qualityScore,
-          llmSystemPrompt,
-          archetype: persona.archetype,
-          representativeQuote: persona.representativeQuote,
-          techLiteracy: persona.techLiteracy,
-          domainExpertise: persona.domainExpertise,
-          dayInTheLife: persona.dayInTheLife,
-          coreValues: persona.coreValues,
-          communicationSample: persona.communicationSample,
-          personality: {
-            create: {
-              openness: persona.personality.openness,
-              conscientiousness: persona.personality.conscientiousness,
-              extraversion: persona.personality.extraversion,
-              agreeableness: persona.personality.agreeableness,
-              neuroticism: persona.personality.neuroticism,
-              communicationStyle: persona.personality.communicationStyle,
-              responseLengthTendency: persona.personality.responseLengthTendency,
-              decisionMakingStyle: persona.personality.decisionMakingStyle,
-              riskTolerance: persona.personality.riskTolerance,
-              trustPropensity: persona.personality.trustPropensity,
-              emotionalExpressiveness: persona.personality.emotionalExpressiveness,
-              directness: persona.personality.directness,
-              criticalFeedbackTendency: persona.personality.criticalFeedbackTendency,
-              vocabularyLevel: persona.personality.vocabularyLevel,
-              tangentTendency: persona.personality.tangentTendency,
+        const { object: persona } = await generateObject({
+          model: getModel(),
+          schema: personaSchema,
+          prompt,
+        });
+
+        const qualityScore = computeQualityScore(persona);
+        const llmSystemPrompt = buildSystemPrompt(persona);
+
+        const createdPersona = await prisma.persona.create({
+          data: {
+            personaGroupId: groupId,
+            name: persona.name,
+            age: persona.age,
+            gender: persona.gender,
+            location: persona.location,
+            occupation: persona.occupation,
+            bio: persona.bio,
+            backstory: persona.backstory,
+            goals: persona.goals,
+            frustrations: persona.frustrations,
+            behaviors: persona.behaviors,
+            sourceType,
+            qualityScore,
+            llmSystemPrompt,
+            archetype: persona.archetype,
+            representativeQuote: persona.representativeQuote,
+            techLiteracy: persona.techLiteracy,
+            domainExpertise: persona.domainExpertise,
+            dayInTheLife: persona.dayInTheLife,
+            coreValues: persona.coreValues,
+            communicationSample: persona.communicationSample,
+            personality: {
+              create: {
+                openness: persona.personality.openness,
+                conscientiousness: persona.personality.conscientiousness,
+                extraversion: persona.personality.extraversion,
+                agreeableness: persona.personality.agreeableness,
+                neuroticism: persona.personality.neuroticism,
+                communicationStyle: persona.personality.communicationStyle,
+                responseLengthTendency: persona.personality.responseLengthTendency,
+                decisionMakingStyle: persona.personality.decisionMakingStyle,
+                riskTolerance: persona.personality.riskTolerance,
+                trustPropensity: persona.personality.trustPropensity,
+                emotionalExpressiveness: persona.personality.emotionalExpressiveness,
+                directness: persona.personality.directness,
+                criticalFeedbackTendency: persona.personality.criticalFeedbackTendency,
+                vocabularyLevel: persona.personality.vocabularyLevel,
+                tangentTendency: persona.personality.tangentTendency,
+              },
             },
           },
-        },
-      });
-
-      // Link persona to non–App-Store RAG sources only; App Store reviews are
-      // assigned per-persona after generation via assignAppStoreReviewsToPersonas.
-      if (nonAppReviewKnowledgeIds.length > 0) {
-        await prisma.personaDataSource.createMany({
-          data: nonAppReviewKnowledgeIds.map((dkId) => ({
-            personaId: createdPersona.id,
-            domainKnowledgeId: dkId,
-          })),
-          skipDuplicates: true,
         });
-      }
 
-      previousPersonas.push({
-        name: persona.name,
-        archetype: persona.archetype,
-      });
-      generated++;
-      onProgress?.(generated, count, persona.name);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
-      errors.push(`Persona ${i + 1}: ${message}`);
-      console.error(`[generate-personas] Failed persona ${i + 1}:`, error);
+        // Link persona to non–App-Store RAG sources only; App Store reviews are
+        // assigned per-persona after generation via assignAppStoreReviewsToPersonas.
+        if (nonAppReviewKnowledgeIds.length > 0) {
+          await prisma.personaDataSource.createMany({
+            data: nonAppReviewKnowledgeIds.map((dkId) => ({
+              personaId: createdPersona.id,
+              domainKnowledgeId: dkId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        // Notify frontend immediately when this persona completes
+        generated++;
+        onProgress?.(generated, count, persona.name);
+
+        return { name: persona.name, archetype: persona.archetype };
+      })
+    );
+
+    // Add completed personas to the list for the next batch's diversity prompting
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        previousPersonas.push(result.value);
+      } else {
+        const message =
+          result.reason instanceof Error ? result.reason.message : "Unknown error";
+        errors.push(`Persona ${batchStart + 1}: ${message}`);
+        console.error(`[generate-personas] Failed:`, result.reason);
+      }
     }
   }
 

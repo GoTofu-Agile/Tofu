@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Play, Loader2, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
@@ -15,6 +14,7 @@ interface BatchRunButtonProps {
   pendingCount: number;
   totalCount: number;
   completedCount: number;
+  onComplete?: () => void;
 }
 
 interface BatchStatus {
@@ -29,8 +29,8 @@ export function BatchRunButton({
   pendingCount: initialPending,
   totalCount,
   completedCount: initialCompleted,
+  onComplete,
 }: BatchRunButtonProps) {
-  const router = useRouter();
   const [starting, setStarting] = useState(false);
   const [polling, setPolling] = useState(false);
   const [status, setStatus] = useState<BatchStatus | null>(null);
@@ -41,7 +41,7 @@ export function BatchRunButton({
   const completed = status?.completed ?? initialCompleted;
   const pending = totalCount - completed;
   const currentPersona = status?.running?.personaName;
-  const allDone = status?.done ?? (initialPending === 0);
+  const allDone = status?.done ?? (initialCompleted >= totalCount && totalCount > 0);
 
   const stopPolling = useCallback(() => {
     setPolling(false);
@@ -75,7 +75,7 @@ export function BatchRunButton({
       if (data.done) {
         stopPolling();
         toast.success(`All ${data.completed} interviews completed!`);
-        router.refresh();
+        onComplete?.();
       }
     } catch {
       consecutiveErrors.current++;
@@ -84,7 +84,7 @@ export function BatchRunButton({
         setError("Lost connection to the server. Please refresh and try again.");
       }
     }
-  }, [studyId, router, stopPolling]);
+  }, [studyId, stopPolling]);
 
   useEffect(() => {
     if (!polling) return;
@@ -99,19 +99,23 @@ export function BatchRunButton({
   async function handleRun() {
     setStarting(true);
     setError(null);
-    const result = await runBatchInterviews(studyId);
+    try {
+      const result = await runBatchInterviews(studyId);
 
-    if (result.error) {
-      toast.error(result.error);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(`Batch started for ${result.pendingCount} personas!`);
+      pollingStartTime.current = Date.now();
+      consecutiveErrors.current = 0;
+      setPolling(true);
+    } catch {
+      setError("Failed to start batch interviews. Please try again.");
+    } finally {
       setStarting(false);
-      return;
     }
-
-    toast.success(`Batch started for ${result.pendingCount} personas!`);
-    setStarting(false);
-    pollingStartTime.current = Date.now();
-    consecutiveErrors.current = 0;
-    setPolling(true);
   }
 
   // Error state
