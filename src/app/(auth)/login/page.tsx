@@ -77,7 +77,7 @@ function LoginForm() {
           </p>
         )}
         <form action={handleSubmit} className="space-y-4">
-          {next && <input type="hidden" name="next" value={next} />}
+          {next ? <input type="hidden" name="next" value={next} /> : null}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -114,7 +114,7 @@ function LoginForm() {
         <p className="text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
           <Link
-            href="/signup"
+            href={next ? `/signup?next=${encodeURIComponent(next)}` : "/signup"}
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
             Sign up
