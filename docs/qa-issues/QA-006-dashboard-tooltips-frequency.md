@@ -51,6 +51,9 @@ Manual:
 Automated:
 - `npm run lint` shows no errors.
 
+## Test coverage added/updated
+- None (manual verification; `npm run lint` passes with 0 errors)
+
 ## Date / audit reference
 Launch-readiness hardening pass (2026-03-26)
 

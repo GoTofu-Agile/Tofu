@@ -13,6 +13,7 @@ Each issue file follows a consistent template:
 - Root cause
 - Fix implemented (files changed)
 - Verification (manual + automated)
+- Test coverage added/updated (manual-only, lint/build only, or tests added)
 - Regression risk
 - Related issues / patterns
 

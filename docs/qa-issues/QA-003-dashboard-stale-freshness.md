@@ -50,6 +50,9 @@ Manual:
 Automated:
 - `npm run build` succeeded (no compile errors).
 
+## Test coverage added/updated
+- None (manual verification; `npm run build` succeeded)
+
 ## Related issues
 - QA-002 (onboarding behavior frequency)
 

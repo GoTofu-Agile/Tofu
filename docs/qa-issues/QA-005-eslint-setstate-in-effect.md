@@ -51,6 +51,9 @@ Low
 - `npm run lint` now shows **0 errors** (warnings remain repo-wide).
 - `npm run build` succeeded.
 
+## Test coverage added/updated
+- None (manual verification via `npm run lint` and `npm run build` only; no unit tests added)
+
 ## Date / audit reference
 Launch-readiness hardening pass (2026-03-26)
 

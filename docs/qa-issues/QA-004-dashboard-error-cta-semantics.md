@@ -15,11 +15,12 @@ Dashboard error state
 
 ## Environment
 - Dashboard route error boundary
-- Any scenario that triggers Next.js error boundary for dashboard
+- Triggered when `src/app/(dashboard)/layout.tsx` throws due to `organizations.length === 0`
 
 ## Reproduction steps
-1. Force an error boundary render (e.g., simulate thrown error in dashboard data path).
-2. Observe the buttons/CTAs rendered on the error screen.
+1. Log in with an account that has no organizations (so `organizations.length === 0` in `src/app/(dashboard)/layout.tsx`).
+2. Navigate to `/dashboard`.
+3. Observe the buttons/CTAs rendered on the dashboard error screen.
 
 ## Expected behavior
 - Error screen CTAs should be semantically correct and accessible.
@@ -45,6 +46,9 @@ Manual:
 - Error page buttons remain clickable and readable.
 Automated:
 - `npm run lint` reports no errors.
+
+## Test coverage added/updated
+- None (manual verification; `npm run lint` passes with 0 errors)
 
 ## Date / audit reference
 Launch-readiness hardening pass (2026-03-26)

@@ -1,4 +1,4 @@
-# QA-002: Dashboard tour auto-opens every login
+# QA-002: Dashboard tour auto-opens on every first-time login
 
 ## Category
 UX Issue
@@ -16,19 +16,20 @@ Dashboard (product tour + onboarding persistence)
 
 ## Environment
 - Logged-in user dashboard
-- Multiple logins / refreshes
+- First-time workspace state (no context/personas/studies yet)
 
 ## Reproduction steps
 1. Log in.
-2. Observe “Product tour” quick walkthrough behavior.
-3. Log out and log in again (or refresh and re-auth).
+2. Observe whether “Product tour” auto-opens.
+3. Dismiss/finish the tour.
+4. Log out and log in again (or refresh and re-auth).
 
 ## Expected behavior
-- Tour should guide first-time users, but should not intrude repeatedly for existing users.
-- Re-opening should be intentional.
+- Tour should auto-open once for first-time workspaces.
+- After dismiss/finish, the tour should not auto-open again on subsequent logins.
 
 ## Actual behavior (before)
-- Tour could re-open too often because dismissal state wasn’t persisted per workspace.
+- Tour could re-open repeatedly because dismissal state wasn’t persisted per workspace.
 
 ## Root cause
 - `useState`-only open behavior without workspace-scoped persistence.
@@ -59,6 +60,9 @@ Automated:
 
 ## Related issues
 - QA-003 (dashboard freshness) for state correctness across sessions.
+
+## Test coverage added/updated
+- None (manual verification only; `npm run lint` and `npm run build` successful)
 
 ## Date / audit reference
 Launch-readiness hardening pass (2026-03-26)

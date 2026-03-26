@@ -40,7 +40,7 @@ Dashboard (How It Works cards)
 - Introduced `DashboardFlowCard` which renders the card as a keyboard-accessible `div` (`role="link"`, `tabIndex`, key handlers).
 - Tooltip trigger is no longer nested inside a link element.
 
-### Files/components changed
+## Files/components changed
 - Added: `src/components/dashboard/dashboard-flow-card.tsx`
 - Updated: `src/app/(dashboard)/dashboard/page.tsx` to use `DashboardFlowCard`
 
@@ -56,7 +56,11 @@ Automated:
 - `npm run lint` (no errors)
 
 ## Related issues
-- QA-005 (lint strictness around React patterns)
+- QA-006 (tooltip frequency gating) for onboarding noise reduction
+- QA-002 (tour auto-open frequency) for onboarding persistence control
+
+## Test coverage added/updated
+- None (manual keyboard + hover verification; `npm run lint` passed with no errors)
 
 ## Date / audit reference
 Launch-readiness hardening pass (2026-03-26)
