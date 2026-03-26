@@ -103,7 +103,6 @@ export function FlowStepInsights({
     "pain_points",
     "sentiment",
   ]);
-  const [customPrompt, setCustomPrompt] = useState("");
   const [streamPhase, setStreamPhase] = useState<
     "planning" | "streaming" | "done"
   >(reports.length > 0 ? "done" : "planning");
@@ -131,6 +130,7 @@ export function FlowStepInsights({
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const report = reports[activeReportIndex] ?? null;
+  const estimatedInsightsSeconds = Math.max(20, Math.min(180, completedCount * 12));
 
   function toggleOption(id: string) {
     setSelectedOptions((prev) =>
@@ -139,7 +139,7 @@ export function FlowStepInsights({
   }
 
   async function handleGenerate(prompt?: string) {
-    const effectivePrompt = prompt || customPrompt.trim() || undefined;
+    const effectivePrompt = prompt || undefined;
     setStreamPhase("streaming");
     setCurrentStep("loading_transcripts");
     setCompletedSteps(new Set());
@@ -305,9 +305,14 @@ export function FlowStepInsights({
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            {completedCount} of {totalCount} interviews available
-          </p>
+          <div>
+            <p className="text-xs text-muted-foreground">
+              {completedCount} of {totalCount} interviews available
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              About {estimatedInsightsSeconds}s. Regenerating reruns analysis and may increase usage.
+            </p>
+          </div>
           <Button onClick={() => handleGenerate()}>
             <Sparkles className="mr-2 h-4 w-4" />
             {isRegenerate ? "Regenerate" : "Generate Insights"}
@@ -324,7 +329,7 @@ export function FlowStepInsights({
         <div className="border-b px-4 py-3 shrink-0">
           <p className="text-sm font-medium">Ask about your study</p>
           <p className="text-[11px] text-muted-foreground">
-            Questions refine your analysis
+            Each question reruns analysis with a new focus
           </p>
         </div>
 

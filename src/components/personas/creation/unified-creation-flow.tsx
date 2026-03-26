@@ -877,7 +877,11 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       <div className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">{headerTitle}</h2>
         <p className="text-muted-foreground mt-1">{headerSubtitle}</p>
-
+        {!orgContext && phase !== "progress" && (
+          <div className="mt-3 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+            Tip: add Product Context in Settings first for better persona quality and relevance.
+          </div>
+        )}
       </div>
 
       {phase === "pick" && (

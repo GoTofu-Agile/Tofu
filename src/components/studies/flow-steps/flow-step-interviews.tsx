@@ -49,8 +49,6 @@ interface SelectedPersona {
 
 export function FlowStepInterviews({
   studyId,
-  studyTitle,
-  interviewGuide,
   personasByGroup,
   personaSessionMap,
   pendingCount,
@@ -169,7 +167,8 @@ export function FlowStepInterviews({
     }
   }
 
-  const hasCompletedAny = completedCount > 0;
+  const estimatedMinutesLow = Math.max(1, Math.ceil(totalCount * 0.5));
+  const estimatedMinutesHigh = Math.max(2, Math.ceil(totalCount * 1.5));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -227,16 +226,21 @@ export function FlowStepInterviews({
             </div>
           </div>
         ) : pendingCount > 0 ? (
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleStartBatch}
-              className="inline-flex items-center gap-2 rounded-lg bg-foreground px-5 py-3 text-sm font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.98]"
-            >
-              <Play className="h-4 w-4" />
-              Run All Interviews ({totalCount})
-            </button>
+          <div className="space-y-2">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleStartBatch}
+                className="inline-flex items-center gap-2 rounded-lg bg-foreground px-5 py-3 text-sm font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.98]"
+              >
+                <Play className="h-4 w-4" />
+                Run All Interviews ({totalCount})
+              </button>
+              <p className="text-xs text-muted-foreground">
+                Interviews run simultaneously in batches
+              </p>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Interviews run simultaneously in batches
+              About {estimatedMinutesLow}-{estimatedMinutesHigh} min. Usage scales with interview count.
             </p>
           </div>
         ) : null}
