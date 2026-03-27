@@ -120,6 +120,41 @@ export function FlowStepInterviews({
     return () => es.close();
   }, [isRunning, studyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Poll for new messages while a persona's interview is running
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
+    if (!selectedPersona || !isRunning || selectedPersona.isCompleted) return;
+
+    // Poll every 3s for new messages during a live interview
+    pollingRef.current = setInterval(async () => {
+      try {
+        const result = await getSessionMessages(selectedPersona.sessionId);
+        if (result.messages && result.messages.length > 0) {
+          setChatMessages(result.messages);
+        }
+      } catch { /* ignore polling errors */ }
+    }, 3000);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [selectedPersona?.sessionId, selectedPersona?.isCompleted, isRunning]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-scroll chat to bottom when messages update
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages.length]);
+
   const handleAllDone = useCallback(() => {
     setIsRunning(false);
     onRunningChange?.(false);
@@ -345,6 +380,16 @@ export function FlowStepInterviews({
                       </div>
                     </div>
                   ))}
+                  {/* Typing indicator during live interview */}
+                  {isRunning && selectedPersona && !selectedPersona.isCompleted && (
+                    <div className="flex justify-start">
+                      <div className="bg-muted rounded-2xl rounded-bl-md px-3.5 py-2.5 flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+                      </div>
+                    </div>
+                  )}
                   <div ref={chatEndRef} />
                 </>
               ) : isRunning && !selectedPersona ? (
@@ -352,6 +397,13 @@ export function FlowStepInterviews({
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30 mx-auto mb-2" />
                   <p className="text-xs text-muted-foreground">
                     Interviews starting... Select a persona on the left or wait for auto-preview.
+                  </p>
+                </div>
+              ) : isRunning && selectedPersona && !selectedPersona.isCompleted ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">
+                    Waiting for {selectedPersona.name}&apos;s interview to begin...
                   </p>
                 </div>
               ) : (
