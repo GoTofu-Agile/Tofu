@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 import { updateStudyGuide } from "@/app/(dashboard)/studies/actions";
 import { readNDJSONStream } from "@/lib/streaming/ndjson";
 import { SetupPreviewCard } from "../setup-preview-card";
@@ -55,11 +56,13 @@ interface FlowStepGuideProps {
   onGoToSetup: () => void;
 }
 
-const questionVariants = {
-  initial: { opacity: 0, y: 30, scale: 0.95 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, x: -50, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 },
-};
+function questionVariants(reduced: boolean) {
+  return {
+    initial: reduced ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 30, scale: 0.95 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    exit: reduced ? { opacity: 0 } : { opacity: 0, x: -50, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 },
+  };
+}
 
 const staggerContainer = {
   animate: { transition: { staggerChildren: 0.08 } },
@@ -100,6 +103,7 @@ export function FlowStepGuide({
   const hasObjective = objective.trim().length > 0;
   const [contextCollapsed, setContextCollapsed] = useState(guide.trim().length > 0);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
+  const reduced = useReducedMotion();
 
   function handleDragStart(i: number) {
     setDragIndex(i);
@@ -378,9 +382,9 @@ export function FlowStepGuide({
       {/* Left: Guide content */}
       <div className="lg:col-span-3 space-y-6">
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={reduced ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: reduced ? 0 : 0.3 }}
         >
           <h3 className="text-lg font-semibold">
             {studyType === "INTERVIEW" ? "Interview Guide" : "Survey Questions"}
@@ -392,9 +396,9 @@ export function FlowStepGuide({
 
         {/* Context Box — collapsible after questions are generated */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={reduced ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.05 }}
+          transition={{ duration: reduced ? 0 : 0.3, delay: reduced ? 0 : 0.05 }}
           className="rounded-xl border bg-muted/20 p-4 space-y-2"
         >
           <button
@@ -411,7 +415,7 @@ export function FlowStepGuide({
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                transition={safeSpring(300, 25, reduced)}
                 className="overflow-hidden"
               >
                 <div className="space-y-1.5 pt-1">
@@ -468,9 +472,9 @@ export function FlowStepGuide({
                   return (
                     <motion.div
                       key={step.key}
-                      initial={{ opacity: 0, x: -20 }}
+                      initial={reduced ? false : { opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.3, type: "spring", stiffness: 200, damping: 20 }}
+                      transition={reduced ? { duration: 0 } : { delay: i * 0.3, type: "spring", stiffness: 200, damping: 20 }}
                       className={cn(
                         "flex items-center gap-1.5 text-xs transition-colors duration-300",
                         isCompleted
@@ -482,9 +486,9 @@ export function FlowStepGuide({
                     >
                       {isCompleted ? (
                         <motion.span
-                          initial={{ scale: 0 }}
+                          initial={reduced ? false : { scale: 0 }}
                           animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                          transition={safeSpring(500, 20, reduced)}
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
                         </motion.span>
@@ -507,17 +511,17 @@ export function FlowStepGuide({
         {/* Generate / Regenerate Buttons */}
         {!isStreaming && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={reduced ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: reduced ? 0 : 0.2 }}
             className="flex items-center gap-2 flex-wrap"
           >
             {questions.length === 0 ? (
               <motion.button
                 onClick={handleGenerate}
                 disabled={!hasObjective}
-                whileHover={hasObjective ? { scale: 1.03, boxShadow: "0 8px 30px rgba(0,0,0,0.12)" } : undefined}
-                whileTap={hasObjective ? { scale: 0.97 } : undefined}
+                whileHover={hasObjective && !reduced ? { scale: 1.03, boxShadow: "0 8px 30px rgba(0,0,0,0.12)" } : undefined}
+                whileTap={hasObjective && !reduced ? { scale: 0.97 } : undefined}
                 className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Sparkles className="h-4 w-4" />
@@ -529,8 +533,8 @@ export function FlowStepGuide({
                   <motion.button
                     onClick={handleRegenerateSelected}
                     disabled={!hasObjective}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
+                    whileHover={reduced ? undefined : { scale: 1.03 }}
+                    whileTap={reduced ? undefined : { scale: 0.97 }}
                     className="inline-flex items-center gap-2 rounded-lg bg-foreground text-background px-4 py-2.5 text-sm font-medium transition-colors hover:bg-foreground/90 disabled:opacity-40"
                   >
                     <RefreshCw className="h-4 w-4" />
@@ -560,8 +564,8 @@ export function FlowStepGuide({
                   <motion.button
                     onClick={() => setShowRegenConfirm(true)}
                     disabled={!hasObjective}
-                    whileHover={hasObjective ? { scale: 1.02 } : undefined}
-                    whileTap={hasObjective ? { scale: 0.97 } : undefined}
+                    whileHover={hasObjective && !reduced ? { scale: 1.02 } : undefined}
+                    whileTap={hasObjective && !reduced ? { scale: 0.97 } : undefined}
                     className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Sparkles className="h-4 w-4" />
@@ -620,12 +624,12 @@ export function FlowStepGuide({
                     return (
                       <motion.div
                         key={q.index}
-                        layout
-                        variants={questionVariants}
+                        layout={!reduced}
+                        variants={questionVariants(reduced)}
                         initial="initial"
                         animate="animate"
                         exit="exit"
-                        transition={{
+                        transition={reduced ? { duration: 0 } : {
                           layout: { type: "spring", stiffness: 400, damping: 25 },
                           delay: isStreaming ? i * 0.08 : 0,
                           type: "spring",
@@ -643,8 +647,8 @@ export function FlowStepGuide({
                         )}
                       >
                         <motion.div
-                          whileHover={{ y: -2, boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
-                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                          whileHover={reduced ? undefined : { y: -2, boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+                          transition={safeSpring(400, 25, reduced)}
                           className={cn(
                             "flex items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors group",
                             selectedForRegen.has(i)
@@ -743,8 +747,8 @@ export function FlowStepGuide({
         {!isStreaming && (
           <motion.button
             onClick={handleAddQuestion}
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={reduced ? undefined : { scale: 1.02, y: -1 }}
+            whileTap={reduced ? undefined : { scale: 0.97 }}
             className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -755,12 +759,12 @@ export function FlowStepGuide({
         {/* Empty state */}
         {questions.length === 0 && !isStreaming && (
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={reduced ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             className="rounded-xl border border-dashed p-8 text-center"
           >
             <motion.div
-              animate={{ y: [0, -4, 0] }}
+              animate={reduced ? undefined : { y: [0, -4, 0] }}
               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
             >
               <Sparkles className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
@@ -775,9 +779,9 @@ export function FlowStepGuide({
       {/* Right: Preview card — same as Setup */}
       <motion.div
         className="lg:col-span-2"
-        initial={{ opacity: 0, x: 20 }}
+        initial={reduced ? false : { opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
+        transition={{ duration: reduced ? 0 : 0.4, delay: reduced ? 0 : 0.1 }}
       >
         <div className="sticky top-6 space-y-4">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">

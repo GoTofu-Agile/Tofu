@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { updateStudyTitle } from "@/app/(dashboard)/studies/actions";
 import { StudyFlowStepper, type FlowStep, FLOW_STEPS } from "./study-flow-stepper";
 import { StepNavigation } from "./step-navigation";
@@ -113,6 +114,7 @@ export function StudyFlow({
   avgDurationMs,
 }: StudyFlowProps) {
   const router = useRouter();
+  const reduced = useReducedMotion();
 
   // Restore scroll position after navigating back from session detail
   useEffect(() => {
@@ -333,12 +335,12 @@ export function StudyFlow({
           <motion.div
             key={activeStep}
             custom={direction}
-            variants={stepVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{
-              x: { type: "spring", stiffness: 200, damping: 25 },
+            variants={reduced ? undefined : stepVariants}
+            initial={reduced ? false : "enter"}
+            animate={reduced ? undefined : "center"}
+            exit={reduced ? { opacity: 0 } : "exit"}
+            transition={reduced ? { duration: 0 } : {
+              x: { type: "spring", stiffness: 300, damping: 25 },
               opacity: { duration: 0.2 },
             }}
           >
