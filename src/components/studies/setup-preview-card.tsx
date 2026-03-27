@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 import { SAMPLE_SIZE_GUIDELINES } from "@/lib/ai/mom-test-rules";
 
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof MessageSquare }> = {
@@ -54,6 +55,7 @@ export function SetupPreviewCard({
   questions,
   onEditCompany,
 }: SetupPreviewCardProps) {
+  const reduced = useReducedMotion();
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const typeConfig = TYPE_CONFIG[studyType];
   const guidelines =
@@ -64,14 +66,19 @@ export function SetupPreviewCard({
 
   return (
     <motion.div
-      layout
-      className="rounded-2xl border bg-muted/5 p-5 space-y-4 transition-colors duration-300"
+      layout={!reduced}
+      className={cn(
+        "rounded-2xl border p-5 space-y-4 transition-colors duration-300",
+        "bg-gradient-to-br from-background via-muted/5 to-muted/10",
+        "backdrop-blur-sm",
+        !reduced && "animate-gentle-float"
+      )}
     >
       {/* Company context */}
       <AnimatePresence>
         {hasCompany && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
+            initial={reduced ? false : { opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="space-y-1 overflow-hidden"
@@ -82,12 +89,14 @@ export function SetupPreviewCard({
                 {orgContext?.productName || "Your company"}
               </div>
               {onEditCompany && (
-                <button
+                <motion.button
                   onClick={onEditCompany}
+                  whileHover={reduced ? undefined : { scale: 1.1 }}
+                  whileTap={reduced ? undefined : { scale: 0.9 }}
                   className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
                 >
                   <Pencil className="h-3 w-3" />
-                </button>
+                </motion.button>
               )}
             </div>
             {orgContext?.productDescription && (
@@ -111,7 +120,7 @@ export function SetupPreviewCard({
           {title.trim() ? (
             <motion.h3
               key="title"
-              initial={{ opacity: 0 }}
+              initial={reduced ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               className="text-base font-semibold leading-tight"
             >
@@ -120,9 +129,9 @@ export function SetupPreviewCard({
           ) : (
             <motion.div
               key="placeholder"
-              initial={{ opacity: 0 }}
+              initial={reduced ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="h-5 w-40 rounded-md border border-dashed border-muted-foreground/20"
+              className="h-5 w-40 rounded-md border border-dashed border-muted-foreground/20 animate-shimmer"
             />
           )}
         </AnimatePresence>
@@ -134,7 +143,7 @@ export function SetupPreviewCard({
           {typeConfig && (
             <motion.span
               key={studyType}
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={reduced ? false : { opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               className="inline-flex items-center gap-1 rounded-md bg-foreground text-background px-2 py-0.5 text-[10px] font-medium shrink-0"
@@ -155,23 +164,34 @@ export function SetupPreviewCard({
 
       <div className="h-px bg-border" />
 
-      {/* Persona groups */}
+      {/* Persona groups with stacked avatars */}
       <div className="space-y-1.5">
         <AnimatePresence mode="popLayout">
           {selectedGroups.length > 0 ? (
             selectedGroups.map((group, i) => (
               <motion.div
                 key={group.name}
-                layout
-                initial={{ opacity: 0, x: -12 }}
+                layout={!reduced}
+                initial={reduced ? false : { opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 12 }}
-                transition={{ delay: i * 0.05, type: "spring", stiffness: 300, damping: 25 }}
+                transition={reduced ? { duration: 0 } : { delay: i * 0.05, type: "spring", stiffness: 300, damping: 25 }}
                 className="flex items-center gap-2"
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 text-[9px] font-bold shrink-0">
-                  {group.name.charAt(0).toUpperCase()}
-                </span>
+                {/* Stacked avatar initials */}
+                <div className="flex -space-x-1.5 shrink-0">
+                  {Array.from({ length: Math.min(group.personaCount, 4) }).map((_, pi) => (
+                    <motion.span
+                      key={pi}
+                      initial={reduced ? false : { scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={reduced ? { duration: 0 } : { delay: i * 0.05 + pi * 0.03, type: "spring", stiffness: 400, damping: 20 }}
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 text-[8px] font-bold border-2 border-background"
+                    >
+                      {pi === 3 && group.personaCount > 4 ? `+${group.personaCount - 3}` : group.name.charAt(pi % group.name.length).toUpperCase()}
+                    </motion.span>
+                  ))}
+                </div>
                 <span className="text-xs font-medium truncate flex-1">{group.name}</span>
                 <span className="text-[10px] text-muted-foreground shrink-0">
                   {group.personaCount}
@@ -181,7 +201,7 @@ export function SetupPreviewCard({
           ) : (
             <motion.div
               key="empty"
-              initial={{ opacity: 0 }}
+              initial={reduced ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               className="flex items-center gap-2"
             >
@@ -196,10 +216,10 @@ export function SetupPreviewCard({
       <AnimatePresence>
         {totalPersonas > 0 && guidelines && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={reduced ? false : { opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            transition={safeSpring(400, 25, reduced)}
             className={cn(
               "rounded-lg px-3 py-2 text-[11px] flex items-center gap-2",
               isEnough && !isTooMany
@@ -209,9 +229,9 @@ export function SetupPreviewCard({
           >
             {isEnough && !isTooMany ? (
               <motion.div
-                initial={{ scale: 0 }}
+                initial={reduced ? false : { scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                transition={safeSpring(500, 20, reduced)}
               >
                 <CheckCircle2 className="h-3 w-3 shrink-0" />
               </motion.div>
@@ -228,8 +248,9 @@ export function SetupPreviewCard({
         <>
           <div className="h-px bg-border" />
           <div>
-            <button
+            <motion.button
               onClick={() => setQuestionsOpen(!questionsOpen)}
+              whileHover={reduced ? undefined : { scale: 1.01 }}
               className="flex items-center justify-between w-full text-left"
             >
               <span className="text-[11px] font-medium text-muted-foreground">
@@ -237,30 +258,30 @@ export function SetupPreviewCard({
               </span>
               <motion.div
                 animate={{ rotate: questionsOpen ? 180 : 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: reduced ? 0 : 0.2 }}
               >
                 <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
               </motion.div>
-            </button>
+            </motion.button>
             <AnimatePresence>
               {questionsOpen && (
                 <motion.div
-                  initial={{ height: 0, opacity: 0 }}
+                  initial={reduced ? false : { height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  transition={safeSpring(300, 30, reduced)}
                   className="overflow-hidden"
                 >
                   <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
                     {questions.filter(q => q.text.trim()).map((q, i) => (
                       <motion.p
                         key={q.index}
-                        initial={{ opacity: 0, x: -4 }}
+                        initial={reduced ? false : { opacity: 0, x: -4 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.04 }}
+                        transition={{ delay: reduced ? 0 : i * 0.04 }}
                         className="text-[11px] text-muted-foreground/70 leading-relaxed"
                       >
-                        <span className="text-muted-foreground/40">{i + 1}.</span>{" "}
+                        <span className="text-muted-foreground/40 font-mono">{i + 1}.</span>{" "}
                         {q.text.length > 90 ? q.text.slice(0, 90) + "..." : q.text}
                       </motion.p>
                     ))}
