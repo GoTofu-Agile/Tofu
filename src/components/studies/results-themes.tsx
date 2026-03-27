@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 
 interface Theme {
   name: string;
@@ -40,6 +41,7 @@ const sentimentDot: Record<string, string> = {
 };
 
 export function ResultsThemes({ themes, quotes }: ResultsThemesProps) {
+  const reduced = useReducedMotion();
   const [expandedTheme, setExpandedTheme] = useState<string | null>(null);
 
   function toggleTheme(name: string) {
@@ -70,9 +72,9 @@ export function ResultsThemes({ themes, quotes }: ResultsThemesProps) {
           return (
             <motion.div
               key={theme.name}
-              initial={{ opacity: 0, y: 12 }}
+              initial={reduced ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06, type: "spring", stiffness: 300, damping: 25 }}
+              transition={reduced ? { duration: 0 } : { delay: i * 0.06, type: "spring", stiffness: 300, damping: 25 }}
               className="rounded-lg border transition-colors"
             >
               <button
@@ -80,9 +82,9 @@ export function ResultsThemes({ themes, quotes }: ResultsThemesProps) {
                 className="flex w-full items-center gap-3 px-4 py-3 text-left"
               >
                 <motion.div
-                  initial={{ scale: 0 }}
+                  initial={reduced ? false : { scale: 0 }}
                   animate={{ scale: 1 }}
-                  transition={{ delay: i * 0.06 + 0.1, type: "spring", stiffness: 500, damping: 20 }}
+                  transition={reduced ? { duration: 0 } : { delay: i * 0.06 + 0.1, type: "spring", stiffness: 500, damping: 20 }}
                   className={`size-2.5 shrink-0 rounded-full ${sentimentDot[theme.sentiment]}`}
                 />
                 <div className="flex-1 min-w-0">
@@ -106,7 +108,7 @@ export function ResultsThemes({ themes, quotes }: ResultsThemesProps) {
                 </div>
                 <motion.div
                   animate={{ rotate: isExpanded ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: reduced ? 0 : 0.2 }}
                 >
                   <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
                 </motion.div>

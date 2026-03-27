@@ -3,6 +3,7 @@
 import { CheckCircle2, Circle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 
 interface ProgressStep {
   key: string;
@@ -23,6 +24,7 @@ export function InsightsProgress({
   completedSteps,
   stepDetails,
 }: InsightsProgressProps) {
+  const reduced = useReducedMotion();
   return (
     <div className="space-y-3">
       {steps.map((step, i) => {
@@ -33,9 +35,9 @@ export function InsightsProgress({
         return (
           <motion.div
             key={step.key}
-            initial={{ opacity: 0, x: -16 }}
+            initial={reduced ? false : { opacity: 0, x: -16 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.1, type: "spring", stiffness: 300, damping: 25 }}
+            transition={reduced ? { duration: 0 } : { delay: i * 0.1, type: "spring", stiffness: 300, damping: 25 }}
             className={cn(
               "flex items-start gap-3 transition-colors duration-300",
               isCompleted
@@ -50,9 +52,9 @@ export function InsightsProgress({
                 {isCompleted ? (
                   <motion.div
                     key="check"
-                    initial={{ scale: 0, rotate: -90 }}
+                    initial={reduced ? false : { scale: 0, rotate: -90 }}
                     animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                    transition={safeSpring(500, 20, reduced)}
                   >
                     <CheckCircle2 className="h-4 w-4" />
                   </motion.div>
@@ -68,7 +70,7 @@ export function InsightsProgress({
                 ) : (
                   <motion.div
                     key="circle"
-                    animate={{ opacity: [0.3, 0.6, 0.3] }}
+                    animate={reduced ? undefined : { opacity: [0.3, 0.6, 0.3] }}
                     transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                   >
                     <Circle className="h-4 w-4" />

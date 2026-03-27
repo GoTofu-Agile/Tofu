@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 
 interface KeyQuote {
   quote: string;
@@ -22,6 +23,7 @@ export function ResultsQuotes({
   themes,
   personaNames,
 }: ResultsQuotesProps) {
+  const reduced = useReducedMotion();
   const [themeFilter, setThemeFilter] = useState<string>("all");
   const [personaFilter, setPersonaFilter] = useState<string>("all");
   const normalizedThemeFilter = themeFilter.toLowerCase();
@@ -87,10 +89,10 @@ export function ResultsQuotes({
             filtered.map((q, i) => (
               <motion.div
                 key={`${q.personaName}-${q.context}-${q.quote.slice(0, 24)}`}
-                initial={{ opacity: 0, y: 12, x: -4 }}
+                initial={reduced ? false : { opacity: 0, y: 12, x: -4 }}
                 animate={{ opacity: 1, y: 0, x: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ delay: i * 0.04, type: "spring", stiffness: 300, damping: 25 }}
+                transition={reduced ? { duration: 0 } : { delay: i * 0.04, type: "spring", stiffness: 300, damping: 25 }}
                 layout
                 className="rounded-lg border-l-2 border-primary/30 bg-muted/10 p-3"
               >
