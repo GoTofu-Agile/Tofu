@@ -69,26 +69,6 @@ function WaveformIndicator() {
   );
 }
 
-/** Sound wave rings for waiting state */
-function SoundWaveRings() {
-  return (
-    <div className="relative h-12 w-12 mx-auto mb-3">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <Mic className="h-4 w-4 text-muted-foreground/40" />
-      </div>
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="absolute inset-0 rounded-full border border-muted-foreground/15"
-          style={{
-            animation: `sound-wave 2.4s ease-out ${i * 0.8}s infinite`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 /** SVG checkmark that draws itself */
 function DrawCheckmark() {
   return (
@@ -121,9 +101,10 @@ function DrawCheckmark() {
 
 /** Rotating status text for idle preview */
 const IDLE_MESSAGES = [
-  "Connecting to interview engine...",
-  "Preparing interview questions...",
-  "Waiting for first response...",
+  "Setting up the interview room...",
+  "Persona is reviewing the questions...",
+  "Getting comfortable for the chat...",
+  "Almost ready to start talking...",
 ];
 
 function RotatingStatus() {
@@ -148,6 +129,169 @@ function RotatingStatus() {
         {IDLE_MESSAGES[index]}
       </motion.p>
     </AnimatePresence>
+  );
+}
+
+/** Cartoon persona sitting at desk — fun idle illustration */
+function CartoonPersonaIdle({ name }: { name?: string | null }) {
+  const initial = name?.charAt(0)?.toUpperCase() || "?";
+  return (
+    <div className="relative flex flex-col items-center">
+      {/* Desk scene */}
+      <div className="relative w-32 h-28">
+        {/* Persona body */}
+        <div className="absolute left-1/2 top-2 -translate-x-1/2 flex flex-col items-center">
+          {/* Head with face */}
+          <div className="relative">
+            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-md animate-persona-breathe">
+              {initial}
+            </div>
+            {/* Eyes that blink */}
+            <div className="absolute top-[14px] left-[12px] flex gap-[10px]">
+              <div className="h-1.5 w-1.5 rounded-full bg-white/80 animate-blink-eyes" />
+              <div className="h-1.5 w-1.5 rounded-full bg-white/80 animate-blink-eyes" style={{ animationDelay: "0.1s" }} />
+            </div>
+          </div>
+          {/* Body */}
+          <div className="h-6 w-10 bg-gradient-to-b from-indigo-400 to-indigo-500 rounded-b-lg -mt-1" />
+        </div>
+
+        {/* Desk */}
+        <div className="absolute bottom-0 left-2 right-2 h-4 bg-amber-800/20 rounded-t-lg border-t-2 border-amber-700/30" />
+
+        {/* Coffee cup on desk */}
+        <div className="absolute bottom-4 right-6">
+          <div className="h-4 w-3 bg-amber-100 rounded-b-sm border border-amber-300/50" />
+          {/* Steam */}
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="absolute -top-2 w-1 h-2 rounded-full bg-stone-300/40 animate-coffee-steam"
+              style={{
+                left: `${i * 4}px`,
+                animationDelay: `${i * 0.4}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Notebook on desk */}
+        <div className="absolute bottom-4 left-6">
+          <div className="h-5 w-4 bg-white border border-stone-300/50 rounded-sm animate-notebook-write origin-bottom">
+            {/* Lines */}
+            <div className="mt-1 mx-0.5 space-y-0.5">
+              <div className="h-px bg-blue-200/60 w-full" />
+              <div className="h-px bg-blue-200/60 w-3/4" />
+              <div className="h-px bg-blue-200/60 w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Thought bubble typing indicator */
+function ThoughtBubble() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex justify-start"
+    >
+      <div className="relative">
+        <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 animate-thought-wobble">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-indigo-400/60 animate-bounce [animation-delay:0ms]" />
+            <span className="h-2 w-2 rounded-full bg-purple-400/60 animate-bounce [animation-delay:150ms]" />
+            <span className="h-2 w-2 rounded-full bg-indigo-400/60 animate-bounce [animation-delay:300ms]" />
+          </div>
+        </div>
+        {/* Mini thought bubbles */}
+        <div className="absolute -bottom-1 left-2 h-1.5 w-1.5 rounded-full bg-muted" />
+        <div className="absolute -bottom-2.5 left-0.5 h-1 w-1 rounded-full bg-muted" />
+      </div>
+    </motion.div>
+  );
+}
+
+/** Typewriter message — reveals text character by character */
+function TypewriterMessage({ content, onComplete }: { content: string; onComplete?: () => void }) {
+  const [displayedLength, setDisplayedLength] = useState(0);
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    setDisplayedLength(0);
+    completedRef.current = false;
+  }, [content]);
+
+  useEffect(() => {
+    if (displayedLength >= content.length) {
+      if (!completedRef.current) {
+        completedRef.current = true;
+        onComplete?.();
+      }
+      return;
+    }
+    const charDelay = content[displayedLength] === " " ? 15 : 25;
+    const timer = setTimeout(() => setDisplayedLength((d) => d + 1), charDelay);
+    return () => clearTimeout(timer);
+  }, [displayedLength, content, onComplete]);
+
+  const isComplete = displayedLength >= content.length;
+
+  return (
+    <span>
+      {content.slice(0, displayedLength)}
+      {!isComplete && <span className="inline-block w-0.5 h-3 bg-current ml-px animate-typewriter-cursor" />}
+    </span>
+  );
+}
+
+/** Progress mini-timeline showing question progress */
+function QuestionTimeline({ answered, total }: { answered: number; total: number }) {
+  return (
+    <div className="flex items-center gap-1 px-1">
+      {Array.from({ length: total }).map((_, i) => (
+        <motion.div
+          key={i}
+          className={cn(
+            "h-1.5 rounded-full transition-all duration-300",
+            i < answered
+              ? "bg-green-500 w-3"
+              : i === answered
+                ? "bg-indigo-400 w-2 animate-pulse"
+                : "bg-muted w-1.5"
+          )}
+          initial={false}
+          animate={i < answered ? { scale: [1, 1.3, 1] } : {}}
+          transition={{ duration: 0.3 }}
+        />
+      ))}
+      <span className="text-[9px] text-muted-foreground/60 ml-1 tabular-nums">
+        {answered}/{total}
+      </span>
+    </div>
+  );
+}
+
+/** Elapsed time counter */
+function ElapsedTimer({ startedAt }: { startedAt: number }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
+
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  return (
+    <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+      {mins}:{secs.toString().padStart(2, "0")}
+    </span>
   );
 }
 
@@ -204,6 +348,10 @@ export function FlowStepInterviews({
   const prevMsgCountRef = useRef(0);
   const [livePersonaName, setLivePersonaName] = useState<string | null>(null);
   const [runningPersonaId, setRunningPersonaId] = useState<string | null>(null);
+  const [interviewStartTime, setInterviewStartTime] = useState<number | null>(null);
+  const [displayedMessages, setDisplayedMessages] = useState<
+    Array<{ id: string; role: "user" | "assistant"; content: string; isTyping?: boolean }>
+  >([]);
 
   // Persist completed count to sessionStorage so it survives navigation
   useEffect(() => {
@@ -296,14 +444,44 @@ export function FlowStepInterviews({
     };
   }, [selectedPersona?.sessionId, selectedPersona?.isCompleted, isRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll chat to bottom when messages update
+  // Sync chatMessages → displayedMessages with typewriter for new respondent messages
   useEffect(() => {
-    if (chatMessages.length > 0) {
+    if (chatMessages.length === 0) {
+      setDisplayedMessages([]);
+      prevMsgCountRef.current = 0;
+      return;
+    }
+
+    const prevCount = prevMsgCountRef.current;
+    const newMessages = chatMessages.slice(prevCount);
+
+    if (newMessages.length === 0) return;
+
+    // For initial load (many messages at once), show them all immediately
+    if (prevCount === 0 && newMessages.length > 2) {
+      setDisplayedMessages(chatMessages.map((m) => ({ ...m })));
+      prevMsgCountRef.current = chatMessages.length;
+      return;
+    }
+
+    // For live updates, add new messages — respondent messages get typewriter
+    const updatedMessages = [...displayedMessages];
+    for (const msg of newMessages) {
+      updatedMessages.push({
+        ...msg,
+        isTyping: msg.role === "assistant" && isRunning,
+      });
+    }
+    setDisplayedMessages(updatedMessages);
+    prevMsgCountRef.current = chatMessages.length;
+  }, [chatMessages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-scroll chat to bottom when displayed messages update
+  useEffect(() => {
+    if (displayedMessages.length > 0) {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-    // Track previous message count for stagger animation
-    prevMsgCountRef.current = chatMessages.length;
-  }, [chatMessages.length]);
+  }, [displayedMessages.length]);
 
   const handleAllDone = useCallback(() => {
     setIsRunning(false);
@@ -337,6 +515,7 @@ export function FlowStepInterviews({
     setTimeout(async () => {
       setLaunching(false);
       setIsRunning(true);
+      setInterviewStartTime(Date.now());
       onRunningChange?.(true);
       const result = await runBatchInterviews(studyId);
       if (result.error) {
@@ -526,7 +705,7 @@ export function FlowStepInterviews({
         ))}
       </div>
 
-      {/* Right: Chat Preview Panel */}
+      {/* Right: Live Interview Theater Panel */}
       <AnimatePresence>
         {(selectedPersona || isRunning) && (
           <motion.div
@@ -537,7 +716,7 @@ export function FlowStepInterviews({
             transition={safeSpring(300, 25, reduced)}
           >
             <div className="sticky top-6 rounded-2xl border bg-background overflow-hidden flex flex-col" style={{ height: "calc(100vh - 8rem)" }}>
-              {/* Panel header */}
+              {/* Panel header with gradient avatar */}
               <div className="flex items-center justify-between border-b px-4 py-3 shrink-0">
                 <AnimatePresence mode="wait">
                   {selectedPersona ? (
@@ -548,8 +727,17 @@ export function FlowStepInterviews({
                       exit={{ opacity: 0, y: -8 }}
                       className="flex items-center gap-2.5 min-w-0"
                     >
+                      {/* Gradient avatar with speaking pulse */}
                       <motion.div
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground/10 text-xs font-bold shrink-0"
+                        className={cn(
+                          "flex h-9 w-9 items-center justify-center rounded-full text-white text-xs font-bold shrink-0",
+                          "bg-gradient-to-br from-indigo-500 to-purple-600",
+                          isRunning && !selectedPersona.isCompleted
+                            ? "animate-persona-speaking"
+                            : selectedPersona.isCompleted
+                              ? "ring-2 ring-green-400/50"
+                              : ""
+                        )}
                         initial={reduced ? false : { scale: 0, rotate: -10 }}
                         animate={{ scale: 1, rotate: 0 }}
                         transition={safeSpring(400, 20, reduced)}
@@ -557,12 +745,23 @@ export function FlowStepInterviews({
                         {selectedPersona.name.charAt(0)}
                       </motion.div>
                       <motion.div
-                        className="min-w-0"
+                        className="min-w-0 flex-1"
                         initial={reduced ? false : { opacity: 0, x: -8 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: reduced ? 0 : 0.05, duration: 0.2 }}
                       >
-                        <p className="text-sm font-medium truncate">{selectedPersona.name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium truncate">{selectedPersona.name}</p>
+                          {isRunning && !selectedPersona.isCompleted && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] text-indigo-500 font-medium">
+                              <span className="h-1 w-1 rounded-full bg-indigo-400 animate-pulse" />
+                              LIVE
+                            </span>
+                          )}
+                          {selectedPersona.isCompleted && (
+                            <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                          )}
+                        </div>
                         <p className="text-[10px] text-muted-foreground truncate">
                           {[selectedPersona.archetype, selectedPersona.occupation].filter(Boolean).join(" · ")}
                         </p>
@@ -577,7 +776,15 @@ export function FlowStepInterviews({
                     >
                       {isRunning && !reduced && <WaveformIndicator />}
                       <div className="min-w-0">
-                        <p className="text-sm font-medium">Live Preview</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium">Live Preview</p>
+                          {isRunning && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] text-red-500 font-medium">
+                              <span className="h-1 w-1 rounded-full bg-red-400 animate-pulse" />
+                              REC
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-muted-foreground">
                           {livePersonaName ? `Interviewing ${livePersonaName}...` : "Waiting for interviews to start..."}
                         </p>
@@ -586,6 +793,10 @@ export function FlowStepInterviews({
                   )}
                 </AnimatePresence>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Elapsed timer */}
+                  {isRunning && interviewStartTime && (
+                    <ElapsedTimer startedAt={interviewStartTime} />
+                  )}
                   {/* Progress ring */}
                   {isRunning && totalCount > 0 && (
                     <ProgressRing completed={liveCompleted} total={totalCount} />
@@ -602,7 +813,7 @@ export function FlowStepInterviews({
                     </Link>
                   )}
                   <button
-                    onClick={() => { setSelectedPersona(null); }}
+                    onClick={() => { setSelectedPersona(null); setDisplayedMessages([]); }}
                     className="p-1.5 text-muted-foreground/50 hover:text-foreground rounded-md hover:bg-muted transition-colors"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -610,83 +821,110 @@ export function FlowStepInterviews({
                 </div>
               </div>
 
-              {/* Chat messages */}
+              {/* Chat messages — the theater */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
                 {loadingMessages ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <motion.div
+                      animate={reduced ? undefined : { rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                    >
+                      <Loader2 className="h-5 w-5 text-indigo-400" />
+                    </motion.div>
+                    <p className="text-xs text-muted-foreground">Loading transcript...</p>
                   </div>
-                ) : chatMessages.length > 0 ? (
+                ) : displayedMessages.length > 0 ? (
                   <>
-                    {chatMessages.map((msg, i) => {
-                      // Only animate new messages, not the ones that were already there
-                      const isNew = i >= prevMsgCountRef.current;
-                      return (
-                        <motion.div
-                          key={msg.id}
-                          initial={reduced || !isNew ? false : { opacity: 0, scale: 0.95, x: msg.role === "user" ? 20 : -20 }}
-                          animate={{ opacity: 1, scale: 1, x: 0 }}
-                          transition={isNew ? safeSpring(300, 25, reduced) : { duration: 0 }}
+                    {displayedMessages.map((msg, i) => (
+                      <motion.div
+                        key={msg.id}
+                        initial={reduced ? false : { opacity: 0, y: 12, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={safeSpring(300, 25, reduced)}
+                        className={cn(
+                          "flex gap-2",
+                          msg.role === "user" ? "justify-end" : "justify-start"
+                        )}
+                      >
+                        {/* Respondent avatar */}
+                        {msg.role === "assistant" && selectedPersona && (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-[9px] font-bold shrink-0 mt-1">
+                            {selectedPersona.name.charAt(0)}
+                          </div>
+                        )}
+                        <div
                           className={cn(
-                            "flex",
-                            msg.role === "user" ? "justify-end" : "justify-start"
+                            "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed",
+                            msg.role === "user"
+                              ? "bg-foreground/90 text-background rounded-br-sm"
+                              : "bg-muted/80 rounded-bl-sm border border-border/30"
                           )}
                         >
-                          <div
-                            className={cn(
-                              "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed",
-                              msg.role === "user"
-                                ? "bg-foreground text-background rounded-br-md"
-                                : "bg-muted rounded-bl-md"
-                            )}
-                          >
-                            {msg.content}
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                    {/* Typing indicator during live interview */}
-                    {isRunning && selectedPersona && !selectedPersona.isCompleted && (
-                      <motion.div
-                        initial={reduced ? false : { opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="flex justify-start"
-                      >
-                        <div className="bg-muted rounded-2xl rounded-bl-md px-3.5 py-2.5 flex items-center gap-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
-                          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
-                          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+                          {msg.role === "user" && (
+                            <div className="flex items-center gap-1 mb-1 opacity-60">
+                              <Mic className="h-2.5 w-2.5" />
+                              <span className="text-[9px] font-medium">Interviewer</span>
+                            </div>
+                          )}
+                          {msg.isTyping ? (
+                            <TypewriterMessage
+                              content={msg.content}
+                              onComplete={() => {
+                                setDisplayedMessages((prev) =>
+                                  prev.map((m) =>
+                                    m.id === msg.id ? { ...m, isTyping: false } : m
+                                  )
+                                );
+                              }}
+                            />
+                          ) : (
+                            msg.content
+                          )}
                         </div>
+                        {/* Interviewer icon */}
+                        {msg.role === "user" && (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground/10 text-[9px] shrink-0 mt-1">
+                            🎙️
+                          </div>
+                        )}
                       </motion.div>
+                    ))}
+                    {/* Thought bubble typing indicator during live */}
+                    {isRunning && selectedPersona && !selectedPersona.isCompleted && (
+                      <ThoughtBubble />
                     )}
                     <div ref={chatEndRef} />
                   </>
                 ) : isRunning && !selectedPersona ? (
-                  /* Idle/waiting: sound wave rings + rotating status */
-                  <div className="flex flex-col items-center justify-center py-12">
+                  /* Idle/waiting: cartoon persona + rotating status */
+                  <div className="flex flex-col items-center justify-center py-8 gap-4">
                     {reduced ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30 mb-3" />
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
                     ) : (
-                      <SoundWaveRings />
+                      <CartoonPersonaIdle name={livePersonaName} />
                     )}
                     <RotatingStatus />
-                    <p className="text-[10px] text-muted-foreground/50 mt-2">
+                    <p className="text-[10px] text-muted-foreground/50">
                       Select a persona on the left to watch live
                     </p>
                   </div>
-                ) : isRunning && selectedPersona && !selectedPersona.isCompleted ? (
-                  /* Waiting for a specific persona to start */
-                  <div className="flex flex-col items-center justify-center py-12">
+                ) : isRunning && selectedPersona && !selectedPersona.isCompleted && displayedMessages.length === 0 ? (
+                  /* Waiting for specific persona — cartoon version */
+                  <div className="flex flex-col items-center justify-center py-8 gap-4">
                     {reduced ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30 mb-3" />
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
                     ) : (
-                      <SoundWaveRings />
+                      <CartoonPersonaIdle name={selectedPersona.name} />
                     )}
-                    <p className="text-xs text-muted-foreground">
-                      Waiting for {selectedPersona.name}&apos;s interview to begin...
-                    </p>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-xs text-muted-foreground text-center"
+                    >
+                      <span className="font-medium">{selectedPersona.name}</span> is getting ready...
+                    </motion.p>
                   </div>
-                ) : selectedPersona?.isCompleted && chatMessages.length === 0 ? (
+                ) : selectedPersona?.isCompleted && displayedMessages.length === 0 ? (
                   /* Completed state with draw checkmark */
                   <div className="flex flex-col items-center justify-center py-12">
                     {reduced ? (
@@ -716,22 +954,34 @@ export function FlowStepInterviews({
                     )}
                   </div>
                 ) : (
-                  /* Default empty state */
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <motion.div
-                      animate={reduced ? undefined : { y: [0, -4, 0] }}
-                      transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-                    >
-                      <MessageSquare className="h-5 w-5 text-muted-foreground/30 mb-2" />
-                    </motion.div>
-                    <p className="text-xs text-muted-foreground">
+                  /* Default empty state — cartoon */
+                  <div className="flex flex-col items-center justify-center py-8 gap-3">
+                    {reduced ? (
+                      <MessageSquare className="h-5 w-5 text-muted-foreground/30" />
+                    ) : (
+                      <CartoonPersonaIdle name={null} />
+                    )}
+                    <p className="text-xs text-muted-foreground text-center">
                       {selectedPersona?.isCompleted
                         ? "Interview completed."
-                        : "Select a persona to preview."}
+                        : "Select a persona to watch the interview live."}
                     </p>
                   </div>
                 )}
               </div>
+
+              {/* Question progress timeline */}
+              {selectedPersona && displayedMessages.length > 0 && (
+                <div className="border-t px-3 py-2 shrink-0">
+                  <QuestionTimeline
+                    answered={Math.floor(displayedMessages.filter((m) => m.role === "user").length)}
+                    total={Math.max(
+                      displayedMessages.filter((m) => m.role === "user").length,
+                      10
+                    )}
+                  />
+                </div>
+              )}
 
               {/* Sticky follow-up input */}
               {selectedPersona?.isCompleted && (

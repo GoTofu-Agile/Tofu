@@ -94,11 +94,11 @@ export function ResultsQuotes({
                 exit={{ opacity: 0, y: -8 }}
                 transition={reduced ? { duration: 0 } : { delay: i * 0.04, type: "spring", stiffness: 300, damping: 25 }}
                 layout
-                className="rounded-lg border-l-2 border-primary/30 bg-muted/10 p-3"
+                className="relative rounded-lg border-l-2 border-primary/30 bg-muted/10 p-3 overflow-hidden"
               >
                 <motion.div
                   className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary/30 origin-top"
-                  initial={{ scaleY: 0 }}
+                  initial={reduced ? false : { scaleY: 0 }}
                   animate={{ scaleY: 1 }}
                   transition={{ delay: i * 0.04 + 0.1, duration: 0.3 }}
                 />
