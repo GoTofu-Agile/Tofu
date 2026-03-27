@@ -266,6 +266,7 @@ export function StudyFlow({
             value={title}
             onChange={(e) => handleTitleChange(e.target.value)}
             placeholder="Untitled Study"
+            autoFocus={!studyTitle || studyTitle === "Untitled Study"}
             className={cn(
               "flex-1 border-0 bg-transparent text-2xl font-semibold tracking-tight focus-visible:outline-none",
               title.trim()

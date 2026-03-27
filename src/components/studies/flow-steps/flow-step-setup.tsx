@@ -141,23 +141,29 @@ export function FlowStepSetup({
               const Icon = st.icon;
               const isSelected = studyType === st.type;
               return (
-                <button
-                  key={st.type}
-                  disabled={!st.enabled}
-                  onClick={() => st.enabled && handleTypeSelect(st.type)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-xl border px-4 py-3 text-left transition-all duration-150",
-                    st.enabled
-                      ? isSelected
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border hover:border-foreground/30 hover:shadow-sm active:scale-[0.98] cursor-pointer"
-                      : "border-border/50 opacity-40 cursor-not-allowed"
+                <div key={st.type} className="relative group/type">
+                  <button
+                    disabled={!st.enabled}
+                    onClick={() => st.enabled && handleTypeSelect(st.type)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl border px-4 py-3 text-left transition-all duration-150",
+                      st.enabled
+                        ? isSelected
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border hover:border-foreground/30 hover:shadow-sm active:scale-[0.98] cursor-pointer"
+                        : "border-border/50 opacity-40 cursor-not-allowed"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="text-sm font-medium">{st.label}</span>
+                    {!st.enabled && <Lock className="h-3 w-3 shrink-0" />}
+                  </button>
+                  {!st.enabled && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[11px] whitespace-nowrap opacity-0 group-hover/type:opacity-100 transition-opacity pointer-events-none z-10">
+                      Coming soon
+                    </div>
                   )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="text-sm font-medium">{st.label}</span>
-                  {!st.enabled && <Lock className="h-3 w-3 shrink-0" />}
-                </button>
+                </div>
               );
             })}
           </div>

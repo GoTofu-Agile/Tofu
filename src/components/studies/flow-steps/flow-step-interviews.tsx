@@ -167,8 +167,9 @@ export function FlowStepInterviews({
     }
   }
 
-  const estimatedMinutesLow = Math.max(1, Math.ceil(totalCount * 0.5));
-  const estimatedMinutesHigh = Math.max(2, Math.ceil(totalCount * 1.5));
+  // More accurate estimate: ~10-15s per interview, batched in parallel
+  const estimatedSecondsLow = Math.max(30, Math.ceil(totalCount * 10));
+  const estimatedSecondsHigh = Math.max(60, Math.ceil(totalCount * 15));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -240,7 +241,7 @@ export function FlowStepInterviews({
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              About {estimatedMinutesLow}-{estimatedMinutesHigh} min. Usage scales with interview count.
+              Usually completes in {estimatedSecondsLow < 60 ? `${estimatedSecondsLow}s` : `~${Math.ceil(estimatedSecondsLow / 60)} min`}-{estimatedSecondsHigh < 60 ? `${estimatedSecondsHigh}s` : `~${Math.ceil(estimatedSecondsHigh / 60)} min`}. Interviews run in parallel batches.
             </p>
           </div>
         ) : null}

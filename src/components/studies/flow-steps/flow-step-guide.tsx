@@ -17,6 +17,7 @@ import {
   SquareCheck,
   Square,
   RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateStudyGuide } from "@/app/(dashboard)/studies/actions";
@@ -87,6 +88,8 @@ export function FlowStepGuide({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const hasObjective = objective.trim().length > 0;
+  const [contextCollapsed, setContextCollapsed] = useState(guide.trim().length > 0);
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false);
 
   function handleDragStart(i: number) {
     setDragIndex(i);
@@ -291,6 +294,7 @@ export function FlowStepGuide({
             setCompletedSteps(new Set(STEPS.map((s) => s.key)));
             setCurrentStep(null);
             setStreamPhase("done");
+            setContextCollapsed(true);
             // Sync the final guide string to parent
             const guideText = allQuestions.map((q) => q.text).join("\n");
             onGuideChange(guideText);
@@ -372,38 +376,46 @@ export function FlowStepGuide({
           </p>
         </div>
 
-        {/* Context Box */}
+        {/* Context Box — collapsible after questions are generated */}
         <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <button
+            onClick={() => setContextCollapsed(!contextCollapsed)}
+            className="flex items-center gap-2 text-xs font-medium text-muted-foreground w-full text-left"
+          >
             <Info className="h-3.5 w-3.5" />
             Generation context
-          </div>
-          <div className="space-y-1.5">
-            <div className="text-sm">
-              <span className="text-muted-foreground">Objective: </span>
-              {hasObjective ? (
-                <span>{objective}</span>
-              ) : (
-                <span className="text-muted-foreground/50 italic">Not set</span>
+            <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", contextCollapsed && "-rotate-90")} />
+          </button>
+          {!contextCollapsed && (
+            <>
+              <div className="space-y-1.5">
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Objective: </span>
+                  {hasObjective ? (
+                    <span>{objective}</span>
+                  ) : (
+                    <span className="text-muted-foreground/50 italic">Not set</span>
+                  )}
+                </div>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Personas: </span>
+                  {selectedGroupNames.length > 0 ? (
+                    <span>{selectedGroupNames.join(", ")}</span>
+                  ) : (
+                    <span className="text-muted-foreground/50 italic">None selected</span>
+                  )}
+                </div>
+              </div>
+              {(!hasObjective || selectedGroupNames.length === 0) && (
+                <button
+                  onClick={onGoToSetup}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                  Edit in Setup
+                </button>
               )}
-            </div>
-            <div className="text-sm">
-              <span className="text-muted-foreground">Personas: </span>
-              {selectedGroupNames.length > 0 ? (
-                <span>{selectedGroupNames.join(", ")}</span>
-              ) : (
-                <span className="text-muted-foreground/50 italic">None selected</span>
-              )}
-            </div>
-          </div>
-          {(!hasObjective || selectedGroupNames.length === 0) && (
-            <button
-              onClick={onGoToSetup}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              Edit in Setup
-            </button>
+            </>
           )}
         </div>
 
@@ -463,14 +475,32 @@ export function FlowStepGuide({
                     Regenerate {selectedForRegen.size} selected
                   </button>
                 ) : (
-                  <button
-                    onClick={handleGenerate}
-                    disabled={!hasObjective}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Regenerate All
-                  </button>
+                  {showRegenConfirm ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
+                      <p className="text-xs text-amber-800">This will replace all questions, including your edits.</p>
+                      <button
+                        onClick={() => { setShowRegenConfirm(false); handleGenerate(); }}
+                        className="rounded-md bg-foreground px-3 py-1 text-xs font-medium text-background hover:bg-foreground/90 transition-colors"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={() => setShowRegenConfirm(false)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowRegenConfirm(true)}
+                      disabled={!hasObjective}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Regenerate All
+                    </button>
+                  )}
                 )}
                 {selectedForRegen.size > 0 && (
                   <button
@@ -494,9 +524,14 @@ export function FlowStepGuide({
         {questions.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted-foreground">
-                Interview questions ({questions.length})
-              </label>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Interview questions ({questions.length})
+                </label>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                  8-12 recommended for a 20-30 min interview · ~{Math.round(questions.length * 2.5)} min estimated
+                </p>
+              </div>
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
                   <Sparkles className="h-2.5 w-2.5 text-amber-400" /> AI generated

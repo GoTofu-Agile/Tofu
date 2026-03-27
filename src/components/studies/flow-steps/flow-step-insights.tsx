@@ -226,9 +226,9 @@ export function FlowStepInsights({
     }
   }
 
-  async function handleChatSend() {
-    if (!chatInput.trim()) return;
-    const userMessage = chatInput.trim();
+  async function handleChatSend(directMessage?: string) {
+    const userMessage = directMessage?.trim() || chatInput.trim();
+    if (!userMessage) return;
     setChatInput("");
     setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setChatLoading(true);
@@ -345,9 +345,7 @@ export function FlowStepInsights({
                 {["Why do users churn?", "What features matter most?", "Compare sentiment by persona"].map((q) => (
                   <button
                     key={q}
-                    onClick={() => {
-                      setChatInput(q);
-                    }}
+                    onClick={() => handleChatSend(q)}
                     className="block w-full text-left rounded-lg border border-dashed px-3 py-2 text-[11px] text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-colors"
                   >
                     {q}
@@ -398,6 +396,7 @@ export function FlowStepInsights({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && chatInput.trim()) handleChatSend();
               }}
+              disabled={chatLoading}
             />
             <button
               onClick={handleChatSend}
@@ -530,6 +529,14 @@ export function FlowStepInsights({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {completedCount >= 2 && (
+              <Link
+                href={`/studies/${studyId}/compare`}
+                className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+              >
+                Compare
+              </Link>
+            )}
             <Button variant="outline" size="sm" onClick={() => setShowOptions(true)} className="text-xs">
               <RefreshCw className="mr-1.5 h-3 w-3" />
               Regenerate
@@ -579,14 +586,7 @@ export function FlowStepInsights({
           </div>
         )}
 
-        {completedCount >= 2 && (
-          <Link
-            href={`/studies/${studyId}/compare`}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Compare transcripts side-by-side
-          </Link>
-        )}
+        {/* Compare link moved to header actions above */}
       </div>
 
       {/* Right: Chat Panel */}
