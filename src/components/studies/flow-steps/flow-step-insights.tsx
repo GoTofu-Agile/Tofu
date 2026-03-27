@@ -13,6 +13,7 @@ import {
   Clock,
   Send,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InsightsProgress } from "@/components/studies/insights-progress";
@@ -226,14 +227,13 @@ export function FlowStepInsights({
     }
   }
 
-  async function handleChatSend() {
-    if (!chatInput.trim()) return;
-    const userMessage = chatInput.trim();
+  async function handleChatSend(directMessage?: string) {
+    const userMessage = directMessage?.trim() || chatInput.trim();
+    if (!userMessage) return;
     setChatInput("");
     setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setChatLoading(true);
 
-    // Use the question to regenerate insights with focus
     setChatMessages((prev) => [
       ...prev,
       { role: "assistant", content: `Regenerating analysis with focus on: "${userMessage}"...` },
@@ -243,7 +243,7 @@ export function FlowStepInsights({
     setChatLoading(false);
 
     setChatMessages((prev) => [
-      ...prev.slice(0, -1), // Remove the "Regenerating..." message
+      ...prev.slice(0, -1),
       { role: "assistant", content: `Analysis updated! I focused on "${userMessage}". Check the results on the left.` },
     ]);
 
@@ -253,7 +253,12 @@ export function FlowStepInsights({
   // ── Planning UI ──
   function renderPlanningUI(isRegenerate: boolean) {
     return (
-      <div className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="space-y-6"
+      >
         {!isRegenerate && (
           <div>
             <h3 className="text-lg font-semibold">Insights</h3>
@@ -285,20 +290,25 @@ export function FlowStepInsights({
         <div className="space-y-2">
           <label className="text-xs font-medium text-muted-foreground">Focus areas</label>
           <div className="flex flex-wrap gap-2">
-            {ANALYSIS_OPTIONS.map((opt) => {
+            {ANALYSIS_OPTIONS.map((opt, i) => {
               const isSelected = selectedOptions.includes(opt.id);
               return (
-                <button
+                <motion.button
                   key={opt.id}
                   onClick={() => toggleOption(opt.id)}
-                  className={`rounded-lg border px-3 py-2 text-xs transition-all ${
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.97 }}
+                  className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
                     isSelected
                       ? "border-foreground/30 bg-stone-50 font-medium"
                       : "border-border hover:border-foreground/20"
                   }`}
                 >
                   {opt.label}
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -313,19 +323,30 @@ export function FlowStepInsights({
               About {estimatedInsightsSeconds}s. Regenerating reruns analysis and may increase usage.
             </p>
           </div>
-          <Button onClick={() => handleGenerate()}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            {isRegenerate ? "Regenerate" : "Generate Insights"}
-          </Button>
+          <motion.div
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+          >
+            <Button onClick={() => handleGenerate()}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              {isRegenerate ? "Regenerate" : "Generate Insights"}
+            </Button>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // ── Chat Panel (right side) ──
   function renderChatPanel() {
     return (
-      <div className="sticky top-6 rounded-2xl border bg-background overflow-hidden flex flex-col" style={{ height: "calc(100vh - 4rem)" }}>
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.15 }}
+        className="sticky top-6 rounded-2xl border bg-background overflow-hidden flex flex-col"
+        style={{ height: "calc(100vh - 4rem)" }}
+      >
         <div className="border-b px-4 py-3 shrink-0">
           <p className="text-sm font-medium">Ask about your study</p>
           <p className="text-[11px] text-muted-foreground">
@@ -337,28 +358,38 @@ export function FlowStepInsights({
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
           {chatMessages.length === 0 && (
             <div className="text-center py-6">
-              <Sparkles className="h-5 w-5 text-muted-foreground/30 mx-auto mb-2" />
+              <motion.div
+                animate={{ y: [0, -4, 0] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+              >
+                <Sparkles className="h-5 w-5 text-muted-foreground/30 mx-auto mb-2" />
+              </motion.div>
               <p className="text-xs text-muted-foreground">
                 Ask questions about your data to refine the analysis.
               </p>
               <div className="mt-3 space-y-1.5">
-                {["Why do users churn?", "What features matter most?", "Compare sentiment by persona"].map((q) => (
-                  <button
+                {["Why do users churn?", "What features matter most?", "Compare sentiment by persona"].map((q, i) => (
+                  <motion.button
                     key={q}
-                    onClick={() => {
-                      setChatInput(q);
-                    }}
-                    className="block w-full text-left rounded-lg border border-dashed px-3 py-2 text-[11px] text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-colors"
+                    onClick={() => handleChatSend(q)}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + i * 0.08 }}
+                    whileHover={{ scale: 1.02, borderColor: "var(--foreground)" }}
+                    className="block w-full text-left rounded-lg border border-dashed px-3 py-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {q}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
           )}
           {chatMessages.map((msg, i) => (
-            <div
+            <motion.div
               key={i}
+              initial={{ opacity: 0, x: msg.role === "user" ? 20 : -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
               className={cn(
                 "flex",
                 msg.role === "user" ? "justify-end" : "justify-start"
@@ -374,14 +405,18 @@ export function FlowStepInsights({
               >
                 {msg.content}
               </div>
-            </div>
+            </motion.div>
           ))}
           {chatLoading && (
-            <div className="flex justify-start">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex justify-start"
+            >
               <div className="bg-muted rounded-2xl rounded-bl-md px-3.5 py-2.5">
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
               </div>
-            </div>
+            </motion.div>
           )}
           <div ref={chatEndRef} />
         </div>
@@ -398,17 +433,20 @@ export function FlowStepInsights({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && chatInput.trim()) handleChatSend();
               }}
+              disabled={chatLoading}
             />
-            <button
-              onClick={handleChatSend}
+            <motion.button
+              onClick={() => handleChatSend()}
               disabled={!chatInput.trim() || chatLoading}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               className="rounded-xl bg-foreground px-3 py-2 text-background disabled:opacity-40 transition-colors hover:bg-foreground/90"
             >
               <Send className="h-3.5 w-3.5" />
-            </button>
+            </motion.button>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -417,12 +455,15 @@ export function FlowStepInsights({
     return (
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         <div className="lg:col-span-3 space-y-8">
-          <div>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             <h3 className="text-lg font-semibold">Analyzing...</h3>
             <p className="text-sm text-muted-foreground mt-1">
               Extracting insights from {completedCount} interviews.
             </p>
-          </div>
+          </motion.div>
 
           <InsightsProgress
             steps={INSIGHT_STEPS}
@@ -431,38 +472,62 @@ export function FlowStepInsights({
             stepDetails={stepDetails}
           />
 
-          {streamedThemes.length > 0 && (
-            <div className="animate-fade-in-up">
-              <ResultsThemes themes={streamedThemes} quotes={streamedQuotes} />
-            </div>
-          )}
+          <AnimatePresence>
+            {streamedThemes.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              >
+                <ResultsThemes themes={streamedThemes} quotes={streamedQuotes} />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {streamedSentiment && streamedSummary && (
-            <div className="animate-fade-in-up">
-              <ResultsSummary
-                summary={streamedSummary}
-                totalInterviews={completedCount}
-                avgDurationMs={avgDurationMs}
-                sentimentBreakdown={streamedSentiment}
-              />
-            </div>
-          )}
+          <AnimatePresence>
+            {streamedSentiment && streamedSummary && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.1 }}
+              >
+                <ResultsSummary
+                  summary={streamedSummary}
+                  totalInterviews={completedCount}
+                  avgDurationMs={avgDurationMs}
+                  sentimentBreakdown={streamedSentiment}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {streamedQuotes.length > 0 && (
-            <div className="animate-fade-in-up">
-              <ResultsQuotes
-                quotes={streamedQuotes}
-                themes={streamedThemes.map((t) => t.name)}
-                personaNames={[...new Set(streamedQuotes.map((q) => q.personaName))]}
-              />
-            </div>
-          )}
+          <AnimatePresence>
+            {streamedQuotes.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.2 }}
+              >
+                <ResultsQuotes
+                  quotes={streamedQuotes}
+                  themes={streamedThemes.map((t) => t.name)}
+                  personaNames={[...new Set(streamedQuotes.map((q) => q.personaName))]}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {streamedRecommendations.length > 0 && (
-            <div className="animate-fade-in-up">
-              <ResultsRecommendations recommendations={streamedRecommendations} />
-            </div>
-          )}
+          <AnimatePresence>
+            {streamedRecommendations.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.3 }}
+              >
+                <ResultsRecommendations recommendations={streamedRecommendations} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="lg:col-span-2">
@@ -499,7 +564,11 @@ export function FlowStepInsights({
       {/* Left: Dashboard */}
       <div className="lg:col-span-3 space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between"
+        >
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold">Insights</h3>
             {reports.length > 1 && (
@@ -512,24 +581,40 @@ export function FlowStepInsights({
                   {activeReportIndex === 0 ? "Latest" : formatDate(report.createdAt)}
                   <ChevronDown className={`h-3 w-3 transition-transform ${showHistory ? "rotate-180" : ""}`} />
                 </button>
-                {showHistory && (
-                  <div className="absolute top-full left-0 mt-1 z-20 w-48 rounded-lg border bg-background shadow-lg py-1">
-                    {reports.map((r, i) => (
-                      <button
-                        key={i}
-                        onClick={() => { setActiveReportIndex(i); setShowHistory(false); }}
-                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors ${i === activeReportIndex ? "bg-muted font-medium" : ""}`}
-                      >
-                        {i === 0 ? "Latest" : `Version ${reports.length - i}`}
-                        <span className="text-muted-foreground ml-1.5">{formatDate(r.createdAt)}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <AnimatePresence>
+                  {showHistory && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full left-0 mt-1 z-20 w-48 rounded-lg border bg-background shadow-lg py-1"
+                    >
+                      {reports.map((r, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setActiveReportIndex(i); setShowHistory(false); }}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors ${i === activeReportIndex ? "bg-muted font-medium" : ""}`}
+                        >
+                          {i === 0 ? "Latest" : `Version ${reports.length - i}`}
+                          <span className="text-muted-foreground ml-1.5">{formatDate(r.createdAt)}</span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
           </div>
           <div className="flex items-center gap-2">
+            {completedCount >= 2 && (
+              <Link
+                href={`/studies/${studyId}/compare`}
+                className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+              >
+                Compare
+              </Link>
+            )}
             <Button variant="outline" size="sm" onClick={() => setShowOptions(true)} className="text-xs">
               <RefreshCw className="mr-1.5 h-3 w-3" />
               Regenerate
@@ -542,50 +627,67 @@ export function FlowStepInsights({
               CSV
             </Link>
           </div>
-        </div>
+        </motion.div>
 
         {/* Regenerate Options */}
-        {showOptions && (
-          <div className="rounded-xl border p-5 space-y-5">
-            {renderPlanningUI(true)}
-          </div>
-        )}
+        <AnimatePresence>
+          {showOptions && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="overflow-hidden"
+            >
+              <div className="rounded-xl border p-5 space-y-5">
+                {renderPlanningUI(true)}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Dashboard */}
-        <div className="animate-fade-in-up">
+        {/* Dashboard sections with staggered entry */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
           <ResultsSummary
             summary={report.summary || ""}
             totalInterviews={completedCount}
             avgDurationMs={avgDurationMs}
             sentimentBreakdown={sentiment}
           />
-        </div>
+        </motion.div>
 
         {themes.length > 0 && (
-          <div className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
             <ResultsThemes themes={themes} quotes={quotes} />
-          </div>
+          </motion.div>
         )}
 
         {quotes.length > 0 && (
-          <div className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
             <ResultsQuotes quotes={quotes} themes={themeNames} personaNames={personaNames} />
-          </div>
+          </motion.div>
         )}
 
         {recommendations.length > 0 && (
-          <div className="animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-            <ResultsRecommendations recommendations={recommendations} />
-          </div>
-        )}
-
-        {completedCount >= 2 && (
-          <Link
-            href={`/studies/${studyId}/compare`}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
           >
-            Compare transcripts side-by-side
-          </Link>
+            <ResultsRecommendations recommendations={recommendations} />
+          </motion.div>
         )}
       </div>
 

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Theme {
   name: string;
@@ -62,20 +63,26 @@ export function ResultsThemes({ themes, quotes }: ResultsThemesProps) {
         Themes
       </h3>
       <div className="space-y-2">
-        {themes.map((theme) => {
+        {themes.map((theme, i) => {
           const isExpanded = expandedTheme === theme.name;
           const themeQuotes = quotesByTheme.get(theme.name.toLowerCase()) ?? [];
 
           return (
-            <div
+            <motion.div
               key={theme.name}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.06, type: "spring", stiffness: 300, damping: 25 }}
               className="rounded-lg border transition-colors"
             >
               <button
                 onClick={() => toggleTheme(theme.name)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left"
               >
-                <div
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: i * 0.06 + 0.1, type: "spring", stiffness: 500, damping: 20 }}
                   className={`size-2.5 shrink-0 rounded-full ${sentimentDot[theme.sentiment]}`}
                 />
                 <div className="flex-1 min-w-0">
@@ -97,55 +104,75 @@ export function ResultsThemes({ themes, quotes }: ResultsThemesProps) {
                     </p>
                   )}
                 </div>
-                <ChevronDown
-                  className={`size-4 shrink-0 text-muted-foreground transition-transform ${
-                    isExpanded ? "rotate-180" : ""
-                  }`}
-                />
+                <motion.div
+                  animate={{ rotate: isExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                </motion.div>
               </button>
 
-              {isExpanded && (
-                <div className="border-t px-4 pb-4 pt-3 space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    {theme.description}
-                  </p>
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t px-4 pb-4 pt-3 space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {theme.description}
+                      </p>
 
-                  {theme.personaNames && theme.personaNames.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {theme.personaNames.map((name) => (
-                        <Badge
-                          key={name}
-                          variant="secondary"
-                          className="text-[10px]"
-                        >
-                          {name}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {themeQuotes.length > 0 && (
-                    <div className="space-y-2">
-                      {themeQuotes.map((q) => (
-                        <div
-                          key={`${q.personaName}-${q.context}-${q.quote.slice(0, 24)}`}
-                          className="rounded-lg border-l-2 border-primary/30 bg-muted/10 p-3"
-                        >
-                          <p className="text-sm italic">
-                            &ldquo;{q.quote}&rdquo;
-                          </p>
-                          <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="font-medium">{q.personaName}</span>
-                            <span>&middot;</span>
-                            <span>{q.context}</span>
-                          </div>
+                      {theme.personaNames && theme.personaNames.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {theme.personaNames.map((name, pi) => (
+                            <motion.div
+                              key={name}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: pi * 0.05 }}
+                            >
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px]"
+                              >
+                                {name}
+                              </Badge>
+                            </motion.div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+
+                      {themeQuotes.length > 0 && (
+                        <div className="space-y-2">
+                          {themeQuotes.map((q, qi) => (
+                            <motion.div
+                              key={`${q.personaName}-${q.context}-${q.quote.slice(0, 24)}`}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: qi * 0.06 }}
+                              className="rounded-lg border-l-2 border-primary/30 bg-muted/10 p-3"
+                            >
+                              <p className="text-sm italic">
+                                &ldquo;{q.quote}&rdquo;
+                              </p>
+                              <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                                <span className="font-medium">{q.personaName}</span>
+                                <span>&middot;</span>
+                                <span>{q.context}</span>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           );
         })}
       </div>

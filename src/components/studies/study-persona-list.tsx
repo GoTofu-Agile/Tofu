@@ -11,7 +11,9 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { PersonaDetailModal } from "@/components/studies/persona-detail-modal";
 
 interface Persona {
   id: string;
@@ -35,6 +37,7 @@ export function StudyPersonaList({
   defaultCollapsed = false,
   onPersonaSelect,
   selectedPersonaId,
+  runningPersonaId,
 }: {
   personas: Persona[];
   studyId: string;
@@ -42,9 +45,11 @@ export function StudyPersonaList({
   defaultCollapsed?: boolean;
   onPersonaSelect?: (personaId: string) => void;
   selectedPersonaId?: string;
+  runningPersonaId?: string | null;
 }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(!defaultCollapsed);
+  const [detailPersona, setDetailPersona] = useState<Persona | null>(null);
 
   const COLLAPSED_COUNT = 6;
   const shouldCollapse = personas.length > COLLAPSED_COUNT;
@@ -53,7 +58,6 @@ export function StudyPersonaList({
     : personas;
 
   function handleClick(personaId: string) {
-    // If parent provides a select handler, use that (inline preview)
     if (onPersonaSelect) {
       onPersonaSelect(personaId);
       return;
@@ -61,40 +65,56 @@ export function StudyPersonaList({
     const existing = personaSessionMap[personaId];
     if (existing) {
       router.push(`/studies/${studyId}/${existing.sessionId}`);
+    } else {
+      const persona = personas.find((p) => p.id === personaId);
+      if (persona) setDetailPersona(persona);
     }
   }
 
   return (
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {visiblePersonas.map((persona) => {
+        {visiblePersonas.map((persona, i) => {
           const session = personaSessionMap[persona.id];
           const isCompleted = session?.status === "COMPLETED";
-          const isRunning = session?.status === "RUNNING";
+          const isRunning = session?.status === "RUNNING" || persona.id === runningPersonaId;
           const hasSession = !!session;
           const isSelected = selectedPersonaId === persona.id;
 
           return (
-            <div
+            <motion.div
               key={persona.id}
               onClick={() => handleClick(persona.id)}
+              initial={{ opacity: 0, y: 12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: i * 0.04, type: "spring", stiffness: 300, damping: 25 }}
+              whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
+              whileTap={{ scale: 0.98 }}
               className={cn(
-                "flex items-start gap-3 rounded-lg border p-4 text-left transition-all cursor-pointer",
+                "flex items-start gap-3 rounded-lg border p-4 text-left transition-colors cursor-pointer",
                 isSelected
                   ? "border-foreground/30 bg-foreground/5 ring-1 ring-foreground/10"
                   : isCompleted
                     ? "border-green-200 bg-green-50/50 hover:bg-green-50"
                     : isRunning
-                      ? "border-primary/20 bg-primary/5 animate-pulse-glow"
+                      ? "border-primary/20 bg-primary/5 animate-border-glow"
                       : "border-border hover:border-foreground/20"
               )}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium truncate">{persona.name}</p>
-                  {isCompleted && (
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500 animate-scale-in" />
-                  )}
+                  <AnimatePresence>
+                    {isCompleted && (
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                   {isRunning && (
                     <Loader2 className="h-3.5 w-3.5 shrink-0 text-primary animate-spin" />
                   )}
@@ -133,16 +153,23 @@ export function StudyPersonaList({
                     </span>
                   </>
                 ) : (
-                  <User className="h-4 w-4 text-muted-foreground/40" />
+                  <motion.div
+                    animate={{ opacity: [0.4, 0.7, 0.4] }}
+                    transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+                  >
+                    <User className="h-4 w-4 text-muted-foreground/40" />
+                  </motion.div>
                 )}
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>
       {shouldCollapse && (
-        <button
+        <motion.button
           onClick={() => setExpanded(!expanded)}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
           className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
         >
           {expanded ? (
@@ -156,8 +183,14 @@ export function StudyPersonaList({
               Show all {personas.length} personas
             </>
           )}
-        </button>
+        </motion.button>
       )}
+
+      <PersonaDetailModal
+        open={!!detailPersona}
+        onOpenChange={(open) => { if (!open) setDetailPersona(null); }}
+        persona={detailPersona}
+      />
     </div>
   );
 }

@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Loader2, CheckCircle2, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 
 interface InterviewLiveBarProps {
   studyId: string;
@@ -19,6 +21,7 @@ export function InterviewLiveBar({
   onAllDone,
   onGoToInsights,
 }: InterviewLiveBarProps) {
+  const reduced = useReducedMotion();
   const [completed, setCompleted] = useState(initialCompleted);
   const [currentPersona, setCurrentPersona] = useState<string | null>(null);
   const [lastQuote, setLastQuote] = useState<string | null>(null);
@@ -77,10 +80,21 @@ export function InterviewLiveBar({
   // All done state
   if (isDone) {
     return (
-      <div className="rounded-xl border border-green-200 bg-green-50 p-4 animate-fade-in-up">
+      <motion.div
+        initial={reduced ? false : { opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={safeSpring(400, 25, reduced)}
+        className="rounded-xl border border-green-200 bg-green-50 p-4"
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600 animate-scale-in" />
+            <motion.div
+              initial={reduced ? false : { scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 20, delay: 0.15 }}
+            >
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            </motion.div>
             <div>
               <p className="text-sm font-medium text-green-800">
                 All {completed} interviews completed!
@@ -91,55 +105,111 @@ export function InterviewLiveBar({
             </div>
           </div>
           {onGoToInsights && (
-            <button
+            <motion.button
               onClick={onGoToInsights}
+              whileHover={reduced ? undefined : { scale: 1.03, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              whileTap={reduced ? undefined : { scale: 0.97 }}
               className="inline-flex items-center gap-2 rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-800"
             >
               Continue to Insights
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+              <motion.span
+                animate={reduced ? undefined : { x: [0, 4, 0] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+              >
+                <ArrowRight className="h-3.5 w-3.5" />
+              </motion.span>
+            </motion.button>
           )}
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Running state
   return (
-    <div className="rounded-xl border p-4 space-y-3 animate-pulse-glow">
+    <motion.div
+      initial={reduced ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={safeSpring(300, 25, reduced)}
+      className="rounded-xl border p-4 space-y-3"
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 shrink-0">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          </div>
+          {/* Persona avatar circle with initial */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPersona || "starting"}
+              initial={reduced ? false : { scale: 0, rotate: -10 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={reduced ? undefined : { scale: 0, rotate: 10 }}
+              transition={safeSpring(400, 20, reduced)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 shrink-0"
+            >
+              {currentPersona ? (
+                <span className="text-xs font-bold text-primary">
+                  {currentPersona.charAt(0).toUpperCase()}
+                </span>
+              ) : (
+                <Loader2 className="h-4 w-4 text-primary animate-spin" />
+              )}
+            </motion.div>
+          </AnimatePresence>
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate">
-              {currentPersona
-                ? `Interviewing ${currentPersona}...`
-                : "Starting interviews..."}
-            </p>
-            {lastQuote && (
-              <p className="text-xs text-muted-foreground italic truncate mt-0.5">
-                &ldquo;{lastQuote}&rdquo;
-              </p>
-            )}
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={currentPersona || "starting"}
+                initial={reduced ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduced ? undefined : { opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="text-sm font-medium truncate"
+              >
+                {currentPersona
+                  ? `Interviewing ${currentPersona}...`
+                  : "Starting interviews..."}
+              </motion.p>
+            </AnimatePresence>
+            <AnimatePresence>
+              {lastQuote && (
+                <motion.p
+                  key={lastQuote}
+                  initial={reduced ? false : { opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-xs text-muted-foreground italic truncate mt-0.5"
+                >
+                  &ldquo;{lastQuote}&rdquo;
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
         </div>
-        <span className="text-sm font-medium text-muted-foreground shrink-0 ml-3">
-          {completed}/{totalCount}
-        </span>
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={completed}
+            initial={reduced ? false : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduced ? undefined : { opacity: 0, y: 8 }}
+            transition={safeSpring(500, 25, reduced)}
+            className="text-sm font-medium text-muted-foreground shrink-0 ml-3 tabular-nums"
+          >
+            {completed}/{totalCount}
+          </motion.span>
+        </AnimatePresence>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar with shimmer */}
       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
+        <motion.div
           className={cn(
-            "h-full rounded-full bg-primary transition-all duration-500 ease-out",
-            progress > 0 && "animate-bar-fill"
+            "h-full rounded-full bg-primary relative overflow-hidden",
+            progress > 0 && progress < 100 && "progress-shimmer"
           )}
-          style={{ width: `${progress}%` }}
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
         />
       </div>
-    </div>
+    </motion.div>
   );
 }
