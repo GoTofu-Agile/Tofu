@@ -186,6 +186,36 @@
   0% { transform: translateY(100%); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
+@keyframes waveform-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+@keyframes sound-wave {
+  0% { transform: scale(0.5); opacity: 0.6; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+@keyframes gentle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes status-rotate {
+  0% { opacity: 0; transform: translateY(4px); }
+  10% { opacity: 1; transform: translateY(0); }
+  90% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes checkmark-svg-draw {
+  from { stroke-dashoffset: 20; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes gloss-sweep {
+  0% { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(200%) skewX(-15deg); }
+}
+@keyframes active-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+  50% { box-shadow: 0 0 8px 2px rgba(0,0,0,0.08); }
+}
 
 .animate-fade-in-up { animation: fade-in-up 300ms ease-out both; }
 .animate-scale-in { animation: scale-in 200ms ease-out both; }
@@ -201,6 +231,19 @@
   animation: shimmer 1.5s ease-in-out infinite;
 }
 .animate-border-glow { animation: border-glow 2s ease-in-out infinite; }
+.animate-gentle-float { animation: gentle-float 3s ease-in-out infinite; }
+.animate-active-glow { animation: active-glow 2s ease-in-out infinite; }
+.animate-gloss-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.animate-gloss-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  animation: gloss-sweep 2s ease-in-out 0.8s 1 both;
+}
 
 /* Progress bar shimmer gradient */
 .progress-shimmer {
@@ -220,7 +263,12 @@
   .animate-twinkle,
   .animate-border-draw,
   .animate-shimmer,
-  .animate-border-glow {
+  .animate-border-glow,
+  .animate-gentle-float,
+  .animate-active-glow {
+    animation: none !important;
+  }
+  .animate-gloss-sweep::after {
     animation: none !important;
   }
   .progress-shimmer {

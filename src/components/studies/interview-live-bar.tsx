@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Loader2, CheckCircle2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 
 interface InterviewLiveBarProps {
   studyId: string;
@@ -20,6 +21,7 @@ export function InterviewLiveBar({
   onAllDone,
   onGoToInsights,
 }: InterviewLiveBarProps) {
+  const reduced = useReducedMotion();
   const [completed, setCompleted] = useState(initialCompleted);
   const [currentPersona, setCurrentPersona] = useState<string | null>(null);
   const [lastQuote, setLastQuote] = useState<string | null>(null);
@@ -79,17 +81,17 @@ export function InterviewLiveBar({
   if (isDone) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        initial={reduced ? false : { opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        transition={safeSpring(400, 25, reduced)}
         className="rounded-xl border border-green-200 bg-green-50 p-4"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <motion.div
-              initial={{ scale: 0 }}
+              initial={reduced ? false : { scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 500, damping: 20, delay: 0.15 }}
+              transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 20, delay: 0.15 }}
             >
               <CheckCircle2 className="h-5 w-5 text-green-600" />
             </motion.div>
@@ -105,13 +107,13 @@ export function InterviewLiveBar({
           {onGoToInsights && (
             <motion.button
               onClick={onGoToInsights}
-              whileHover={{ scale: 1.03, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={reduced ? undefined : { scale: 1.03, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              whileTap={reduced ? undefined : { scale: 0.97 }}
               className="inline-flex items-center gap-2 rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-800"
             >
               Continue to Insights
               <motion.span
-                animate={{ x: [0, 4, 0] }}
+                animate={reduced ? undefined : { x: [0, 4, 0] }}
                 transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
               >
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -126,27 +128,39 @@ export function InterviewLiveBar({
   // Running state
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={reduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      transition={safeSpring(300, 25, reduced)}
       className="rounded-xl border p-4 space-y-3"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 shrink-0"
-          >
-            <Loader2 className="h-4 w-4 text-primary" />
-          </motion.div>
+          {/* Persona avatar circle with initial */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPersona || "starting"}
+              initial={reduced ? false : { scale: 0, rotate: -10 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={reduced ? undefined : { scale: 0, rotate: 10 }}
+              transition={safeSpring(400, 20, reduced)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 shrink-0"
+            >
+              {currentPersona ? (
+                <span className="text-xs font-bold text-primary">
+                  {currentPersona.charAt(0).toUpperCase()}
+                </span>
+              ) : (
+                <Loader2 className="h-4 w-4 text-primary animate-spin" />
+              )}
+            </motion.div>
+          </AnimatePresence>
           <div className="min-w-0">
             <AnimatePresence mode="wait">
               <motion.p
                 key={currentPersona || "starting"}
-                initial={{ opacity: 0, y: 8 }}
+                initial={reduced ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
+                exit={reduced ? undefined : { opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
                 className="text-sm font-medium truncate"
               >
@@ -159,7 +173,7 @@ export function InterviewLiveBar({
               {lastQuote && (
                 <motion.p
                   key={lastQuote}
-                  initial={{ opacity: 0, y: 4 }}
+                  initial={reduced ? false : { opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   className="text-xs text-muted-foreground italic truncate mt-0.5"
@@ -173,10 +187,10 @@ export function InterviewLiveBar({
         <AnimatePresence mode="wait">
           <motion.span
             key={completed}
-            initial={{ opacity: 0, y: -8 }}
+            initial={reduced ? false : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ type: "spring", stiffness: 500, damping: 25 }}
+            exit={reduced ? undefined : { opacity: 0, y: 8 }}
+            transition={safeSpring(500, 25, reduced)}
             className="text-sm font-medium text-muted-foreground shrink-0 ml-3 tabular-nums"
           >
             {completed}/{totalCount}
