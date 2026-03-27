@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export type FlowStep = "setup" | "guide" | "interviews" | "insights";
@@ -42,20 +43,29 @@ export function StudyFlowStepper({
         return (
           <div key={s.key} className="flex items-center">
             {i > 0 && (
-              <div
+              <motion.div
                 className={cn(
-                  "h-px w-6 sm:w-8 mx-1 transition-all duration-500",
-                  prevCompleted
-                    ? "bg-foreground animate-line-fill"
-                    : "bg-border"
+                  "h-px w-6 sm:w-8 mx-1",
+                  prevCompleted ? "bg-foreground" : "bg-border"
                 )}
+                initial={prevCompleted ? { scaleX: 0 } : { scaleX: 1 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                style={{ transformOrigin: "left" }}
               />
             )}
-            <button
+            <motion.button
               onClick={() => canEnter && onStepClick(s.key)}
               disabled={!canEnter}
+              whileHover={canEnter ? { scale: 1.05, y: -1 } : undefined}
+              whileTap={canEnter ? { scale: 0.97 } : undefined}
+              animate={isActive ? { scale: [0.95, 1.05, 1] } : { scale: 1 }}
+              transition={isActive
+                ? { duration: 0.3, ease: "easeOut" }
+                : { type: "spring", stiffness: 400, damping: 17 }
+              }
               className={cn(
-                "relative flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200",
+                "relative flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200",
                 isActive
                   ? "bg-foreground text-background shadow-[0_0_0_3px_rgba(0,0,0,0.05)]"
                   : isCompleted
@@ -66,7 +76,13 @@ export function StudyFlowStepper({
               )}
             >
               {isCompleted && !isActive && (
-                <CheckCircle2 className="h-3.5 w-3.5 animate-scale-in" />
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </motion.span>
               )}
               {isInterviewStep && !isActive && (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -80,9 +96,10 @@ export function StudyFlowStepper({
               {/* Mini progress bar for running interviews */}
               {isInterviewStep && !isActive && interviewProgress && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-foreground/40 transition-all duration-500"
-                    style={{
+                  <motion.div
+                    className="h-full bg-foreground/40"
+                    initial={{ width: "0%" }}
+                    animate={{
                       width: (() => {
                         const parts = interviewProgress.split("/");
                         if (parts.length === 2) {
@@ -93,10 +110,11 @@ export function StudyFlowStepper({
                         return "0%";
                       })(),
                     }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
                   />
                 </div>
               )}
-            </button>
+            </motion.button>
           </div>
         );
       })}

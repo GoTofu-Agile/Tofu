@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface KeyQuote {
   quote: string;
@@ -71,28 +72,52 @@ export function ResultsQuotes({
       </div>
 
       <div className="space-y-2">
-        {filtered.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            No quotes match the selected filters.
-          </p>
-        ) : (
-          filtered.map((q) => (
-            <div
-              key={`${q.personaName}-${q.context}-${q.quote.slice(0, 24)}`}
-              className="rounded-lg border-l-2 border-primary/30 bg-muted/10 p-3"
+        <AnimatePresence mode="popLayout">
+          {filtered.length === 0 ? (
+            <motion.p
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="py-4 text-center text-sm text-muted-foreground"
             >
-              <p className="text-sm italic">&ldquo;{q.quote}&rdquo;</p>
-              <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="font-medium">{q.personaName}</span>
-                <span>&middot;</span>
-                <span>{q.context}</span>
-                <Badge variant="outline" className="ml-auto text-[10px]">
-                  {q.theme}
-                </Badge>
-              </div>
-            </div>
-          ))
-        )}
+              No quotes match the selected filters.
+            </motion.p>
+          ) : (
+            filtered.map((q, i) => (
+              <motion.div
+                key={`${q.personaName}-${q.context}-${q.quote.slice(0, 24)}`}
+                initial={{ opacity: 0, y: 12, x: -4 }}
+                animate={{ opacity: 1, y: 0, x: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ delay: i * 0.04, type: "spring", stiffness: 300, damping: 25 }}
+                layout
+                className="rounded-lg border-l-2 border-primary/30 bg-muted/10 p-3"
+              >
+                <motion.div
+                  className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary/30 origin-top"
+                  initial={{ scaleY: 0 }}
+                  animate={{ scaleY: 1 }}
+                  transition={{ delay: i * 0.04 + 0.1, duration: 0.3 }}
+                />
+                <p className="text-sm italic">&ldquo;{q.quote}&rdquo;</p>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: i * 0.04 + 0.15 }}
+                  className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground"
+                >
+                  <span className="font-medium">{q.personaName}</span>
+                  <span>&middot;</span>
+                  <span>{q.context}</span>
+                  <Badge variant="outline" className="ml-auto text-[10px]">
+                    {q.theme}
+                  </Badge>
+                </motion.div>
+              </motion.div>
+            ))
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

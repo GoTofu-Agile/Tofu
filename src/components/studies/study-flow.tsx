@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Pencil } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { updateStudyTitle } from "@/app/(dashboard)/studies/actions";
 import { StudyFlowStepper, type FlowStep, FLOW_STEPS } from "./study-flow-stepper";
@@ -74,6 +75,24 @@ interface StudyFlowProps {
   avgDurationMs: number;
 }
 
+// Step transition direction tracking
+const stepOrder: FlowStep[] = ["setup", "guide", "interviews", "insights"];
+
+const stepVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 60 : -60,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -60 : 60,
+    opacity: 0,
+  }),
+};
+
 export function StudyFlow({
   initialStep,
   studyId,
@@ -107,6 +126,7 @@ export function StudyFlow({
 
   // Step state
   const [activeStep, setActiveStep] = useState<FlowStep>(initialStep);
+  const [direction, setDirection] = useState(0);
 
   // Study data state — clear default "Untitled Study" so placeholder shows
   const [title, setTitle] = useState(
@@ -187,6 +207,9 @@ export function StudyFlow({
 
   function goToStep(step: FlowStep) {
     if (canEnterStep(step)) {
+      const oldIdx = stepOrder.indexOf(activeStep);
+      const newIdx = stepOrder.indexOf(step);
+      setDirection(newIdx > oldIdx ? 1 : -1);
       setActiveStep(step);
     }
   }
@@ -195,6 +218,7 @@ export function StudyFlow({
     const currentIndex = FLOW_STEPS.findIndex((s) => s.key === activeStep);
     const nextStep = FLOW_STEPS[currentIndex + 1];
     if (nextStep && canEnterStep(nextStep.key)) {
+      setDirection(1);
       setActiveStep(nextStep.key);
     }
   }
@@ -203,6 +227,7 @@ export function StudyFlow({
     const currentIndex = FLOW_STEPS.findIndex((s) => s.key === activeStep);
     const prevStep = FLOW_STEPS[currentIndex - 1];
     if (prevStep) {
+      setDirection(-1);
       setActiveStep(prevStep.key);
     }
   }
@@ -302,66 +327,81 @@ export function StudyFlow({
         />
       </div>
 
-      {/* Step Content — steps with own panels render full-width, others get the shared preview panel */}
-      <div className="min-h-[400px]">
-        {activeStep === "setup" && (
-          <FlowStepSetup
-            studyId={studyId}
-            title={title}
-            onTitleChange={setTitle}
-            studyType={studyType}
-            onStudyTypeChange={setStudyType}
-            objective={objective}
-            onObjectiveChange={setObjective}
-            availableGroups={availableGroups}
-            selectedGroupIds={selectedGroupIds}
-            onGroupToggle={handleGroupToggle}
-            orgContext={orgContext}
-          />
-        )}
+      {/* Step Content with AnimatePresence transitions */}
+      <div className="min-h-[400px] relative">
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={activeStep}
+            custom={direction}
+            variants={stepVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{
+              x: { type: "spring", stiffness: 200, damping: 25 },
+              opacity: { duration: 0.2 },
+            }}
+          >
+            {activeStep === "setup" && (
+              <FlowStepSetup
+                studyId={studyId}
+                title={title}
+                onTitleChange={setTitle}
+                studyType={studyType}
+                onStudyTypeChange={setStudyType}
+                objective={objective}
+                onObjectiveChange={setObjective}
+                availableGroups={availableGroups}
+                selectedGroupIds={selectedGroupIds}
+                onGroupToggle={handleGroupToggle}
+                orgContext={orgContext}
+              />
+            )}
 
-        {activeStep === "guide" && (
-          <FlowStepGuide
-            studyId={studyId}
-            studyType={studyType}
-            title={title}
-            objective={objective}
-            selectedGroupNames={selectedGroupNames}
-            selectedGroups={selectedGroupsForPreview}
-            totalPersonas={totalPersonas}
-            orgContext={orgContext}
-            guide={guide}
-            onGuideChange={setGuide}
-            onGoToSetup={() => setActiveStep("setup")}
-          />
-        )}
+            {activeStep === "guide" && (
+              <FlowStepGuide
+                studyId={studyId}
+                studyType={studyType}
+                title={title}
+                objective={objective}
+                selectedGroupNames={selectedGroupNames}
+                selectedGroups={selectedGroupsForPreview}
+                totalPersonas={totalPersonas}
+                orgContext={orgContext}
+                guide={guide}
+                onGuideChange={setGuide}
+                onGoToSetup={() => goToStep("setup")}
+              />
+            )}
 
-        {activeStep === "interviews" && (
-          <FlowStepInterviews
-            studyId={studyId}
-            studyTitle={title}
-            interviewGuide={guide || null}
-            personasByGroup={personasByGroup}
-            personaSessionMap={personaSessionMap}
-            pendingCount={pendingCount}
-            completedCount={completedCount}
-            totalCount={totalCount}
-            onComplete={handleInterviewsComplete}
-            onRunningChange={setInterviewsRunning}
-            onGoToInsights={() => setActiveStep("insights")}
-          />
-        )}
+            {activeStep === "interviews" && (
+              <FlowStepInterviews
+                studyId={studyId}
+                studyTitle={title}
+                interviewGuide={guide || null}
+                personasByGroup={personasByGroup}
+                personaSessionMap={personaSessionMap}
+                pendingCount={pendingCount}
+                completedCount={completedCount}
+                totalCount={totalCount}
+                onComplete={handleInterviewsComplete}
+                onRunningChange={setInterviewsRunning}
+                onGoToInsights={() => goToStep("insights")}
+              />
+            )}
 
-        {activeStep === "insights" && (
-          <FlowStepInsights
-            studyId={studyId}
-            completedCount={completedCount}
-            totalCount={totalCount}
-            avgDurationMs={avgDurationMs}
-            reports={analysisReports}
-            onReportGenerated={handleReportGenerated}
-          />
-        )}
+            {activeStep === "insights" && (
+              <FlowStepInsights
+                studyId={studyId}
+                completedCount={completedCount}
+                totalCount={totalCount}
+                avgDurationMs={avgDurationMs}
+                reports={analysisReports}
+                onReportGenerated={handleReportGenerated}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* Sticky Navigation */}
