@@ -12,6 +12,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PersonaDetailModal } from "@/components/studies/persona-detail-modal";
 
 interface Persona {
   id: string;
@@ -35,6 +36,7 @@ export function StudyPersonaList({
   defaultCollapsed = false,
   onPersonaSelect,
   selectedPersonaId,
+  runningPersonaId,
 }: {
   personas: Persona[];
   studyId: string;
@@ -42,9 +44,11 @@ export function StudyPersonaList({
   defaultCollapsed?: boolean;
   onPersonaSelect?: (personaId: string) => void;
   selectedPersonaId?: string;
+  runningPersonaId?: string | null;
 }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(!defaultCollapsed);
+  const [detailPersona, setDetailPersona] = useState<Persona | null>(null);
 
   const COLLAPSED_COUNT = 6;
   const shouldCollapse = personas.length > COLLAPSED_COUNT;
@@ -61,6 +65,10 @@ export function StudyPersonaList({
     const existing = personaSessionMap[personaId];
     if (existing) {
       router.push(`/studies/${studyId}/${existing.sessionId}`);
+    } else {
+      // No session yet — show persona detail modal
+      const persona = personas.find((p) => p.id === personaId);
+      if (persona) setDetailPersona(persona);
     }
   }
 
@@ -70,7 +78,7 @@ export function StudyPersonaList({
         {visiblePersonas.map((persona) => {
           const session = personaSessionMap[persona.id];
           const isCompleted = session?.status === "COMPLETED";
-          const isRunning = session?.status === "RUNNING";
+          const isRunning = session?.status === "RUNNING" || persona.id === runningPersonaId;
           const hasSession = !!session;
           const isSelected = selectedPersonaId === persona.id;
 
@@ -158,6 +166,12 @@ export function StudyPersonaList({
           )}
         </button>
       )}
+
+      <PersonaDetailModal
+        open={!!detailPersona}
+        onOpenChange={(open) => { if (!open) setDetailPersona(null); }}
+        persona={detailPersona}
+      />
     </div>
   );
 }

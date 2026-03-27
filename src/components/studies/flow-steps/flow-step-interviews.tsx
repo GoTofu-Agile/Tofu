@@ -68,6 +68,7 @@ export function FlowStepInterviews({
   const allDone = completedCount >= totalCount && totalCount > 0;
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [livePersonaName, setLivePersonaName] = useState<string | null>(null);
+  const [runningPersonaId, setRunningPersonaId] = useState<string | null>(null);
 
   // Auto-unlock insights when interviews are already complete on mount
   useEffect(() => {
@@ -91,6 +92,7 @@ export function FlowStepInterviews({
           const allPersonas = personasByGroup.flatMap((g) => g.personas);
           const persona = allPersonas.find((p) => p.name === data.personaName);
           if (persona) {
+            setRunningPersonaId(persona.id);
             const session = personaSessionMap[persona.id];
             if (session) {
               handleSelectPersona(persona.id);
@@ -103,6 +105,7 @@ export function FlowStepInterviews({
     es.addEventListener("interview-complete", (e) => {
       try {
         const data = JSON.parse(e.data);
+        setRunningPersonaId(null);
         // Refresh the current chat to show the completed transcript
         if (selectedPersona && data.personaName === selectedPersona.name) {
           handleSelectPersona(selectedPersona.personaId);
@@ -261,6 +264,7 @@ export function FlowStepInterviews({
               personaSessionMap={personaSessionMap}
               onPersonaSelect={handleSelectPersona}
               selectedPersonaId={selectedPersona?.personaId}
+              runningPersonaId={runningPersonaId}
             />
           </div>
         ))}
@@ -296,6 +300,8 @@ export function FlowStepInterviews({
                 {selectedPersona && (
                   <Link
                     href={`/studies/${studyId}/${selectedPersona.sessionId}`}
+                    scroll={false}
+                    onClick={() => sessionStorage.setItem(`scroll:${studyId}`, String(window.scrollY))}
                     className="p-1.5 text-muted-foreground/50 hover:text-foreground rounded-md hover:bg-muted transition-colors"
                     title="Open full view"
                   >
@@ -365,6 +371,8 @@ export function FlowStepInterviews({
               <div className="border-t px-3 py-2.5 shrink-0">
                 <Link
                   href={`/studies/${studyId}/${selectedPersona.sessionId}`}
+                  scroll={false}
+                  onClick={() => sessionStorage.setItem(`scroll:${studyId}`, String(window.scrollY))}
                   className="flex items-center gap-2 w-full rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-colors"
                 >
                   <Send className="h-3 w-3 shrink-0" />

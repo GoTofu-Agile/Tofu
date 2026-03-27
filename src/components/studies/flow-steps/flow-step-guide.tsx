@@ -137,13 +137,20 @@ export function FlowStepGuide({
     }
   }
 
+  async function handleRegenerateSingle(targetIdx: number) {
+    await handleRegenerateByIndices(new Set([targetIdx]));
+  }
+
   async function handleRegenerateSelected() {
     if (selectedForRegen.size === 0) return;
+    await handleRegenerateByIndices(selectedForRegen);
+  }
 
+  async function handleRegenerateByIndices(indices: Set<number>) {
     // Keep unselected questions, regenerate selected ones
-    const keepQuestions = questions.filter((_, i) => !selectedForRegen.has(i));
+    const keepQuestions = questions.filter((_, i) => !indices.has(i));
     const selectedTexts = questions
-      .filter((_, i) => selectedForRegen.has(i))
+      .filter((_, i) => indices.has(i))
       .map((q) => q.text);
 
     setStreamPhase("streaming");
@@ -620,7 +627,15 @@ export function FlowStepGuide({
                           </p>
                         )}
                       </div>
-                      {/* Edit + Delete — always visible on hover */}
+                      {/* Regenerate + Edit + Delete — always visible on hover */}
+                      <button
+                        onClick={() => handleRegenerateSingle(i)}
+                        disabled={isStreaming || !hasObjective}
+                        title="Regenerate this question"
+                        className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/40 hover:!text-foreground transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </button>
                       <button
                         onClick={() => setEditingIndex(q.index)}
                         className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/40 hover:!text-foreground transition-all"

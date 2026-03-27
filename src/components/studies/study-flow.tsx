@@ -95,6 +95,16 @@ export function StudyFlow({
 }: StudyFlowProps) {
   const router = useRouter();
 
+  // Restore scroll position after navigating back from session detail
+  useEffect(() => {
+    const key = `scroll:${studyId}`;
+    const saved = sessionStorage.getItem(key);
+    if (saved) {
+      sessionStorage.removeItem(key);
+      requestAnimationFrame(() => window.scrollTo(0, parseInt(saved, 10)));
+    }
+  }, [studyId]);
+
   // Step state
   const [activeStep, setActiveStep] = useState<FlowStep>(initialStep);
 
