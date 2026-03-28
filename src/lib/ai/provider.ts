@@ -17,8 +17,33 @@ const requiredKeys: Record<Provider, string> = {
   gemini: "GOOGLE_GENERATIVE_AI_API_KEY",
 };
 
+function hasProviderKey(provider: Provider) {
+  const keyName = requiredKeys[provider];
+  return Boolean(process.env[keyName]);
+}
+
+function resolveProviderWithFallback(): Provider {
+  const requested = (process.env.LLM_PROVIDER || "openai") as Provider;
+  if (requested in providers && hasProviderKey(requested)) return requested;
+
+  const firstAvailable = (Object.keys(providers) as Provider[]).find((provider) =>
+    hasProviderKey(provider)
+  );
+  if (firstAvailable) {
+    if (requested in providers && requested !== firstAvailable) {
+      // Keep this non-fatal: local envs often drift while switching providers.
+      console.warn(
+        `LLM_PROVIDER is "${requested}" but its API key is missing. Falling back to "${firstAvailable}".`
+      );
+    }
+    return firstAvailable;
+  }
+
+  return requested;
+}
+
 export function getModel() {
-  const provider = (process.env.LLM_PROVIDER || "openai") as Provider;
+  const provider = resolveProviderWithFallback();
 
   if (!(provider in providers)) {
     throw new Error(
@@ -29,7 +54,7 @@ export function getModel() {
   const keyName = requiredKeys[provider];
   if (!process.env[keyName]) {
     throw new Error(
-      `Missing API key: Set ${keyName} in your .env.local file to use the "${provider}" provider.`
+      `Missing API key: Set ${keyName} in your .env.local file (or configure another provider key) to use "${provider}".`
     );
   }
 
