@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,19 +13,23 @@ import { StepManual } from "./step-manual";
 import { StepLinkedin } from "./step-linkedin";
 import { StepUrl, isValidHttpUrl } from "./step-url";
 import { SourcesSettings } from "./step-sources";
-import { StepProgress } from "./step-progress";
 import { StepTemplates } from "./step-templates";
 import { PersonaChatBar } from "./persona-chat-bar";
 import { StepAppStoreReviews } from "./step-app-store-reviews";
-import { ChatPipelineProgress, type ChatPipelineStepView } from "./chat-pipeline-progress";
+import type { ChatPipelineStepView } from "./chat-pipeline-progress";
 import { type ChatDataSourceId } from "./chat-research-pipeline";
 import { buildChatDisplayPipeline } from "./chat-pipeline-display-plan";
+import { PersonaWorkflowCarousel } from "./persona-workflow-carousel";
+import type {
+  WorkflowSourceRow,
+  WorkflowStepStatus,
+  WorkflowStepView,
+} from "./persona-workflow-types";
 import type {
   AppStoreAudienceMappedApp,
   ExtractedContext,
 } from "@/lib/validation/schemas";
 import type { AudienceMappingUiStatus } from "./audience-app-mapping-preview";
-import { searchTavily, saveResearchResults } from "@/lib/research/tavily";
 import { ALL_RESEARCH_SOURCE_IDS, buildQueriesFromContext } from "@/lib/research/build-queries";
 
 type Phase = "pick" | "form" | "progress";
@@ -55,6 +59,245 @@ const SOURCE_TYPE_MAP: Partial<Record<CreationMethod, string>> = {
   // deep-search → DATA_BASED auto-set by knowledge.length
 };
 
+function classifyPipelineBucket(label: string): "appStore" | "playStore" | "webSearch" | "browsed" | "synth" {
+  const text = label.toLowerCase();
+  if (text.includes("app store")) return "appStore";
+  if (text.includes("play store") || text.includes("google play")) return "playStore";
+  if (text.includes("synth") || text.includes("generat") || text.includes("persona")) return "synth";
+  if (text.includes("reddit")) return "webSearch";
+  if (text.includes("forum")) return "webSearch";
+  if (text.includes("twitter") || text.includes("x/")) return "webSearch";
+  if (text.includes("brows") || text.includes("url") || text.includes("link")) return "browsed";
+  return "webSearch";
+}
+
+function bucketStatus(
+  steps: ChatPipelineStepView[],
+  bucket: "appStore" | "playStore" | "webSearch" | "browsed" | "synth"
+): WorkflowStepStatus {
+  const inBucket = steps.filter((s) => classifyPipelineBucket(s.label) === bucket);
+  if (inBucket.length === 0) return "pending";
+  if (inBucket.some((s) => s.status === "active")) return "active";
+  if (inBucket.some((s) => s.status === "done")) return "done";
+  if (inBucket.every((s) => s.status === "skipped")) return "skipped";
+  return "pending";
+}
+
+function buildWorkflowSteps(params: {
+  chatPipelineSteps: ChatPipelineStepView[] | null;
+  progressPhase: "researching" | "generating" | "done";
+  researchLabel: string;
+  researchResults: number;
+  researchBySource: Record<string, number>;
+  genCompleted: number;
+  genTotal: number;
+  promptText: string;
+}): WorkflowStepView[] {
+  const {
+    chatPipelineSteps,
+    progressPhase,
+    researchLabel,
+    researchResults,
+    researchBySource,
+    genCompleted,
+    genTotal,
+    promptText,
+  } = params;
+
+  const appCount = researchBySource.APP_REVIEW ?? researchBySource.appstore ?? 0;
+  const playCount = researchBySource.PLAY_STORE_REVIEW ?? 0;
+
+  const isAppLabel = researchLabel.toLowerCase().includes("app store");
+  const appStoreStatus = chatPipelineSteps
+    ? bucketStatus(chatPipelineSteps, "appStore")
+    : progressPhase === "researching" && isAppLabel
+      ? "active"
+      : appCount > 0
+        ? "done"
+        : progressPhase === "done"
+          ? "skipped"
+          : "pending";
+
+  const playStoreStatus = chatPipelineSteps
+    ? bucketStatus(chatPipelineSteps, "playStore")
+    : playCount > 0
+      ? "done"
+      : progressPhase === "done"
+        ? "skipped"
+        : "pending";
+
+  const webSearchStatus = chatPipelineSteps
+    ? bucketStatus(chatPipelineSteps, "webSearch")
+    : progressPhase === "researching" && !isAppLabel
+      ? "active"
+      : researchResults > 0
+        ? "done"
+        : progressPhase === "done"
+          ? "skipped"
+          : "pending";
+
+  const browsingStatus = chatPipelineSteps
+    ? bucketStatus(chatPipelineSteps, "browsed")
+    : progressPhase === "researching"
+      ? researchResults > 0
+        ? "active"
+        : "pending"
+      : progressPhase === "generating" || progressPhase === "done"
+        ? researchResults > 0
+          ? "done"
+          : "skipped"
+        : "pending";
+
+  const synthStatus =
+    progressPhase === "generating"
+      ? "active"
+      : progressPhase === "done"
+        ? "done"
+        : chatPipelineSteps
+          ? bucketStatus(chatPipelineSteps, "synth")
+          : "pending";
+
+  const doneStatus: WorkflowStepStatus = progressPhase === "done" ? "done" : "pending";
+
+  const queryLabel = promptText.trim()
+    ? `${promptText.trim().slice(0, 56)}${promptText.trim().length > 56 ? "..." : ""}`
+    : "app user complaints frustrations";
+  const topicLabel = promptText.trim()
+    ? `${promptText.trim().slice(0, 32)}${promptText.trim().length > 32 ? "..." : ""}`
+    : "target audience";
+
+  const appSources: WorkflowSourceRow[] = [
+    {
+      id: "app-source",
+      kind: "appStore",
+      label: "App Store — iOS listing",
+      badge: appCount > 0 ? `${appCount} reviews` : "Waiting",
+      status: appStoreStatus === "active" ? "loading" : appStoreStatus === "done" ? "done" : "skipped",
+    },
+  ];
+
+  const playSources: WorkflowSourceRow[] = [
+    {
+      id: "play-source",
+      kind: "playStore",
+      label: "Google Play — Android listing",
+      badge: playCount > 0 ? `${playCount} reviews` : "Waiting",
+      status: playStoreStatus === "active" ? "loading" : playStoreStatus === "done" ? "done" : "skipped",
+    },
+  ];
+
+  const webSources: WorkflowSourceRow[] = [
+    {
+      id: "web-reddit",
+      kind: "webSearch",
+      label: `reddit.com - ${topicLabel}`,
+      badge: researchResults > 0 ? `${Math.max(1, Math.floor(researchResults * 0.45))} posts` : "Searching",
+      status: webSearchStatus === "active" ? "loading" : webSearchStatus === "done" ? "done" : "skipped",
+    },
+    {
+      id: "web-general",
+      kind: "webSearch",
+      label: `Web results - ${queryLabel}`,
+      badge: researchResults > 0 ? `${researchResults} results` : "Searching",
+      status: webSearchStatus === "active" ? "loading" : webSearchStatus === "done" ? "done" : "skipped",
+    },
+  ];
+
+  const browseSources: WorkflowSourceRow[] = [
+    {
+      id: "browse-1",
+      kind: "browsed",
+      label: "reddit.com/r/app/comments/...",
+      status: browsingStatus === "active" ? "loading" : browsingStatus === "done" ? "done" : "skipped",
+      badge: browsingStatus === "done" ? "Captured" : "Browsing",
+    },
+    {
+      id: "browse-2",
+      kind: "browsed",
+      label: "trustpilot.com/review/app",
+      status: browsingStatus === "active" ? "loading" : browsingStatus === "done" ? "done" : "skipped",
+      badge: browsingStatus === "done" ? "Captured" : "Browsing",
+    },
+    {
+      id: "browse-3",
+      kind: "browsed",
+      label: "g2.com/products/app/reviews",
+      status: browsingStatus === "active" ? "loading" : browsingStatus === "done" ? "done" : "skipped",
+      badge: browsingStatus === "done" ? "Captured" : "Browsing",
+    },
+  ];
+
+  return [
+    {
+      id: "wf-app-store",
+      title: "Searching App Store",
+      status: appStoreStatus,
+      sources: appSources,
+      findings:
+        appCount > 0
+          ? [`Captured ${appCount} App Store review signals for ${topicLabel}.`]
+          : [],
+    },
+    {
+      id: "wf-play-store",
+      title: "Searching Google Play",
+      status: playStoreStatus,
+      sources: playSources,
+      findings:
+        playCount > 0
+          ? [`Found recurring Android pain points relevant to ${topicLabel}.`]
+          : [],
+    },
+    {
+      id: "wf-web-search",
+      title: "Searching Reddit",
+      status: webSearchStatus,
+      sources: webSources,
+      findings:
+        researchResults > 0
+          ? [`Reddit and web discussions reveal concrete frustrations for ${topicLabel}.`]
+          : [],
+    },
+    {
+      id: "wf-browse",
+      title: "Reviewing source threads",
+      status: browsingStatus,
+      sources: browseSources,
+      findings:
+        browsingStatus === "done" || browsingStatus === "active"
+          ? [
+              "Thread-level evidence isolates recurring user blockers.",
+              "Mentions are clustered by behavior patterns and goals.",
+            ]
+          : [],
+    },
+    {
+      id: "wf-synth",
+      title: "Synthesizing personas",
+      status: synthStatus,
+      sources: [],
+      findings:
+        synthStatus === "done" || synthStatus === "active"
+          ? [
+              `Persona traits are merged from signals tied to ${topicLabel}.`,
+              "Goals, frustrations, and behaviors are balanced across sources.",
+              "Outlier signals are filtered to avoid one-thread bias.",
+            ]
+          : [],
+    },
+    {
+      id: "wf-done",
+      title: "Personas ready",
+      status: doneStatus,
+      sources: [],
+      findings:
+        doneStatus === "done"
+          ? [`Generated ${Math.max(genCompleted, genTotal)} personas successfully.`]
+          : [],
+    },
+  ];
+}
+
 export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   const router = useRouter();
 
@@ -71,14 +314,20 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
   // Step: Progress
   const [progressPhase, setProgressPhase] = useState<"researching" | "generating" | "done">("researching");
-  const [researchCurrent, setResearchCurrent] = useState(0);
-  const [researchTotal, setResearchTotal] = useState(0);
+  const [, setResearchCurrent] = useState(0);
+  const [, setResearchTotal] = useState(0);
   const [researchLabel, setResearchLabel] = useState("");
   const [researchResults, setResearchResults] = useState(0);
   const [researchBySource, setResearchBySource] = useState<Record<string, number>>({});
   const [genCompleted, setGenCompleted] = useState(0);
   const [genTotal, setGenTotal] = useState(0);
   const [genCurrentName, setGenCurrentName] = useState("");
+  const [lastGeneratedName, setLastGeneratedName] = useState("");
+  const [generationIssue, setGenerationIssue] = useState<{
+    groupId: string;
+    message: string;
+    partial: boolean;
+  } | null>(null);
   const [starting, setStarting] = useState(false);
   const [chatPipelineSteps, setChatPipelineSteps] = useState<ChatPipelineStepView[] | null>(null);
 
@@ -101,6 +350,30 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
     null
   );
   const [audienceTavilyDisabled, setAudienceTavilyDisabled] = useState(false);
+
+  const workflowSteps = useMemo(
+    () =>
+      buildWorkflowSteps({
+        chatPipelineSteps,
+        progressPhase,
+        researchLabel,
+        researchResults,
+        researchBySource,
+        genCompleted,
+        genTotal,
+        promptText,
+      }),
+    [
+      chatPipelineSteps,
+      progressPhase,
+      researchLabel,
+      researchResults,
+      researchBySource,
+      genCompleted,
+      genTotal,
+      promptText,
+    ]
+  );
 
   // --- Method selection ---
 
@@ -133,59 +406,6 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
     setAudienceTavilyDisabled(false);
   }
 
-  // --- Quick create from chat bar (Template-like flow) ---
-
-  async function handleChatQuickCreate(text: string) {
-    setStarting(true);
-
-    const domainPieces: string[] = [];
-    if (orgContext?.productName) domainPieces.push(`Product: ${orgContext.productName}`);
-    if (orgContext?.productDescription)
-      domainPieces.push(`Description: ${orgContext.productDescription}`);
-    if (orgContext?.targetAudience) domainPieces.push(`Target audience: ${orgContext.targetAudience}`);
-    if (orgContext?.industry) domainPieces.push(`Industry: ${orgContext.industry}`);
-    if (orgContext?.competitors) domainPieces.push(`Competitors: ${orgContext.competitors}`);
-    domainPieces.push(`User description: ${text}`);
-
-    const domainContext = domainPieces.join("\n");
-
-    const formData = new FormData();
-    formData.set("name", "Persona Group");
-    formData.set("description", text.slice(0, 180));
-    formData.set("domainContext", domainContext);
-    formData.set("count", String(personaCount));
-
-    const result = await createGroup(formData);
-    if (result.error || !result.groupId) {
-      toast.error(result.error || "Failed to create group");
-      setStarting(false);
-      return;
-    }
-
-    const gId = result.groupId;
-    setPhase("progress");
-    setProgressPhase("generating");
-    setGenTotal(personaCount);
-
-    try {
-      const response = await fetch("/api/personas/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          groupId: gId,
-          count: personaCount,
-          domainContext,
-          sourceTypeOverride: "PROMPT_GENERATED",
-        }),
-      });
-
-      if (!response.ok) throw new Error("Generation failed");
-      await streamGenerationProgress(response, gId);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Generation failed");
-    }
-  }
-
   async function runVisualStep(ms = 350) {
     await new Promise<void>((resolve) => setTimeout(resolve, ms));
   }
@@ -204,6 +424,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   // --- Chat pipeline (All Data Sources / scoped sources) ---
   async function handleChatPipelineCreate(text: string, dataSourceId: string) {
     setStarting(true);
+    setGenerationIssue(null);
     setGenCompleted(0);
     setGenCurrentName("");
 
@@ -360,6 +581,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
     setAudienceMappingError(null);
     setAudienceTavilyDisabled(false);
     setStarting(true);
+    setGenerationIssue(null);
 
     const domainPieces: string[] = [];
     if (orgContext?.productName) domainPieces.push(`Product: ${orgContext.productName}`);
@@ -441,6 +663,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   async function handleAppStoreReviewsFromAudience(audiencePlain: string) {
     const audience = audiencePlain.trim();
     setStarting(true);
+    setGenerationIssue(null);
     setAudienceMappingStatus("loading");
     setAudienceMappingError(null);
     setAudienceMappedApps(null);
@@ -585,6 +808,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
   async function handleFreetextInput(text: string) {
     setExtracting(true);
+    setGenerationIssue(null);
     try {
       const response = await fetch("/api/personas/extract", {
         method: "POST",
@@ -670,6 +894,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
   async function generateOnlyFromExtracted(extracted: ExtractedContext) {
     setStarting(true);
+    setGenerationIssue(null);
 
     const formData = new FormData();
     formData.set("name", extracted.groupName);
@@ -714,6 +939,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
   async function researchAndGenerateFromExtracted(extracted: ExtractedContext) {
     setStarting(true);
+    setGenerationIssue(null);
 
     const formData = new FormData();
     formData.set("name", extracted.groupName);
@@ -816,14 +1042,48 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
           if (event.type === "progress") {
             setGenCompleted(event.completed);
             setGenCurrentName(event.personaName || "");
+            if (event.personaName) {
+              setLastGeneratedName(event.personaName);
+            }
           } else if (event.type === "done") {
             opts?.onGenerationUiComplete?.();
             setProgressPhase("done");
-            toast.success(`Generated ${event.generated} personas!`);
+            setStarting(false);
+
+            const generated = Number(event.generated ?? 0);
+            const errors = Array.isArray(event.errors) ? event.errors : [];
+
+            if (generated <= 0) {
+              setGenerationIssue({
+                groupId: gId,
+                partial: false,
+                message:
+                  errors[0] ??
+                  "No personas were generated. Please retry generation or adjust your prompt.",
+              });
+              toast.error("No personas generated. Please retry.");
+              return;
+            }
+
+            if (errors.length > 0) {
+              setGenerationIssue({
+                groupId: gId,
+                partial: true,
+                message: `${generated} personas were generated, but ${errors.length} failed.`,
+              });
+              toast.warning(
+                `Generated ${generated} personas. ${errors.length} failed.`
+              );
+            } else {
+              setGenerationIssue(null);
+              toast.success(`Generated ${generated} personas!`);
+            }
+
             setTimeout(() => {
               router.push(`/personas/${gId}`);
-            }, 1000);
+            }, 1800);
           } else if (event.type === "error") {
+            setStarting(false);
             toast.error(event.message);
           }
         } catch {
@@ -1137,26 +1397,43 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       )}
 
       {phase === "progress" && (
-        chatPipelineSteps ? (
-          <ChatPipelineProgress
-            steps={chatPipelineSteps}
-            genCompleted={genCompleted}
-            genTotal={genTotal}
-            genCurrentName={genCurrentName}
+        <div className="space-y-4">
+          <PersonaWorkflowCarousel
+            steps={workflowSteps}
+            done={progressPhase === "done"}
+            personaPreview={{
+              name: lastGeneratedName || genCurrentName || "Generated Persona",
+              age: "28-40",
+              role: "Primary User",
+              goals: ["Streamline workflow", "Reduce context switching"],
+              frustrations: ["Pricing confusion", "Missing integrations"],
+              behaviors: ["Mobile-first", "Frequent review reader"],
+            }}
           />
-        ) : (
-          <StepProgress
-            phase={progressPhase}
-            researchCurrent={researchCurrent}
-            researchTotal={researchTotal}
-            researchLabel={researchLabel}
-            researchResults={researchResults}
-            researchBySource={researchBySource}
-            genCompleted={genCompleted}
-            genTotal={genTotal}
-            genCurrentName={genCurrentName}
-          />
-        )
+          {generationIssue ? (
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-sm text-foreground">{generationIssue.message}</p>
+              <div className="mt-3 flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setGenerationIssue(null);
+                    window.location.reload();
+                  }}
+                >
+                  Retry generation
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => router.push(`/personas/${generationIssue.groupId}`)}
+                >
+                  Open persona group
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
       )}
     </div>
   );
