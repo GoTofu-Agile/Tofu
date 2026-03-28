@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Users, FlaskConical, Settings, Sparkles } from "lucide-react";
 import { useAssistant } from "@/components/assistant/assistant-provider";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 
 type BaseCard = {
   title: string;
@@ -55,44 +57,75 @@ const featureCards: FeatureCard[] = [
 
 export function FeatureCards() {
   const { open, setChatView } = useAssistant();
+  const reduced = useReducedMotion();
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      {featureCards.map((card) => {
+      {featureCards.map((card, i) => {
         const Icon = card.icon;
 
         if (card.isChat) {
           return (
-            <button
+            <motion.div
               key={card.title}
-              type="button"
-              onClick={() => {
-                setChatView("chat");
-                open();
-              }}
-              className="group rounded-2xl bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+              initial={reduced ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={
+                reduced
+                  ? { duration: 0 }
+                  : { delay: i * 0.06, type: "spring", stiffness: 300, damping: 25 }
+              }
+              whileHover={
+                reduced
+                  ? undefined
+                  : { y: -4, transition: { type: "spring", stiffness: 400, damping: 25 } }
+              }
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setChatView("chat");
+                  open();
+                }}
+                className="group h-full w-full rounded-2xl bg-card p-5 text-left shadow-sm transition-all hover:shadow-md"
+              >
+                <div className={`inline-flex rounded-xl p-2.5 ${card.color}`}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <p className="mt-3 text-sm font-semibold">{card.title}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{card.description}</p>
+              </button>
+            </motion.div>
+          );
+        }
+
+        return (
+          <motion.div
+            key={card.title}
+            initial={reduced ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={
+              reduced
+                ? { duration: 0 }
+                : { delay: i * 0.06, type: "spring", stiffness: 300, damping: 25 }
+            }
+            whileHover={
+              reduced
+                ? undefined
+                : { y: -4, transition: { type: "spring", stiffness: 400, damping: 25 } }
+            }
+          >
+            <Link
+              href={card.href}
+              className="group block h-full rounded-2xl bg-card p-5 shadow-sm transition-all hover:shadow-md"
             >
               <div className={`inline-flex rounded-xl p-2.5 ${card.color}`}>
                 <Icon className="h-5 w-5" />
               </div>
               <p className="mt-3 text-sm font-semibold">{card.title}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{card.description}</p>
-            </button>
-          );
-        }
-
-        return (
-          <Link
-            key={card.title}
-            href={card.href}
-            className="group rounded-2xl bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-          >
-            <div className={`inline-flex rounded-xl p-2.5 ${card.color}`}>
-              <Icon className="h-5 w-5" />
-            </div>
-            <p className="mt-3 text-sm font-semibold">{card.title}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{card.description}</p>
-          </Link>
+            </Link>
+          </motion.div>
         );
       })}
     </div>

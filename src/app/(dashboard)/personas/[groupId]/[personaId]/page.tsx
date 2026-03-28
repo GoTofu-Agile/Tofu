@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
+import { MotionPageEnter } from "@/components/motion/page-motion";
 
 export default async function PersonaDetailPage({
   params,
@@ -31,7 +32,7 @@ export default async function PersonaDetailPage({
   const appReviews = appStoreReviewSnippetsFromPersona(persona.dataSources);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <MotionPageEnter className="mx-auto max-w-3xl space-y-8">
       {/* Hero Section */}
       <div>
         <Link
@@ -334,7 +335,7 @@ export default async function PersonaDetailPage({
           </div>
         </>
       )}
-    </div>
+    </MotionPageEnter>
   );
 }
 
