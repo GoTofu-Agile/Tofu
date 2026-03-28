@@ -13,11 +13,26 @@ const requestSchema = z.object({
   limit: z.number().int().min(1).max(1000).optional(),
 });
 
+const ALLOWED_APP_STORE_HOSTS = new Set([
+  "apps.apple.com",
+  "itunes.apple.com",
+]);
+
 function extractDomain(url: string) {
   try {
     return new URL(url).hostname.replace("www.", "");
   } catch {
     return url;
+  }
+}
+
+function isAllowedAppStoreUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace("www.", "");
+    return ALLOWED_APP_STORE_HOSTS.has(host);
+  } catch {
+    return false;
   }
 }
 
@@ -68,6 +83,13 @@ export async function POST(request: NextRequest) {
     return new Response(
       JSON.stringify({ error: "Not a member of this organization" }),
       { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (!isAllowedAppStoreUrl(body.appUrl)) {
+    return new Response(
+      JSON.stringify({ error: "appUrl must be a valid Apple App Store URL" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 

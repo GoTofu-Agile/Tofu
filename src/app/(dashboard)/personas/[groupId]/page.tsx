@@ -9,6 +9,9 @@ import { GeneratePersonasButton } from "@/components/personas/generate-personas-
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Users } from "lucide-react";
 import { SOURCE_LABELS } from "@/lib/constants/source-labels";
+import { PersonaGroupActions } from "@/components/personas/persona-group-actions";
+import { TrackPageView } from "@/components/analytics/track-page-view";
+import { PERSONA_GENERATION_DEFAULT, PERSONA_GENERATION_MAX, PERSONA_GENERATION_MIN } from "@/lib/constants/persona-limits";
 
 export default async function PersonaGroupDetailPage({
   params,
@@ -33,11 +36,13 @@ export default async function PersonaGroupDetailPage({
   }
 
   const personas = await getPersonasForGroupList(groupId);
-  const count = query.count ? parseInt(query.count, 10) : 5;
-  const domainContext = query.domainContext || group.domainContext || undefined;
+  const parsedCount = query.count ? parseInt(query.count, 10) : PERSONA_GENERATION_DEFAULT;
+  const count = Math.min(PERSONA_GENERATION_MAX, Math.max(PERSONA_GENERATION_MIN, Number.isNaN(parsedCount) ? PERSONA_GENERATION_DEFAULT : parsedCount));
+  const domainContext = group.domainContext || undefined;
 
   return (
     <div className="space-y-6">
+      <TrackPageView page="persona_group_detail" area="personas" />
       <div>
         <Link
           href="/personas"
@@ -46,7 +51,7 @@ export default async function PersonaGroupDetailPage({
           <ArrowLeft className="h-3.5 w-3.5" />
           Back to Personas
         </Link>
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">
               {group.name}
@@ -69,6 +74,7 @@ export default async function PersonaGroupDetailPage({
               </span>
             </div>
           </div>
+          <PersonaGroupActions groupId={groupId} groupName={group.name} />
         </div>
       </div>
 

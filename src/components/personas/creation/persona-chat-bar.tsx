@@ -7,7 +7,6 @@ import {
   Layers,
   LayoutTemplate,
   Zap,
-  FileUp,
   Globe,
   SearchCheck,
   Users,
@@ -17,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { PERSONA_GENERATION_MAX } from "@/lib/constants/persona-limits";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const PERSONA_PRESETS = [5, 10, 20, 50] as const;
-const PERSONA_MAX = 500;
 
 interface PersonaChatBarProps {
   value: string;
@@ -40,7 +39,6 @@ const DATA_SOURCES: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "all", label: "All Data Sources", icon: Layers },
   { id: "templates", label: "Templates", icon: LayoutTemplate },
   { id: "app-store", label: "App Store reviews", icon: Zap },
-  { id: "cvs", label: "CVs", icon: FileUp },
   { id: "company-urls", label: "Company URLs", icon: Globe },
   { id: "deep-search", label: "Deep search", icon: SearchCheck },
 ];
@@ -56,7 +54,7 @@ export function PersonaChatBar({
   const [customDraft, setCustomDraft] = useState<string>("");
 
   function clampCount(n: number) {
-    return Math.min(PERSONA_MAX, Math.max(1, Math.round(n)));
+    return Math.min(PERSONA_GENERATION_MAX, Math.max(1, Math.round(n)));
   }
 
   function applyCustomFromDraft() {
@@ -163,12 +161,12 @@ export function PersonaChatBar({
             className="p-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-xs font-medium text-muted-foreground">Custom (1–{PERSONA_MAX})</p>
+            <p className="text-xs font-medium text-muted-foreground">Custom (1–{PERSONA_GENERATION_MAX})</p>
             <div className="mt-2 flex gap-2">
               <Input
                 type="number"
                 min={1}
-                max={PERSONA_MAX}
+                max={PERSONA_GENERATION_MAX}
                 placeholder={String(personaCount)}
                 value={customDraft}
                 onChange={(e) => setCustomDraft(e.target.value)}

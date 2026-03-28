@@ -1,0 +1,3 @@
+export const PERSONA_GENERATION_MIN = 1;
+export const PERSONA_GENERATION_MAX = 100;
+export const PERSONA_GENERATION_DEFAULT = 10;

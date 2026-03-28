@@ -5,6 +5,12 @@ import { getUser } from "@/lib/db/queries/users";
 import { getModel } from "@/lib/ai/provider";
 import { extractedContextSchema } from "@/lib/validation/schemas";
 
+const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const ALLOWED_PDF_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/x-pdf",
+]);
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -15,6 +21,18 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
   if (!file) return Response.json({ error: "No file provided" }, { status: 400 });
+  if (!ALLOWED_PDF_MIME_TYPES.has(file.type)) {
+    return Response.json(
+      { error: "Invalid file type. Please upload a PDF file." },
+      { status: 400 }
+    );
+  }
+  if (file.size > MAX_PDF_SIZE_BYTES) {
+    return Response.json(
+      { error: "File too large. Upload a PDF smaller than 10MB." },
+      { status: 400 }
+    );
+  }
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);

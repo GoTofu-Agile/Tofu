@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Sparkles, Loader2 } from "lucide-react";
+import { trackEvent } from "@/lib/analytics/track";
+import { PERSONA_GENERATION_MAX, PERSONA_GENERATION_MIN } from "@/lib/constants/persona-limits";
 
 interface GeneratePersonasButtonProps {
   groupId: string;
@@ -48,8 +50,10 @@ export function GeneratePersonasButton({
 
   const startGeneration = useCallback(async () => {
     if (generating) return;
+    const safeCount = Math.min(PERSONA_GENERATION_MAX, Math.max(PERSONA_GENERATION_MIN, defaultCount));
+    trackEvent("persona_generation_started", { source: "empty_state", count: safeCount });
     setGenerating(true);
-    setProgress({ completed: 0, total: defaultCount, currentName: "" });
+    setProgress({ completed: 0, total: safeCount, currentName: "" });
 
     try {
       const response = await fetch("/api/personas/generate", {
@@ -57,7 +61,7 @@ export function GeneratePersonasButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           groupId,
-          count: defaultCount,
+          count: safeCount,
           domainContext,
         }),
       });
@@ -93,6 +97,7 @@ export function GeneratePersonasButton({
                 currentName: event.personaName,
               });
             } else if (event.type === "done") {
+              trackEvent("persona_generation_completed", { source: "empty_state", generated: event.generated });
               if (event.errors.length > 0) {
                 toast.warning(
                   `Generated ${event.generated} personas. ${event.errors.length} failed.`
@@ -103,6 +108,7 @@ export function GeneratePersonasButton({
                 );
               }
             } else if (event.type === "error") {
+              trackEvent("persona_generation_failed", { source: "empty_state" });
               toast.error(event.message);
             }
           } catch {
@@ -112,6 +118,7 @@ export function GeneratePersonasButton({
       }
 
     } catch (error) {
+      trackEvent("persona_generation_failed", { source: "empty_state" });
       toast.error(
         error instanceof Error ? error.message : "Generation failed"
       );

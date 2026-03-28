@@ -1,4 +1,5 @@
 import { generateObject } from "ai";
+import { z } from "zod";
 import { getModel } from "./provider";
 import { personaSchema, type PersonaOutput } from "@/lib/validation/schemas";
 import { prisma } from "@/lib/db/prisma";
@@ -19,6 +20,449 @@ export interface GeneratePersonasResult {
   errors: string[];
 }
 
+type PersonaUniquenessReference = Pick<
+  PersonaOutput,
+  "name" | "archetype" | "bio" | "backstory" | "representativeQuote" | "communicationSample"
+>;
+
+const MAX_GENERATION_ATTEMPTS = 3;
+const MAX_REFINEMENT_ATTEMPTS = 2;
+const MAX_BACKSTORY_REWRITE_ATTEMPTS = 3;
+const GENERIC_LANGUAGE_PATTERNS = [
+  /\binnovative\b/i,
+  /\bpassionate\b/i,
+  /\btech[- ]savvy\b/i,
+  /\bresults[- ]driven\b/i,
+  /\bproblem[- ]solver\b/i,
+  /\bdynamic\b/i,
+  /\bforward[- ]thinking\b/i,
+  /\bgrowing up in a small town\b/i,
+  /\balways been passionate\b/i,
+  /\bloves technology\b/i,
+  /\bwears many hats\b/i,
+  /\bfast-paced environment\b/i,
+  /\bwork[- ]life balance\b/i,
+  /\bthrive under pressure\b/i,
+  /\bdata-driven decisions\b/i,
+  /\bgo-getter\b/i,
+  /\bself-starter\b/i,
+  /\bdisrupt(ive|ion)\b/i,
+];
+
+const CLICHE_PHRASES = [
+  "growing up in a small town",
+  "passionate about technology",
+  "loves solving problems",
+  "wears many hats",
+  "fast-paced environment",
+  "thinking outside the box",
+  "work-life balance",
+  "driven by innovation",
+  "always on the go",
+  "customer-centric mindset",
+];
+
+const BACKSTORY_REQUIRED_LABELS = [
+  "Origin:",
+  "Education:",
+  "Early exposure:",
+  "Career path:",
+  "Current situation:",
+  "Key life factors:",
+] as const;
+
+const BACKSTORY_BANNED_PHRASES = [
+  "growing up",
+  "passionate about",
+  "has always been interested in",
+  "from a young age",
+  "loves to",
+];
+
+const BACKSTORY_PRONOUN_REPLACE_REGEX =
+  /\b(he|she|they|them|his|her|their|theirs|him|hers|himself|herself|themselves)\b/gi;
+const BACKSTORY_PRONOUN_TEST_REGEX =
+  /\b(he|she|they|them|his|her|their|theirs|him|hers|himself|herself|themselves)\b/i;
+
+const backstoryRewriteSchema = z.object({
+  backstory: z.string().min(50).max(2000),
+});
+
+const STYLE_VARIANTS = [
+  {
+    voice: "concise and direct",
+    structure: "front-load constraints and present details in compact sentences",
+  },
+  {
+    voice: "narrative and reflective",
+    structure: "anchor details around turning points and trade-offs",
+  },
+  {
+    voice: "pragmatic and analytical",
+    structure: "focus on decision logic, risk checks, and measurable constraints",
+  },
+  {
+    voice: "casual and conversational",
+    structure: "sound naturally spoken with concrete day-to-day language",
+  },
+];
+
+function normalizeTokens(input: string): string[] {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+}
+
+function jaccardSimilarity(a: string, b: string): number {
+  const setA = new Set(normalizeTokens(a));
+  const setB = new Set(normalizeTokens(b));
+  if (setA.size === 0 || setB.size === 0) return 0;
+  let intersection = 0;
+  for (const token of setA) {
+    if (setB.has(token)) intersection++;
+  }
+  const union = setA.size + setB.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+function getPersonaSimilarityScore(
+  candidate: PersonaOutput,
+  existing: PersonaUniquenessReference
+): number {
+  const candidateText = [
+    candidate.archetype,
+    candidate.bio,
+    candidate.backstory,
+    candidate.representativeQuote,
+    candidate.communicationSample,
+  ].join(" ");
+  const existingText = [
+    existing.archetype,
+    existing.bio,
+    existing.backstory,
+    existing.representativeQuote,
+    existing.communicationSample,
+  ].join(" ");
+  return jaccardSimilarity(candidateText, existingText);
+}
+
+function getGenericPatternHits(persona: PersonaOutput): number {
+  const content = [
+    persona.bio,
+    persona.backstory,
+    persona.archetype,
+    persona.representativeQuote,
+  ].join(" ");
+  return GENERIC_LANGUAGE_PATTERNS.reduce((hits, pattern) => {
+    return hits + (pattern.test(content) ? 1 : 0);
+  }, 0);
+}
+
+function getPersonaRetryReason(
+  candidate: PersonaOutput,
+  existing: PersonaUniquenessReference[],
+  qualityScore: number
+): string | null {
+  if (qualityScore < 0.72) {
+    return `quality-score-too-low:${qualityScore.toFixed(2)}`;
+  }
+
+  const genericHits = getGenericPatternHits(candidate);
+  if (genericHits >= 3) {
+    return `generic-language:${genericHits}`;
+  }
+
+  for (const prev of existing) {
+    if (candidate.name.trim().toLowerCase() === prev.name.trim().toLowerCase()) {
+      return `duplicate-name:${prev.name}`;
+    }
+    if (
+      candidate.archetype.trim().toLowerCase() === prev.archetype.trim().toLowerCase()
+    ) {
+      return `duplicate-archetype:${prev.archetype}`;
+    }
+    const similarity = getPersonaSimilarityScore(candidate, prev);
+    if (similarity >= 0.52) {
+      return `too-similar:${prev.name}:${similarity.toFixed(2)}`;
+    }
+  }
+
+  return null;
+}
+
+function getClicheHits(persona: PersonaOutput): string[] {
+  const content = [
+    persona.bio,
+    persona.backstory,
+    persona.representativeQuote,
+    persona.communicationSample,
+    ...persona.goals,
+    ...persona.frustrations,
+    ...persona.behaviors,
+  ]
+    .join(" ")
+    .toLowerCase();
+  return CLICHE_PHRASES.filter((phrase) => content.includes(phrase));
+}
+
+function hasBehavioralDepthGaps(persona: PersonaOutput): string[] {
+  const issues: string[] = [];
+  const goalsText = persona.goals.join(" ").toLowerCase();
+  const frustrationsText = persona.frustrations.join(" ").toLowerCase();
+  const behaviorsText = persona.behaviors.join(" ").toLowerCase();
+
+  if (!/(short[- ]term|this quarter|next \d+ months)/i.test(goalsText)) {
+    issues.push("missing-short-term-goal");
+  }
+  if (!/(long[- ]term|next year|2-3 years|future)/i.test(goalsText)) {
+    issues.push("missing-long-term-goal");
+  }
+  if (!/(hesitat|avoid|delay|resist|concern)/i.test(frustrationsText)) {
+    issues.push("missing-objection-signal");
+  }
+  if (!/(trigger|signal|decide|compare|validate|test)/i.test(behaviorsText)) {
+    issues.push("missing-decision-trigger");
+  }
+  if (!/but|however|although|yet/.test(`${persona.backstory} ${persona.bio}`.toLowerCase())) {
+    issues.push("missing-visible-contradiction");
+  }
+  return issues;
+}
+
+function normalizeBackstoryLines(backstory: string): string[] {
+  return backstory
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function hasRequiredBackstoryLabels(backstory: string): boolean {
+  const lines = normalizeBackstoryLines(backstory);
+  return BACKSTORY_REQUIRED_LABELS.every((label) =>
+    lines.some((line) => line.startsWith(label))
+  );
+}
+
+function getBackstoryBannedPhraseHits(backstory: string): string[] {
+  const lower = backstory.toLowerCase();
+  return BACKSTORY_BANNED_PHRASES.filter((phrase) => lower.includes(phrase));
+}
+
+function sanitizeBackstoryPronouns(backstory: string): string {
+  return backstory
+    .replace(BACKSTORY_PRONOUN_REPLACE_REGEX, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+,/g, ",")
+    .replace(/\s+\./g, ".")
+    .replace(/:\s+\./g, ": ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function getBackstoryLineSignatures(backstory: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  const lines = normalizeBackstoryLines(backstory);
+  for (const line of lines) {
+    const label = BACKSTORY_REQUIRED_LABELS.find((candidate) =>
+      line.startsWith(candidate)
+    );
+    if (!label) continue;
+    result[label] = line.slice(label.length).trim().toLowerCase();
+  }
+  return result;
+}
+
+function getBackstorySimilarityIssues(
+  candidateBackstory: string,
+  previousPersonas: PersonaUniquenessReference[]
+): string[] {
+  const issues: string[] = [];
+  const candidateLines = getBackstoryLineSignatures(candidateBackstory);
+  for (const prev of previousPersonas) {
+    const prevLines = getBackstoryLineSignatures(prev.backstory);
+    const overlapLabels: string[] = [];
+    const checkLabels: (keyof typeof candidateLines)[] = [
+      "Origin:",
+      "Education:",
+      "Early exposure:",
+    ];
+    for (const label of checkLabels) {
+      if (
+        candidateLines[label] &&
+        prevLines[label] &&
+        jaccardSimilarity(candidateLines[label], prevLines[label]) >= 0.62
+      ) {
+        overlapLabels.push(label);
+      }
+    }
+    if (overlapLabels.length > 0) {
+      issues.push(`shared-pattern-with:${prev.name}:${overlapLabels.join("|")}`);
+    }
+    const fullSimilarity = jaccardSimilarity(candidateBackstory, prev.backstory);
+    if (fullSimilarity >= 0.5) {
+      issues.push(`backstory-too-similar:${prev.name}:${fullSimilarity.toFixed(2)}`);
+    }
+  }
+  return issues;
+}
+
+function getBackstoryQualityIssues(
+  backstory: string,
+  previousPersonas: PersonaUniquenessReference[]
+): string[] {
+  const issues: string[] = [];
+  const lines = normalizeBackstoryLines(backstory);
+  if (lines.length < 5 || lines.length > 7) {
+    issues.push(`line-count-invalid:${lines.length}`);
+  }
+  if (!hasRequiredBackstoryLabels(backstory)) {
+    issues.push("missing-required-labels");
+  }
+  if (BACKSTORY_PRONOUN_TEST_REGEX.test(backstory)) {
+    issues.push("contains-pronouns");
+  }
+  const bannedHits = getBackstoryBannedPhraseHits(backstory);
+  if (bannedHits.length > 0) {
+    issues.push(`contains-banned-phrases:${bannedHits.join("|")}`);
+  }
+  const similarityIssues = getBackstorySimilarityIssues(backstory, previousPersonas);
+  issues.push(...similarityIssues);
+  return issues;
+}
+
+async function rewriteBackstoryStrict(params: {
+  candidate: PersonaOutput;
+  previousPersonas: PersonaUniquenessReference[];
+  issues: string[];
+  domainContext?: string;
+}): Promise<string> {
+  const { candidate, previousPersonas, issues, domainContext } = params;
+  const prevBackstories = previousPersonas
+    .slice(-8)
+    .map((p) => `${p.name}\n${p.backstory}`)
+    .join("\n\n---\n\n");
+
+  const prompt = `Rewrite ONLY the backstory for a persona under strict constraints.
+
+Persona context:
+- Name: ${candidate.name}
+- Occupation: ${candidate.occupation}
+- Location: ${candidate.location}
+- Archetype: ${candidate.archetype}
+- Domain context: ${domainContext || "N/A"}
+- Existing backstory:
+${candidate.backstory}
+
+Known issues:
+${issues.map((issue) => `- ${issue}`).join("\n")}
+
+Backstories already used in this batch (must be differentiated):
+${prevBackstories || "none"}
+
+Hard rules:
+1) Do NOT use pronouns: he, she, they, them, his, her, their, etc.
+2) Do NOT use phrases: growing up, passionate about, has always been interested in, from a young age, loves to.
+3) No narrative storytelling style.
+4) Output exactly 6 lines, each introducing new information.
+5) Use this exact labeled format:
+- Origin: ...
+- Education: ...
+- Early exposure: ...
+- Career path: ...
+- Current situation: ...
+- Key life factors: ...
+6) Use concrete details and grounded constraints. No fluff.
+7) No two personas should share origin pattern, education path, or early exposure type.
+`;
+
+  const { object } = await generateObject({
+    model: getModel(),
+    schema: backstoryRewriteSchema,
+    prompt,
+  });
+
+  return object.backstory.trim();
+}
+
+async function refinePersonaCandidate(params: {
+  candidate: PersonaOutput;
+  index: number;
+  count: number;
+  domainContext?: string;
+  ragContext?: string;
+  retryReasons: string[];
+  previousPersonas: PersonaUniquenessReference[];
+}): Promise<PersonaOutput> {
+  const {
+    candidate,
+    index,
+    count,
+    domainContext,
+    ragContext,
+    retryReasons,
+    previousPersonas,
+  } = params;
+  const similarNames = previousPersonas.slice(-6).map((p) => `${p.name} (${p.archetype})`).join(", ");
+  const refinePrompt = `You are improving one synthetic persona draft to remove generic language and increase realism.
+
+Context:
+- Persona position in batch: ${index + 1}/${count}
+- Domain context: ${domainContext || "none provided"}
+- Research context available: ${ragContext ? "yes" : "no"}
+- Existing personas to differ from: ${similarNames || "none"}
+
+Draft persona JSON:
+${JSON.stringify(candidate)}
+
+Detected issues to fix:
+${retryReasons.map((r) => `- ${r}`).join("\n")}
+
+Rewrite this persona so it is specific, imperfect, and distinct.
+Hard rules:
+- Do not use cliches like: ${CLICHE_PHRASES.join(", ")}
+- Keep all required schema fields valid.
+- Include explicit short-term and long-term goals.
+- Include at least one concrete objection and one concrete trigger in frustrations/behaviors.
+- Keep quote natural and non-corporate.
+- Ensure contradiction is explicit in bio or backstory.
+- Keep demographic stereotypes out.
+`;
+
+  const { object } = await generateObject({
+    model: getModel(),
+    schema: personaSchema,
+    prompt: refinePrompt,
+  });
+  return object;
+}
+
+function buildRetryPromptAddendum(
+  existing: PersonaUniquenessReference[],
+  retryReasons: string[]
+): string {
+  const recent = existing.slice(-8);
+  const avoidList = recent
+    .map((p) => `- ${p.name} (${p.archetype})`)
+    .join("\n");
+  const reasonList = retryReasons.length
+    ? retryReasons.map((reason) => `- ${reason}`).join("\n")
+    : "- persona too generic or too similar";
+
+  return `\n\nSTRICT DIFFERENTIATION FOR THIS ATTEMPT:
+- This persona MUST be clearly different from the prior personas listed below.
+- Use a distinct worldview, life history, communication style, and emotional tone.
+- Avoid generic startup language and broad platitudes.
+- Include specific, concrete details tied to lived experiences.
+
+PRIOR PERSONAS TO DIFFER FROM:
+${avoidList || "- none"}
+
+RETRY FEEDBACK TO CORRECT:
+${reasonList}`;
+}
+
 function buildPrompt(params: {
   index: number;
   count: number;
@@ -28,6 +472,7 @@ function buildPrompt(params: {
   previousPersonas: { name: string; archetype: string }[];
 }): string {
   const { index, count, domainContext, ragContext, templateConfig, previousPersonas } = params;
+  const style = STYLE_VARIANTS[index % STYLE_VARIANTS.length];
 
   const layers: string[] = [];
 
@@ -41,7 +486,9 @@ CRITICAL RULES:
 - Never link demographics to personality stereotypically (age doesn't determine tech-savviness, gender doesn't determine communication style)
 - The backstory must reference specific life events, not generic descriptions
 - The representative quote must reveal the persona's unique communication style and voice
-- Core values should feel genuinely held, not generic platitudes`
+- Core values should feel genuinely held, not generic platitudes
+- FORBIDDEN CLICHES: ${CLICHE_PHRASES.join(", ")}
+- Avoid generic startup phrasing and generic backstory tropes`
   );
 
   // Layer 2: Domain Context
@@ -104,6 +551,11 @@ CRITICAL RULES:
     `This is persona ${index + 1} of ${count}.`,
     "Vary age, gender, location, occupation, and personality traits INDEPENDENTLY of each other.",
     "Ensure the Big Five personality scores create a unique profile — do NOT cluster around the middle (0.4-0.6).",
+    "Vary geography and environment signals (urban/suburban/rural/international) when plausible.",
+    "Vary career path shape (linear, pivoted, interrupted, unconventional).",
+    "Vary socioeconomic constraints subtly and realistically.",
+    "Backstory must avoid pronouns and narrative voice.",
+    `Write in a ${style.voice} voice and ${style.structure}.`,
   ];
 
   // Anti-sycophancy: ensure some personas are critical/skeptical
@@ -144,7 +596,19 @@ CRITICAL RULES:
 - dayInTheLife: A vivid paragraph describing a typical day
 - communicationSample: Write a 2-3 sentence response to "What do you think about trying new technology?" in this persona's authentic voice
 - coreValues: 3-5 deeply held values, ranked by importance
-- The personality traits should be COHERENT with the backstory and behaviors — a cautious person should have low riskTolerance, a blunt person should have high directness`
+- The personality traits should be COHERENT with the backstory and behaviors — a cautious person should have low riskTolerance, a blunt person should have high directness
+- goals must include one short-term and one long-term item
+- frustrations must include at least one concrete hesitation/objection
+- behaviors must include at least one explicit decision trigger
+- Do not repeat sentence openings across bio/backstory/quote
+- backstory must use exactly this 6-line structure and labels:
+  Origin: [city/region + environment type]
+  Education: [specific path, degree/no-degree, transitions]
+  Early exposure: [specific event, job, or situation]
+  Career path: [non-linear steps if applicable]
+  Current situation: [role, environment, constraints]
+  Key life factors: [2-3 concrete influences shaping behavior]
+- backstory MUST contain zero pronouns`
   );
 
   return layers.filter(Boolean).join("\n\n---\n\n");
@@ -263,115 +727,194 @@ export async function generateAndSavePersonas(
     : undefined;
   const sourceType = sourceTypeOverride ?? (knowledge.length > 0 ? "DATA_BASED" : "PROMPT_GENERATED");
 
-  const BATCH_SIZE = 3;
-  const previousPersonas: { name: string; archetype: string }[] = [];
+  const previousPersonas: PersonaUniquenessReference[] = [];
   const errors: string[] = [];
   let generated = 0;
 
-  for (let batchStart = 0; batchStart < count; batchStart += BATCH_SIZE) {
-    const batchIndices = Array.from(
-      { length: Math.min(BATCH_SIZE, count - batchStart) },
-      (_, k) => batchStart + k
-    );
+  // Generate sequentially to keep differentiation context up-to-date between personas.
+  for (let i = 0; i < count; i++) {
+    try {
+      const retryReasons: string[] = [];
+      let selectedPersona: PersonaOutput | null = null;
 
-    // Snapshot so all personas in this batch see the same prior list
-    const previousSnapshot = [...previousPersonas];
-
-    const results = await Promise.allSettled(
-      batchIndices.map(async (i) => {
-        const prompt = buildPrompt({
+      for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
+        let prompt = buildPrompt({
           index: i,
           count,
           domainContext,
           ragContext,
           templateConfig,
-          previousPersonas: previousSnapshot,
+          previousPersonas,
         });
 
-        const { object: persona } = await generateObject({
+        if (attempt > 1) {
+          prompt += buildRetryPromptAddendum(previousPersonas, retryReasons);
+        }
+
+        const { object: candidate } = await generateObject({
           model: getModel(),
           schema: personaSchema,
           prompt,
         });
 
-        const qualityScore = computeQualityScore(persona);
-        const llmSystemPrompt = buildSystemPrompt(persona);
-
-        const createdPersona = await prisma.persona.create({
-          data: {
-            personaGroupId: groupId,
-            name: persona.name,
-            age: persona.age,
-            gender: persona.gender,
-            location: persona.location,
-            occupation: persona.occupation,
-            bio: persona.bio,
-            backstory: persona.backstory,
-            goals: persona.goals,
-            frustrations: persona.frustrations,
-            behaviors: persona.behaviors,
-            sourceType,
-            qualityScore,
-            llmSystemPrompt,
-            archetype: persona.archetype,
-            representativeQuote: persona.representativeQuote,
-            techLiteracy: persona.techLiteracy,
-            domainExpertise: persona.domainExpertise,
-            dayInTheLife: persona.dayInTheLife,
-            coreValues: persona.coreValues,
-            communicationSample: persona.communicationSample,
-            personality: {
-              create: {
-                openness: persona.personality.openness,
-                conscientiousness: persona.personality.conscientiousness,
-                extraversion: persona.personality.extraversion,
-                agreeableness: persona.personality.agreeableness,
-                neuroticism: persona.personality.neuroticism,
-                communicationStyle: persona.personality.communicationStyle,
-                responseLengthTendency: persona.personality.responseLengthTendency,
-                decisionMakingStyle: persona.personality.decisionMakingStyle,
-                riskTolerance: persona.personality.riskTolerance,
-                trustPropensity: persona.personality.trustPropensity,
-                emotionalExpressiveness: persona.personality.emotionalExpressiveness,
-                directness: persona.personality.directness,
-                criticalFeedbackTendency: persona.personality.criticalFeedbackTendency,
-                vocabularyLevel: persona.personality.vocabularyLevel,
-                tangentTendency: persona.personality.tangentTendency,
-              },
-            },
-          },
-        });
-
-        // Link persona to non–App-Store RAG sources only; App Store reviews are
-        // assigned per-persona after generation via assignAppStoreReviewsToPersonas.
-        if (nonAppReviewKnowledgeIds.length > 0) {
-          await prisma.personaDataSource.createMany({
-            data: nonAppReviewKnowledgeIds.map((dkId) => ({
-              personaId: createdPersona.id,
-              domainKnowledgeId: dkId,
-            })),
-            skipDuplicates: true,
-          });
+        const qualityScore = computeQualityScore(candidate);
+        const clicheHits = getClicheHits(candidate);
+        const depthIssues = hasBehavioralDepthGaps(candidate);
+        const retryReason = getPersonaRetryReason(
+          candidate,
+          previousPersonas,
+          qualityScore
+        );
+        if (clicheHits.length > 0) {
+          retryReasons.push(`cliche-phrases:${clicheHits.join("|")}`);
+        }
+        if (depthIssues.length > 0) {
+          retryReasons.push(`behavioral-depth:${depthIssues.join("|")}`);
         }
 
-        // Notify frontend immediately when this persona completes
-        generated++;
-        onProgress?.(generated, count, persona.name);
+        if (!retryReason && clicheHits.length === 0 && depthIssues.length === 0) {
+          selectedPersona = candidate;
+          break;
+        }
 
-        return { name: persona.name, archetype: persona.archetype };
-      })
-    );
+        if (attempt === MAX_GENERATION_ATTEMPTS) {
+          let refined = candidate;
+          for (let refineAttempt = 1; refineAttempt <= MAX_REFINEMENT_ATTEMPTS; refineAttempt++) {
+            refined = await refinePersonaCandidate({
+              candidate: refined,
+              index: i,
+              count,
+              domainContext,
+              ragContext,
+              retryReasons: retryReasons.length > 0 ? retryReasons : [retryReason ?? "generic-output"],
+              previousPersonas,
+            });
+            const refinedQuality = computeQualityScore(refined);
+            const refinedRetry = getPersonaRetryReason(refined, previousPersonas, refinedQuality);
+            const refinedCliches = getClicheHits(refined);
+            const refinedDepth = hasBehavioralDepthGaps(refined);
+            if (!refinedRetry && refinedCliches.length === 0 && refinedDepth.length === 0) {
+              break;
+            }
+          }
+          selectedPersona = refined;
+          break;
+        }
 
-    // Add completed personas to the list for the next batch's diversity prompting
-    for (const result of results) {
-      if (result.status === "fulfilled") {
-        previousPersonas.push(result.value);
-      } else {
-        const message =
-          result.reason instanceof Error ? result.reason.message : "Unknown error";
-        errors.push(`Persona ${batchStart + 1}: ${message}`);
-        console.error(`[generate-personas] Failed:`, result.reason);
+        if (retryReason) retryReasons.push(retryReason);
       }
+
+      if (!selectedPersona) {
+        throw new Error("No persona candidate generated after retries");
+      }
+
+      let normalizedBackstory = sanitizeBackstoryPronouns(selectedPersona.backstory);
+      let backstoryIssues = getBackstoryQualityIssues(
+        normalizedBackstory,
+        previousPersonas
+      );
+      if (backstoryIssues.length > 0) {
+        for (
+          let rewriteAttempt = 1;
+          rewriteAttempt <= MAX_BACKSTORY_REWRITE_ATTEMPTS;
+          rewriteAttempt++
+        ) {
+          normalizedBackstory = await rewriteBackstoryStrict({
+            candidate: {
+              ...selectedPersona,
+              backstory: normalizedBackstory,
+            },
+            previousPersonas,
+            issues: backstoryIssues,
+            domainContext,
+          });
+          normalizedBackstory = sanitizeBackstoryPronouns(normalizedBackstory);
+          backstoryIssues = getBackstoryQualityIssues(
+            normalizedBackstory,
+            previousPersonas
+          );
+          if (backstoryIssues.length === 0) break;
+        }
+      }
+
+      selectedPersona = {
+        ...selectedPersona,
+        backstory: normalizedBackstory,
+      };
+
+      const qualityScore = computeQualityScore(selectedPersona);
+      const llmSystemPrompt = buildSystemPrompt(selectedPersona);
+
+      const createdPersona = await prisma.persona.create({
+        data: {
+          personaGroupId: groupId,
+          name: selectedPersona.name,
+          age: selectedPersona.age,
+          gender: selectedPersona.gender,
+          location: selectedPersona.location,
+          occupation: selectedPersona.occupation,
+          bio: selectedPersona.bio,
+          backstory: selectedPersona.backstory,
+          goals: selectedPersona.goals,
+          frustrations: selectedPersona.frustrations,
+          behaviors: selectedPersona.behaviors,
+          sourceType,
+          qualityScore,
+          llmSystemPrompt,
+          archetype: selectedPersona.archetype,
+          representativeQuote: selectedPersona.representativeQuote,
+          techLiteracy: selectedPersona.techLiteracy,
+          domainExpertise: selectedPersona.domainExpertise,
+          dayInTheLife: selectedPersona.dayInTheLife,
+          coreValues: selectedPersona.coreValues,
+          communicationSample: selectedPersona.communicationSample,
+          personality: {
+            create: {
+              openness: selectedPersona.personality.openness,
+              conscientiousness: selectedPersona.personality.conscientiousness,
+              extraversion: selectedPersona.personality.extraversion,
+              agreeableness: selectedPersona.personality.agreeableness,
+              neuroticism: selectedPersona.personality.neuroticism,
+              communicationStyle: selectedPersona.personality.communicationStyle,
+              responseLengthTendency: selectedPersona.personality.responseLengthTendency,
+              decisionMakingStyle: selectedPersona.personality.decisionMakingStyle,
+              riskTolerance: selectedPersona.personality.riskTolerance,
+              trustPropensity: selectedPersona.personality.trustPropensity,
+              emotionalExpressiveness: selectedPersona.personality.emotionalExpressiveness,
+              directness: selectedPersona.personality.directness,
+              criticalFeedbackTendency: selectedPersona.personality.criticalFeedbackTendency,
+              vocabularyLevel: selectedPersona.personality.vocabularyLevel,
+              tangentTendency: selectedPersona.personality.tangentTendency,
+            },
+          },
+        },
+      });
+
+      if (nonAppReviewKnowledgeIds.length > 0) {
+        await prisma.personaDataSource.createMany({
+          data: nonAppReviewKnowledgeIds.map((dkId) => ({
+            personaId: createdPersona.id,
+            domainKnowledgeId: dkId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      previousPersonas.push({
+        name: selectedPersona.name,
+        archetype: selectedPersona.archetype,
+        bio: selectedPersona.bio,
+        backstory: selectedPersona.backstory,
+        representativeQuote: selectedPersona.representativeQuote,
+        communicationSample: selectedPersona.communicationSample,
+      });
+
+      generated++;
+      onProgress?.(generated, count, selectedPersona.name);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      errors.push(`Persona ${i + 1}: ${message}`);
+      console.error(`[generate-personas] Failed:`, error);
     }
   }
 
