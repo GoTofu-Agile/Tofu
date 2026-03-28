@@ -3,9 +3,10 @@ import Link from "next/link";
 import { getPersonaGroup, getPersonasForGroupList } from "@/lib/db/queries/personas";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { requireAuth } from "@/lib/auth";
-import { PersonaCard } from "@/components/personas/persona-card";
 import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
 import { GeneratePersonasButton } from "@/components/personas/generate-personas-button";
+import { AnimatedPersonaCards } from "@/components/personas/animated-persona-cards";
+import { MotionPageEnter } from "@/components/motion/page-motion";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Users } from "lucide-react";
 import { SOURCE_LABELS } from "@/lib/constants/source-labels";
@@ -36,8 +37,13 @@ export default async function PersonaGroupDetailPage({
   const count = query.count ? parseInt(query.count, 10) : 5;
   const domainContext = query.domainContext || group.domainContext || undefined;
 
+  const personaRows = personas.map((persona) => ({
+    persona,
+    appStoreReviews: appStoreReviewSnippetsFromPersona(persona.dataSources),
+  }));
+
   return (
-    <div className="space-y-6">
+    <MotionPageEnter className="space-y-6">
       <div>
         <Link
           href="/personas"
@@ -80,19 +86,8 @@ export default async function PersonaGroupDetailPage({
           autoStart={!!query.count}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {personas.map((persona) => (
-            <PersonaCard
-              key={persona.id}
-              persona={persona}
-              groupId={groupId}
-              appStoreReviews={appStoreReviewSnippetsFromPersona(
-                persona.dataSources
-              )}
-            />
-          ))}
-        </div>
+        <AnimatedPersonaCards groupId={groupId} rows={personaRows} />
       )}
-    </div>
+    </MotionPageEnter>
   );
 }

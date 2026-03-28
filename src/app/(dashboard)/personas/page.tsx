@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getPersonaGroupsForOrg } from "@/lib/db/queries/personas";
-import { Badge } from "@/components/ui/badge";
-import { Users, Plus } from "lucide-react";
-import { SOURCE_LABELS } from "@/lib/constants/source-labels";
+import { PersonaGroupsHeader, PersonaGroupsList } from "@/components/personas/persona-groups-list";
+import type { PersonaGroupListItem } from "@/components/personas/persona-groups-list";
+import { MotionPageEnter } from "@/components/motion/page-motion";
 
 function parseDomainContext(domainContext?: string | null) {
   const ctx = domainContext ?? "";
@@ -61,77 +60,21 @@ export default async function PersonasPage() {
 
   const groups = await getPersonaGroupsForOrg(activeOrgId);
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Personas</h2>
-          <p className="text-muted-foreground">
-            Create persona groups for your studies.
-          </p>
-        </div>
-        <Link
-          href="/personas/new"
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 h-9 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
-        >
-          <Plus className="h-4 w-4" />
-          Create Personas
-        </Link>
-      </div>
+  const items: PersonaGroupListItem[] = groups.map((g) => {
+    const { title, subtitle } = computeGroupDisplay(g);
+    return {
+      id: g.id,
+      title,
+      subtitle,
+      sourceType: g.sourceType,
+      personaCount: g._count.personas,
+    };
+  });
 
-      {groups.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <Users className="mx-auto h-10 w-10 text-muted-foreground/50" />
-          <h3 className="mt-4 text-lg font-medium">No persona groups yet</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Start with one audience-focused group (for example: &ldquo;SMB founders evaluating analytics tools&rdquo;).
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Tip: adding Product Context in Settings improves persona quality.
-          </p>
-          <Link
-            href="/personas/new"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 h-9 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
-          >
-            <Plus className="h-4 w-4" />
-            Create persona group
-          </Link>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {groups.map((group) => {
-            const { title, subtitle } = computeGroupDisplay(group);
-            return (
-              <Link
-                key={group.id}
-                href={`/personas/${group.id}`}
-                className="group rounded-lg border bg-card p-5 transition-colors hover:border-foreground/20"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="font-medium group-hover:underline truncate">{title}</h3>
-                    {subtitle ? (
-                      <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{subtitle}</p>
-                    ) : null}
-                  </div>
-                  {group.sourceType !== "PROMPT_GENERATED" ? (
-                    <Badge
-                      variant="secondary"
-                      className={`text-[10px] shrink-0 ${SOURCE_LABELS[group.sourceType].className}`}
-                    >
-                      {SOURCE_LABELS[group.sourceType].label}
-                    </Badge>
-                  ) : null}
-                </div>
-                <div className="mt-4 flex items-center gap-1 text-sm text-muted-foreground">
-                  <Users className="h-3.5 w-3.5" />
-                  <span>{group._count.personas} personas</span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
+  return (
+    <MotionPageEnter className="space-y-6">
+      <PersonaGroupsHeader />
+      <PersonaGroupsList items={items} />
+    </MotionPageEnter>
   );
 }

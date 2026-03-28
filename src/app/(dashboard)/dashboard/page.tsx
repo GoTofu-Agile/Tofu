@@ -3,6 +3,12 @@ import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getOrgProductContext } from "@/lib/db/queries/organizations";
 import { prisma } from "@/lib/db/prisma";
 import { FeatureCards } from "@/components/dashboard/feature-cards";
+import {
+  DashboardRecentPersonasBlock,
+  DashboardRecentSectionHeader,
+  DashboardRecentStudiesBlock,
+} from "@/components/dashboard/dashboard-recent-lists";
+import { MotionStaggerSection } from "@/components/motion/page-motion";
 import { DashboardTour } from "@/components/dashboard/dashboard-tour";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardFlowCard } from "@/components/dashboard/dashboard-flow-card";
@@ -12,19 +18,9 @@ import {
   Sparkles,
   Users,
   FlaskConical,
-  MessageSquare,
   Settings,
   BarChart3,
-  ArrowRight,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-
-const statusColors: Record<string, string> = {
-  DRAFT: "bg-muted text-muted-foreground",
-  ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  COMPLETED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  ARCHIVED: "bg-muted text-muted-foreground",
-};
 
 export const dynamic = "force-dynamic";
 
@@ -100,22 +96,27 @@ export default async function DashboardPage() {
   const primaryLabel = nextStep ? `Start: ${nextStep.label}` : "Open latest study";
   const showFlowHelp = isFirstTime;
 
+  const motionHowItWorks = !isFirstTime ? 4 : 3;
+  const motionRecent = !isFirstTime ? 5 : 4;
+  const motionChecklist = !isFirstTime ? 6 : 5;
+
   return (
     <div className="space-y-8">
-      <div className="space-y-1">
+      <MotionStaggerSection index={0} className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           {orgDisplayName}
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">
           {getGreeting()}, {user.name?.split(" ")[0] || "there"}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           {isFirstTime
             ? "Start here: define context, create personas, then run your first study."
             : "Track progress, resume work, and move to your next insight faster."}
         </p>
-      </div>
+      </MotionStaggerSection>
 
+      <MotionStaggerSection index={1}>
       <section className="rounded-2xl border bg-card p-5 md:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -141,7 +142,9 @@ export default async function DashboardPage() {
           </div>
         </div>
       </section>
+      </MotionStaggerSection>
 
+      <MotionStaggerSection index={2}>
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border bg-card p-4">
           <p className="text-xs text-muted-foreground">Product context</p>
@@ -184,9 +187,15 @@ export default async function DashboardPage() {
           )}
         </div>
       </section>
+      </MotionStaggerSection>
 
-      {!isFirstTime && <FeatureCards />}
+      {!isFirstTime && (
+        <MotionStaggerSection index={3}>
+          <FeatureCards />
+        </MotionStaggerSection>
+      )}
 
+      <MotionStaggerSection index={motionHowItWorks}>
       <section className="rounded-2xl border bg-card p-5 md:p-6">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div>
@@ -235,119 +244,46 @@ export default async function DashboardPage() {
           </div>
         </TooltipProvider>
       </section>
+      </MotionStaggerSection>
 
-      {/* Two-column: Recent Studies + Persona Groups */}
+      <MotionStaggerSection index={motionRecent}>
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Studies */}
         <section className="rounded-2xl border bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-              Recent Studies
-            </h2>
-            {recentStudies.length > 0 && (
-              <Link
-                href="/studies"
-                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-              >
-                View all
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            )}
-          </div>
-          {recentStudies.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center">
-              <FlaskConical className="mx-auto h-8 w-8 text-muted-foreground/30" />
-              <p className="mt-3 text-sm text-muted-foreground">No studies yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Studies are where interviews run and insights are generated.
-              </p>
-              <Link
-                href="/studies/new"
-                className="mt-3 inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-              >
-                Create your first study
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {recentStudies.map((study) => (
-                <Link
-                  key={study.id}
-                  href={`/studies/${study.id}`}
-                  className="flex items-center justify-between rounded-xl border px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-muted/20"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="text-sm font-medium truncate">{study.title}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground">
-                      {study._count.sessions} sessions
-                    </span>
-                    <Badge variant="secondary" className={`text-[10px] ${statusColors[study.status]}`}>
-                      {study.status.toLowerCase()}
-                    </Badge>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
+          <DashboardRecentSectionHeader
+            title="Recent Studies"
+            href="/studies"
+            showViewAll={recentStudies.length > 0}
+          />
+          <DashboardRecentStudiesBlock
+            studies={recentStudies.map((s) => ({
+              id: s.id,
+              title: s.title,
+              status: s.status,
+              sessions: s._count.sessions,
+            }))}
+          />
         </section>
 
-        {/* Persona Groups */}
         <section className="rounded-2xl border bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-              Your Personas
-            </h2>
-            {recentGroups.length > 0 && (
-              <Link
-                href="/personas"
-                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-              >
-                View all
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            )}
-          </div>
-          {recentGroups.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center">
-              <Users className="mx-auto h-8 w-8 text-muted-foreground/30" />
-              <p className="mt-3 text-sm text-muted-foreground">No persona groups yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Create a group first, then use it in studies.
-              </p>
-              <Link
-                href="/personas/new"
-                className="mt-3 inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-              >
-                Create your first personas
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {recentGroups.map((group) => (
-                <Link
-                  key={group.id}
-                  href={`/personas/${group.id}`}
-                  className="flex items-center justify-between rounded-xl border px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-muted/20"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="text-sm font-medium truncate">{group.name}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {group._count.personas} personas
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
+          <DashboardRecentSectionHeader
+            title="Your Personas"
+            href="/personas"
+            showViewAll={recentGroups.length > 0}
+          />
+          <DashboardRecentPersonasBlock
+            groups={recentGroups.map((g) => ({
+              id: g.id,
+              name: g.name,
+              personaCount: g._count.personas,
+            }))}
+          />
         </section>
       </div>
+      </MotionStaggerSection>
 
       {/* Onboarding checklist */}
       {!allDone && (
+        <MotionStaggerSection index={motionChecklist}>
         <section className="rounded-2xl border bg-card p-6">
           <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Launch checklist
@@ -379,6 +315,7 @@ export default async function DashboardPage() {
             ))}
           </div>
         </section>
+        </MotionStaggerSection>
       )}
     </div>
   );
