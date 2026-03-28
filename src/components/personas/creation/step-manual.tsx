@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowRight, Loader2 } from "lucide-react";
 import type { ExtractedContext } from "@/lib/validation/schemas";
+import { PERSONA_GENERATION_MAX, PERSONA_GENERATION_MIN } from "@/lib/constants/persona-limits";
 
 interface StepManualProps {
   onSubmit: (extracted: ExtractedContext) => void;
@@ -113,16 +114,16 @@ export function StepManual({
         </Label>
         <input
           type="range"
-          min={1}
-          max={100}
+          min={PERSONA_GENERATION_MIN}
+          max={PERSONA_GENERATION_MAX}
           value={personaCount}
           onChange={(e) => onPersonaCountChange(Number(e.target.value))}
           disabled={loading}
           className="w-full accent-primary"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span>1</span>
-          <span>100</span>
+          <span>{PERSONA_GENERATION_MIN}</span>
+          <span>{PERSONA_GENERATION_MAX}</span>
         </div>
       </div>
 

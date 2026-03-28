@@ -74,6 +74,7 @@ export async function getPersonasForGroupList(groupId: string) {
     select: {
       id: true,
       name: true,
+      sourceType: true,
       age: true,
       gender: true,
       location: true,
@@ -81,6 +82,9 @@ export async function getPersonasForGroupList(groupId: string) {
       archetype: true,
       bio: true,
       representativeQuote: true,
+      goals: true,
+      frustrations: true,
+      behaviors: true,
       qualityScore: true,
       personality: {
         select: {

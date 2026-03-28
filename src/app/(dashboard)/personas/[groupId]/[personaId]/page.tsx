@@ -5,8 +5,13 @@ import { getUserRole } from "@/lib/db/queries/organizations";
 import { requireAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Sparkles, Database, FileUp } from "lucide-react";
 import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
+import { SOURCE_LABELS } from "@/lib/constants/source-labels";
+import { PersonaDetailActions } from "@/components/personas/persona-detail-actions";
+import { TrackPageView } from "@/components/analytics/track-page-view";
+import { PersonaSectionRefiner } from "@/components/personas/persona-section-refiner";
+import { PersonaQualityAvatar } from "@/components/personas/persona-quality-avatar";
 
 export default async function PersonaDetailPage({
   params,
@@ -29,9 +34,16 @@ export default async function PersonaDetailPage({
 
   const traits = persona.personality;
   const appReviews = appStoreReviewSnippetsFromPersona(persona.dataSources);
+  const SourceIcon =
+    persona.sourceType === "DATA_BASED"
+      ? Database
+      : persona.sourceType === "UPLOAD_BASED"
+        ? FileUp
+        : Sparkles;
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
+      <TrackPageView page="persona_detail" area="personas" />
       {/* Hero Section */}
       <div>
         <Link
@@ -42,11 +54,26 @@ export default async function PersonaDetailPage({
           Back to {persona.personaGroup.name}
         </Link>
 
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <PersonaQualityAvatar
+              name={persona.name}
+              qualityScore={persona.qualityScore}
+              size="lg"
+              showPercent
+            />
+            <div>
             <h2 className="text-2xl font-semibold tracking-tight">
               {persona.name}
             </h2>
+            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <SourceIcon className="h-3 w-3" aria-hidden="true" />
+              <span>
+                Generated from{" "}
+                {SOURCE_LABELS[persona.sourceType]?.label.toLowerCase() ?? "prompted"}{" "}
+                source
+              </span>
+            </p>
             {persona.archetype && (
               <p className="mt-0.5 text-sm font-medium text-primary">
                 {persona.archetype}
@@ -61,8 +88,10 @@ export default async function PersonaDetailPage({
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
+            <PersonaDetailActions personaId={persona.id} />
             {persona.qualityScore !== null && (
               <Badge variant="outline">
                 Quality: {Math.round(persona.qualityScore * 100)}%
@@ -75,9 +104,16 @@ export default async function PersonaDetailPage({
         </div>
 
         {persona.representativeQuote && (
-          <blockquote className="mt-4 border-l-2 border-primary/30 pl-4 italic text-muted-foreground">
-            &ldquo;{persona.representativeQuote}&rdquo;
-          </blockquote>
+          <div className="mt-4">
+            <blockquote className="border-l-2 border-primary/30 pl-4 italic text-muted-foreground">
+              &ldquo;{persona.representativeQuote}&rdquo;
+            </blockquote>
+            <PersonaSectionRefiner
+              personaId={persona.id}
+              section="representativeQuote"
+              label="Quote"
+            />
+          </div>
         )}
       </div>
 
@@ -95,8 +131,36 @@ export default async function PersonaDetailPage({
         <div>
           <h3 className="text-sm font-medium text-muted-foreground">Bio</h3>
           <p className="mt-1">{persona.bio}</p>
+          <PersonaSectionRefiner
+            personaId={persona.id}
+            section="bio"
+            label="Bio"
+          />
         </div>
       )}
+
+      <div className="rounded-xl border bg-card p-4">
+        <h3 className="text-sm font-medium text-muted-foreground">Key signals</h3>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Likely trigger</p>
+            <p className="mt-1 text-sm">
+              {extractSignal((persona.behaviors as string[] | null) ?? [], /(trigger|when|if|after|once)/i) ??
+                "Looks for concrete evidence before acting."}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Likely objection</p>
+            <p className="mt-1 text-sm">
+              {extractSignal((persona.frustrations as string[] | null) ?? [], /(hesitat|risk|concern|avoid|delay|cost)/i) ??
+                "Hesitates when outcomes feel unclear or unproven."}
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Use these as hypotheses for interview design: test objections first, then validate triggers.
+        </p>
+      </div>
 
       {appReviews.length > 0 && (
         <>
@@ -158,6 +222,11 @@ export default async function PersonaDetailPage({
           Backstory
         </h3>
         <p className="mt-1 whitespace-pre-line">{persona.backstory}</p>
+        <PersonaSectionRefiner
+          personaId={persona.id}
+          section="backstory"
+          label="Backstory"
+        />
       </div>
 
       {persona.dayInTheLife && (
@@ -166,6 +235,11 @@ export default async function PersonaDetailPage({
             A Day in Their Life
           </h3>
           <p className="mt-1 whitespace-pre-line">{persona.dayInTheLife}</p>
+          <PersonaSectionRefiner
+            personaId={persona.id}
+            section="dayInTheLife"
+            label="Day in life"
+          />
         </div>
       )}
 
@@ -331,11 +405,22 @@ export default async function PersonaDetailPage({
             <div className="rounded-lg bg-muted/50 p-4 text-sm italic">
               {persona.communicationSample}
             </div>
+            <PersonaSectionRefiner
+              personaId={persona.id}
+              section="communicationSample"
+              label="Interview preview"
+            />
           </div>
         </>
       )}
     </div>
   );
+}
+
+function extractSignal(items: string[], regex: RegExp): string | null {
+  const match = items.find((item) => regex.test(item));
+  if (match) return match;
+  return items.length > 0 ? items[0]! : null;
 }
 
 function ListSection({

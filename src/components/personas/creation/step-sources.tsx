@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, Rocket } from "lucide-react";
+import { PERSONA_GENERATION_MAX, PERSONA_GENERATION_MIN } from "@/lib/constants/persona-limits";
 
 interface StepSourcesProps {
   depth: "quick" | "deep";
@@ -92,15 +93,15 @@ export function SourcesSettings({
         </Label>
         <input
           type="range"
-          min={3}
-          max={500}
+          min={PERSONA_GENERATION_MIN}
+          max={PERSONA_GENERATION_MAX}
           value={personaCount}
           onChange={(e) => onPersonaCountChange(Number(e.target.value))}
           className="w-full accent-primary"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span>3</span>
-          <span>500</span>
+          <span>{PERSONA_GENERATION_MIN}</span>
+          <span>{PERSONA_GENERATION_MAX}</span>
         </div>
       </div>
     </div>

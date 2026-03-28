@@ -9,6 +9,7 @@ export interface ChatPipelineStepView {
   id: string;
   label: string;
   status: ChatPipelineStepStatus;
+  detail?: string;
 }
 
 interface ChatPipelineProgressProps {
@@ -42,19 +43,35 @@ export function ChatPipelineProgress({
             );
 
           return (
-            <div key={s.id} className="flex items-center gap-2">
-              {icon}
-              <span
-                className={cn(
-                  "text-sm",
-                  s.status === "pending" && "text-muted-foreground",
-                  s.status === "skipped" && "text-muted-foreground",
-                  s.status === "active" && "font-medium text-foreground",
-                  s.status === "done" && "text-foreground"
-                )}
-              >
-                {s.label}
-              </span>
+            <div key={s.id} className="flex items-start gap-2">
+              <span className="mt-0.5">{icon}</span>
+              <div className="min-w-0">
+                <span
+                  className={cn(
+                    "text-sm",
+                    s.status === "pending" && "text-muted-foreground",
+                    s.status === "skipped" && "text-muted-foreground",
+                    s.status === "active" && "font-medium text-foreground",
+                    s.status === "done" && "text-foreground"
+                  )}
+                >
+                  {s.label}
+                </span>
+                {s.detail ? (
+                  <p
+                    className={cn(
+                      "mt-0.5 text-xs leading-5",
+                      s.status === "active"
+                        ? "text-muted-foreground"
+                        : s.status === "done"
+                          ? "text-muted-foreground"
+                          : "text-muted-foreground/80"
+                    )}
+                  >
+                    {s.detail}
+                  </p>
+                ) : null}
+              </div>
             </div>
           );
         })}

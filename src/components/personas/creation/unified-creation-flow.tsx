@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,8 @@ import type {
 } from "@/lib/validation/schemas";
 import type { AudienceMappingUiStatus } from "./audience-app-mapping-preview";
 import { ALL_RESEARCH_SOURCE_IDS, buildQueriesFromContext } from "@/lib/research/build-queries";
+import { trackEvent } from "@/lib/analytics/track";
+import { PERSONA_GENERATION_DEFAULT, PERSONA_GENERATION_MAX, PERSONA_GENERATION_MIN } from "@/lib/constants/persona-limits";
 
 type Phase = "pick" | "form" | "progress";
 
@@ -309,7 +311,12 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
   // Step: Research settings (inline). All Tavily source categories are always used.
   const [depth, setDepth] = useState<"quick" | "deep">("quick");
-  const [personaCount, setPersonaCount] = useState(10);
+  const [personaCount, setPersonaCount] = useState(PERSONA_GENERATION_DEFAULT);
+  const setClampedPersonaCount = (count: number) => {
+    const clamped = Math.min(PERSONA_GENERATION_MAX, Math.max(PERSONA_GENERATION_MIN, Math.round(count)));
+    setPersonaCount(clamped);
+  };
+
   const [includeSkeptics, setIncludeSkeptics] = useState(true);
 
   // Step: Progress
@@ -380,6 +387,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   function handleMethodSelect(m: CreationMethod) {
     setMethod(m);
     setPhase("form");
+    trackEvent("persona_create_method_selected", { method: m });
     if (m === "deep-search") {
       setDeepSearchFreetext(initialDescribeText ?? "");
     }
@@ -392,7 +400,9 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       setCvResumeError(null);
     }
     if (m === "manual") {
-      setPersonaCount((c) => Math.min(100, Math.max(1, c)));
+      setPersonaCount((c) =>
+        Math.min(PERSONA_GENERATION_MAX, Math.max(PERSONA_GENERATION_MIN, c))
+      );
     }
     if (m === "ai-generate") {
       resetAppStoreAudienceMappingUi();
@@ -414,15 +424,61 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
     await new Promise<void>((resolve) => setTimeout(resolve, 240));
   }
 
-  function setPipelineStatus(stepId: string, status: ChatPipelineStepView["status"]) {
+  function setPipelineStep(
+    stepId: string,
+    patch: Partial<Pick<ChatPipelineStepView, "status" | "detail">>
+  ) {
     setChatPipelineSteps((prev) => {
       if (!prev) return prev;
-      return prev.map((s) => (s.id === stepId ? { ...s, status } : s));
+      return prev.map((s) => (s.id === stepId ? { ...s, ...patch } : s));
     });
+  }
+
+  function getActiveStepDetail(stepLabel: string, kind: "visual" | "tavily" | "appstore" | "generation") {
+    if (kind === "tavily") {
+      return "Running live web queries and parsing high-signal snippets from indexed sources.";
+    }
+    if (kind === "appstore") {
+      return "Resolving app listing, fetching recent reviews, then parsing sentiment + feature requests.";
+    }
+    if (kind === "generation") {
+      return "Turning normalized evidence into distinct persona profiles with grounded traits.";
+    }
+
+    const label = stepLabel.toLowerCase();
+    if (label.includes("warm") || label.includes("allocating") || label.includes("priming")) {
+      return "Initializing retrieval workers, query plan, and parsing pipeline.";
+    }
+    if (label.includes("forum") || label.includes("reddit") || label.includes("thread")) {
+      return "Parsing discussion language, complaints, and repeated themes from community threads.";
+    }
+    if (label.includes("duplicate") || label.includes("merge") || label.includes("cluster")) {
+      return "De-duplicating snippets and clustering similar signals into coherent topics.";
+    }
+    if (label.includes("cv") || label.includes("seniority") || label.includes("role")) {
+      return "Parsing role patterns, seniority cues, and career signal distributions.";
+    }
+    if (label.includes("bundle") || label.includes("review") || label.includes("storefront")) {
+      return "Resolving app metadata and parsing review text for sentiment and pain points.";
+    }
+    if (label.includes("generator") || label.includes("knowledge pack") || label.includes("trait")) {
+      return "Compacting parsed evidence into structured grounding facts for generation.";
+    }
+    return "Parsing and normalizing source evidence for the next stage.";
+  }
+
+  function getSourceTypeOverrideForChatSource(
+    source: ChatDataSourceId
+  ): "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED" {
+    if (source === "templates") return "PROMPT_GENERATED";
+    if (source === "company-urls") return "UPLOAD_BASED";
+    if (source === "cvs") return "UPLOAD_BASED";
+    return "DATA_BASED";
   }
 
   // --- Chat pipeline (All Data Sources / scoped sources) ---
   async function handleChatPipelineCreate(text: string, dataSourceId: string) {
+    trackEvent("persona_create_started", { flow: "chat_pipeline", source: dataSourceId, count: personaCount });
     setStarting(true);
     setGenerationIssue(null);
     setGenCompleted(0);
@@ -431,7 +487,12 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
     const source = (dataSourceId || "all") as ChatDataSourceId;
     const displayPlan = buildChatDisplayPipeline(source, text, orgContext, Date.now());
     setChatPipelineSteps(
-      displayPlan.map((s) => ({ id: s.id, label: s.label, status: "pending" as const }))
+      displayPlan.map((s) => ({
+        id: s.id,
+        label: s.label,
+        status: "pending" as const,
+        detail: "Queued. Waiting for previous step to complete.",
+      }))
     );
 
     const domainPieces: string[] = [];
@@ -452,6 +513,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
     const result = await createGroup(formData);
     if (result.error || !result.groupId) {
+      trackEvent("persona_create_failed", { flow: "chat_pipeline", reason: "group_create_failed" });
       toast.error(result.error || "Failed to create group");
       setStarting(false);
       return;
@@ -478,12 +540,18 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       const step = preGenSteps[i]!;
       setResearchCurrent(i + 1);
       setResearchLabel(step.label);
-      setPipelineStatus(step.id, "active");
+      setPipelineStep(step.id, {
+        status: "active",
+        detail: getActiveStepDetail(step.label, step.backend.kind),
+      });
 
       try {
         if (step.backend.kind === "visual") {
           await runVisualStep(step.backend.ms);
-          setPipelineStatus(step.id, "done");
+          setPipelineStep(step.id, {
+            status: "done",
+            detail: "Completed pre-processing for this stage.",
+          });
         } else if (step.backend.kind === "tavily") {
           const res = await fetch("/api/research/quick", {
             method: "POST",
@@ -502,7 +570,10 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                 ? "FORUM"
                 : "WEB";
           bySource[key] = (bySource[key] || 0) + added;
-          setPipelineStatus(step.id, "done");
+          setPipelineStep(step.id, {
+            status: "done",
+            detail: `Parsed ${added} snippets (${bySource[key]} total from ${key.toLowerCase()} sources).`,
+          });
         } else if (step.backend.kind === "appstore") {
           const discoverRes = await fetch("/api/research/discover-appstore-url", {
             method: "POST",
@@ -514,7 +585,10 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
           const appUrl: string | null = discovered.appUrl || null;
           if (!appUrl) {
-            setPipelineStatus(step.id, "skipped");
+            setPipelineStep(step.id, {
+              status: "skipped",
+              detail: "No matching App Store listing found for this audience.",
+            });
           } else {
             const scrapeRes = await fetch("/api/reviews/appstore", {
               method: "POST",
@@ -526,12 +600,18 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
             const added = scraped.totalSaved || scraped.totalFetched || 0;
             totalSources += added;
             bySource.APP_REVIEW = (bySource.APP_REVIEW || 0) + added;
-            setPipelineStatus(step.id, "done");
+            setPipelineStep(step.id, {
+              status: "done",
+              detail: `Parsed ${added} App Store reviews (${bySource.APP_REVIEW} total saved).`,
+            });
           }
         }
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Pipeline step failed");
-        setPipelineStatus(step.id, "skipped");
+        setPipelineStep(step.id, {
+          status: "skipped",
+          detail: "Step skipped after error. Continuing with available signals.",
+        });
       }
 
       await pipelineStepSettledPause();
@@ -541,12 +621,15 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
     setResearchBySource(bySource);
     setProgressPhase("generating");
 
-    const sourceTypeOverride = source === "templates" ? "PROMPT_GENERATED" : "DATA_BASED";
+    const sourceTypeOverride = getSourceTypeOverrideForChatSource(source);
 
     if (genStep) {
       setResearchCurrent(displayPlan.length);
       setResearchLabel(genStep.label);
-      setPipelineStatus(genStep.id, "active");
+      setPipelineStep(genStep.id, {
+        status: "active",
+        detail: getActiveStepDetail(genStep.label, "generation"),
+      });
     }
 
     try {
@@ -563,12 +646,23 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       if (!response.ok) throw new Error("Generation failed");
       await streamGenerationProgress(response, gId, {
         onGenerationUiComplete: () => {
-          if (genStep) setPipelineStatus(genStep.id, "done");
+          if (genStep) {
+            setPipelineStep(genStep.id, {
+              status: "done",
+              detail: `Generation finished. ${personaCount} persona candidates processed.`,
+            });
+          }
         },
       });
     } catch (error) {
+      trackEvent("persona_generation_failed", { flow: "chat_pipeline", source: dataSourceId });
       toast.error(error instanceof Error ? error.message : "Generation failed");
-      if (genStep) setPipelineStatus(genStep.id, "skipped");
+      if (genStep) {
+        setPipelineStep(genStep.id, {
+          status: "skipped",
+          detail: "Generation interrupted. You can retry from this group page.",
+        });
+      }
       setStarting(false);
     }
   }
@@ -576,6 +670,8 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   // --- App Store Reviews: create group → scrape reviews → generate ---
 
   async function handleAppStoreReviewsFromUrl(appUrl: string) {
+    trackEvent("persona_import_used", { method: "app_store_url" });
+    trackEvent("persona_create_started", { flow: "app_store_url", source: "app-store", count: personaCount });
     setAudienceMappedApps(null);
     setAudienceMappingStatus("idle");
     setAudienceMappingError(null);
@@ -603,6 +699,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
     const result = await createGroup(formData);
     if (result.error || !result.groupId) {
+      trackEvent("persona_create_failed", { flow: "app_store_url", reason: "group_create_failed" });
       toast.error(result.error || "Failed to create group");
       setStarting(false);
       return;
@@ -655,6 +752,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       if (!response.ok) throw new Error("Generation failed");
       await streamGenerationProgress(response, gId);
     } catch (error) {
+      trackEvent("persona_generation_failed", { flow: "app_store_url" });
       toast.error(error instanceof Error ? error.message : "Generation failed");
       setStarting(false);
     }
@@ -662,6 +760,8 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
   async function handleAppStoreReviewsFromAudience(audiencePlain: string) {
     const audience = audiencePlain.trim();
+    trackEvent("persona_import_used", { method: "app_store_audience" });
+    trackEvent("persona_create_started", { flow: "app_store_audience", source: "app-store", count: personaCount });
     setStarting(true);
     setGenerationIssue(null);
     setAudienceMappingStatus("loading");
@@ -689,6 +789,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
     const result = await createGroup(formData);
     if (result.error || !result.groupId) {
+      trackEvent("persona_create_failed", { flow: "app_store_audience", reason: "group_create_failed" });
       toast.error(result.error || "Failed to create group");
       setStarting(false);
       setAudienceMappingStatus("error");
@@ -799,6 +900,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       if (!response.ok) throw new Error("Generation failed");
       await streamGenerationProgress(response, gId);
     } catch (error) {
+      trackEvent("persona_generation_failed", { flow: "app_store_audience" });
       toast.error(error instanceof Error ? error.message : "Generation failed");
       setStarting(false);
     }
@@ -893,6 +995,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   // --- Generate without research ---
 
   async function generateOnlyFromExtracted(extracted: ExtractedContext) {
+    trackEvent("persona_create_started", { flow: "structured_form", method: method ?? "unknown", count: personaCount });
     setStarting(true);
     setGenerationIssue(null);
 
@@ -904,6 +1007,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
     const result = await createGroup(formData);
     if (result.error) {
+      trackEvent("persona_create_failed", { flow: "structured_form", reason: "group_create_failed", method: method ?? "unknown" });
       toast.error(result.error);
       setStarting(false);
       return;
@@ -931,6 +1035,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       if (!response.ok) throw new Error("Generation failed");
       await streamGenerationProgress(response, gId);
     } catch (error) {
+      trackEvent("persona_generation_failed", { flow: "structured_form", method: method ?? "unknown" });
       toast.error(error instanceof Error ? error.message : "Generation failed");
     }
   }
@@ -938,6 +1043,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   // --- Research + Generate (Deep Search / LinkedIn / Company URL) ---
 
   async function researchAndGenerateFromExtracted(extracted: ExtractedContext) {
+    trackEvent("persona_create_started", { flow: "research_plus_generate", method: method ?? "unknown", count: personaCount });
     setStarting(true);
     setGenerationIssue(null);
 
@@ -949,6 +1055,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
     const result = await createGroup(formData);
     if (result.error) {
+      trackEvent("persona_create_failed", { flow: "research_plus_generate", reason: "group_create_failed", method: method ?? "unknown" });
       toast.error(result.error);
       setStarting(false);
       return;
@@ -1012,6 +1119,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       if (!response.ok) throw new Error("Generation failed");
       await streamGenerationProgress(response, gId);
     } catch (error) {
+      trackEvent("persona_generation_failed", { flow: "research_plus_generate", method: method ?? "unknown" });
       toast.error(error instanceof Error ? error.message : "Generation failed");
     }
   }
@@ -1065,6 +1173,9 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
               return;
             }
 
+            trackEvent("persona_generation_completed", { generated, groupId: gId });
+            trackEvent("persona_create_completed", { generated, groupId: gId });
+
             if (errors.length > 0) {
               setGenerationIssue({
                 groupId: gId,
@@ -1084,6 +1195,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
             }, 1800);
           } else if (event.type === "error") {
             setStarting(false);
+            trackEvent("persona_generation_failed", { groupId: gId });
             toast.error(event.message);
           }
         } catch {
@@ -1132,6 +1244,10 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                     : "Choose a creation method."
         : "Describe your audience or choose a creation method.";
 
+  useEffect(() => {
+    trackEvent("persona_section_viewed", { page: "create" });
+  }, []);
+
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-8">
@@ -1149,7 +1265,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
           value={promptText}
           onChange={setPromptText}
           personaCount={personaCount}
-          onPersonaCountChange={setPersonaCount}
+          onPersonaCountChange={setClampedPersonaCount}
           loading={starting || extracting}
           onSubmit={(value, dataSourceId) => {
             setPromptText(value);
@@ -1261,7 +1377,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                 depth={depth}
                 onDepthChange={setDepth}
                 personaCount={personaCount}
-                onPersonaCountChange={setPersonaCount}
+                onPersonaCountChange={setClampedPersonaCount}
                 includeSkeptics={includeSkeptics}
                 onIncludeSkepticsChange={setIncludeSkeptics}
               />
@@ -1301,7 +1417,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                 depth={depth}
                 onDepthChange={setDepth}
                 personaCount={personaCount}
-                onPersonaCountChange={setPersonaCount}
+                onPersonaCountChange={setClampedPersonaCount}
                 includeSkeptics={includeSkeptics}
                 onIncludeSkepticsChange={setIncludeSkeptics}
                 showResearchDepth={false}
@@ -1342,7 +1458,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                 depth={depth}
                 onDepthChange={setDepth}
                 personaCount={personaCount}
-                onPersonaCountChange={setPersonaCount}
+                onPersonaCountChange={setClampedPersonaCount}
                 includeSkeptics={includeSkeptics}
                 onIncludeSkepticsChange={setIncludeSkeptics}
                 showResearchDepth={false}
@@ -1372,7 +1488,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
             <StepManual
               onSubmit={(ctx) => generateOnlyFromExtracted(ctx)}
               personaCount={personaCount}
-              onPersonaCountChange={setPersonaCount}
+              onPersonaCountChange={setClampedPersonaCount}
               loading={starting}
             />
           )}
@@ -1385,7 +1501,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
               hasOrgContext={!!orgContext}
               initialText={initialDescribeText ?? undefined}
               personaCount={personaCount}
-              onPersonaCountChange={setPersonaCount}
+              onPersonaCountChange={setClampedPersonaCount}
               audienceMappingStatus={audienceMappingStatus}
               audienceMappedApps={audienceMappedApps}
               audienceMappingError={audienceMappingError}
