@@ -3,6 +3,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 import type { FlowStep } from "./study-flow-stepper";
 import { FLOW_STEPS } from "./study-flow-stepper";
 
@@ -35,19 +36,23 @@ export function StepNavigation({
   onBack,
   nextLabel,
 }: StepNavigationProps) {
+  const reduced = useReducedMotion();
   const currentIndex = FLOW_STEPS.findIndex((s) => s.key === activeStep);
   const isFirst = currentIndex === 0;
   const isLast = currentIndex === FLOW_STEPS.length - 1;
   const hint = canGoNext ? STEP_HINTS[activeStep] : STEP_BLOCKERS[activeStep];
 
   return (
-    <div className="sticky bottom-0 z-10 bg-background border-t py-3">
+    <div className="sticky bottom-0 z-10 bg-background border-t py-3 relative">
+      {/* Top gradient fade */}
+      <div className="absolute -top-6 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none" />
       <div className="flex items-center justify-between">
         {!isFirst && canGoBack ? (
           <motion.button
             onClick={onBack}
-            whileHover={{ x: -2 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={reduced ? undefined : { x: -3 }}
+            whileTap={reduced ? undefined : { scale: 0.97 }}
+            transition={safeSpring(400, 25, reduced)}
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -62,10 +67,10 @@ export function StepNavigation({
             <motion.button
               onClick={onNext}
               disabled={!canGoNext}
-              whileHover={canGoNext ? { scale: 1.03, boxShadow: "0 8px 30px rgba(0,0,0,0.12)" } : undefined}
-              whileTap={canGoNext ? { scale: 0.97 } : undefined}
-              animate={canGoNext ? { scale: [0.98, 1] } : { scale: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              whileHover={canGoNext && !reduced ? { scale: 1.03, boxShadow: "0 8px 30px rgba(0,0,0,0.12)" } : undefined}
+              whileTap={canGoNext && !reduced ? { scale: 0.97 } : undefined}
+              animate={canGoNext && !reduced ? { scale: [0.98, 1] } : { scale: 1 }}
+              transition={safeSpring(400, 17, reduced)}
               className={cn(
                 "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
                 canGoNext
@@ -75,7 +80,7 @@ export function StepNavigation({
             >
               {nextLabel || "Continue"}
               <motion.span
-                animate={canGoNext ? { x: [0, 4, 0] } : { x: 0 }}
+                animate={canGoNext && !reduced ? { x: [0, 4, 0] } : { x: 0 }}
                 transition={canGoNext ? { repeat: Infinity, duration: 1.5, ease: "easeInOut" } : {}}
               >
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -85,7 +90,7 @@ export function StepNavigation({
               {hint && (
                 <motion.span
                   key={hint}
-                  initial={{ opacity: 0, y: -4 }}
+                  initial={reduced ? false : { opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
                   className="text-[10px] text-muted-foreground/60"

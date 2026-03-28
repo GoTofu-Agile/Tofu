@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 
 interface ResultsSummaryProps {
   summary: string;
@@ -59,6 +60,7 @@ export function ResultsSummary({
   avgDurationMs,
   sentimentBreakdown,
 }: ResultsSummaryProps) {
+  const reduced = useReducedMotion();
   const stats = [
     { label: "Interviews", value: totalInterviews, display: <AnimatedNumber value={totalInterviews} /> },
     { label: "Avg Duration", value: null, display: formatDuration(avgDurationMs) },
@@ -73,7 +75,7 @@ export function ResultsSummary({
   return (
     <div className="space-y-4">
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={reduced ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
         className="rounded-lg border bg-muted/20 p-5"
@@ -85,10 +87,11 @@ export function ResultsSummary({
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}
-            initial={{ opacity: 0, y: 16, scale: 0.95 }}
+            initial={reduced ? false : { opacity: 0, y: 16, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: i * 0.08, type: "spring", stiffness: 400, damping: 25 }}
-            className="rounded-lg border p-3 text-center"
+            transition={reduced ? { duration: 0 } : { delay: i * 0.08, type: "spring", stiffness: 400, damping: 25 }}
+            className={`rounded-lg border p-3 text-center ${!reduced ? "animate-gloss-sweep" : ""}`}
+            style={!reduced ? { animationDelay: `${0.8 + i * 0.15}s` } : undefined}
           >
             <div className="text-2xl font-bold">{stat.display}</div>
             <div className="text-xs text-muted-foreground">{stat.label}</div>

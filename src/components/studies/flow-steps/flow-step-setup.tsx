@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 import {
   updateStudyType,
   updateStudyDescription,
@@ -143,6 +144,7 @@ export function FlowStepSetup({
   onGroupToggle,
   orgContext,
 }: FlowStepSetupProps) {
+  const reduced = useReducedMotion();
   const router = useRouter();
   const [savingObjective, setSavingObjective] = useState(false);
   const [savedObjective, setSavedObjective] = useState(false);
@@ -190,7 +192,7 @@ export function FlowStepSetup({
       <div className="lg:col-span-3 space-y-8">
         {/* Study Type — boxes in a row */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={reduced ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
           className="space-y-2"
@@ -208,10 +210,10 @@ export function FlowStepSetup({
                   <motion.button
                     disabled={!st.enabled}
                     onClick={() => st.enabled ? handleTypeSelect(st.type) : handleLockedClick(st.type)}
-                    whileHover={st.enabled ? { scale: 1.05, y: -2 } : undefined}
-                    whileTap={st.enabled ? { scale: 0.97 } : undefined}
+                    whileHover={st.enabled && !reduced ? { scale: 1.05, y: -2 } : undefined}
+                    whileTap={st.enabled && !reduced ? { scale: 0.97 } : undefined}
                     animate={
-                      shakeType === st.type
+                      shakeType === st.type && !reduced
                         ? { x: [0, -4, 4, -4, 4, 0] }
                         : isSelected
                           ? { scale: 1 }
@@ -220,13 +222,13 @@ export function FlowStepSetup({
                     transition={
                       shakeType === st.type
                         ? { duration: 0.4 }
-                        : { type: "spring", stiffness: 500, damping: 25 }
+                        : safeSpring(500, 25, reduced)
                     }
                     className={cn(
                       "flex items-center gap-2 rounded-xl border px-4 py-3 text-left transition-colors duration-150",
                       st.enabled
                         ? isSelected
-                          ? "border-foreground bg-foreground text-background animate-glow-pulse"
+                          ? cn("border-foreground bg-foreground text-background", !reduced && "animate-glow-pulse")
                           : "border-border hover:border-foreground/30 hover:shadow-sm cursor-pointer"
                         : "border-border/50 opacity-40 cursor-not-allowed"
                     )}
@@ -235,14 +237,15 @@ export function FlowStepSetup({
                     <span className="text-sm font-medium">{st.label}</span>
                     {!st.enabled && <Lock className="h-3 w-3 shrink-0" />}
                   </motion.button>
+                  {/* Tooltip: positioned below the button to prevent overlap */}
                   {!st.enabled && (
                     <AnimatePresence>
                       {shakeType === st.type && (
                         <motion.div
-                          initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                          initial={{ opacity: 0, y: -4, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 4, scale: 0.95 }}
-                          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[11px] whitespace-nowrap pointer-events-none z-10"
+                          exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                          className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[11px] whitespace-nowrap pointer-events-none z-[60]"
                         >
                           Coming soon
                         </motion.div>
@@ -250,7 +253,7 @@ export function FlowStepSetup({
                     </AnimatePresence>
                   )}
                   {!st.enabled && shakeType !== st.type && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[11px] whitespace-nowrap opacity-0 group-hover/type:opacity-100 transition-opacity pointer-events-none z-10">
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[11px] whitespace-nowrap opacity-0 group-hover/type:opacity-100 transition-opacity pointer-events-none z-[60]">
                       Coming soon
                     </div>
                   )}
@@ -262,9 +265,9 @@ export function FlowStepSetup({
 
         {/* Study Objective */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={reduced ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+          transition={{ duration: 0.3, delay: reduced ? 0 : 0.1 }}
           className="space-y-2"
         >
           <label className="text-sm font-medium">
@@ -286,9 +289,9 @@ export function FlowStepSetup({
 
         {/* Persona Groups */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={reduced ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
+          transition={{ duration: 0.3, delay: reduced ? 0 : 0.2 }}
           className="space-y-2"
         >
           <label className="text-sm font-medium">
@@ -318,11 +321,11 @@ export function FlowStepSetup({
                   <motion.button
                     key={g.id}
                     onClick={() => handleToggleGroup(g.id)}
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={reduced ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05, type: "spring", stiffness: 300, damping: 25 }}
-                    whileHover={{ y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
-                    whileTap={{ scale: 0.98 }}
+                    transition={reduced ? { duration: 0 } : { delay: i * 0.05, type: "spring", stiffness: 300, damping: 25 }}
+                    whileHover={reduced ? undefined : { y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
+                    whileTap={reduced ? undefined : { scale: 0.98 }}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors duration-150",
                       isSelected
@@ -375,9 +378,9 @@ export function FlowStepSetup({
       {/* Right: Live preview card — always visible */}
       <motion.div
         className="lg:col-span-2"
-        initial={{ opacity: 0, x: 20 }}
+        initial={reduced ? false : { opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.4, delay: 0.15 }}
+        transition={{ duration: 0.4, delay: reduced ? 0 : 0.15 }}
       >
         <div className="sticky top-6">
           <p className="text-[11px] font-medium text-muted-foreground mb-3 uppercase tracking-wider">
