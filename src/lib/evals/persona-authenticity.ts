@@ -12,18 +12,16 @@ const evalSchema = z.object({
     consistency: z.number().int().min(0).max(100),
     diversity: z.number().int().min(0).max(100),
   }),
-  flags: z
-    .array(
-      z.enum([
-        "generic_upbringing",
-        "cliche_language",
-        "too_polished",
-        "repetitive_structure",
-        "low_specificity",
-        "implausible_timeline",
-      ])
-    )
-    .default([]),
+  flags: z.array(
+    z.enum([
+      "generic_upbringing",
+      "cliche_language",
+      "too_polished",
+      "repetitive_structure",
+      "low_specificity",
+      "implausible_timeline",
+    ])
+  ),
 });
 
 export type PersonaAuthenticityResult = {

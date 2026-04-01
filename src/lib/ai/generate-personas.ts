@@ -569,7 +569,32 @@ export async function generateAndSavePersonas(
         orderBy: { createdAt: "desc" },
         take: 20,
       });
-      const authenticityEval = await scorePersonaAuthenticity(persona, recentPersonas);
+      let authenticityEval;
+      try {
+        authenticityEval = await scorePersonaAuthenticity(persona, recentPersonas);
+      } catch (error) {
+        console.error("[generate-personas] authenticity evaluation failed:", error);
+        authenticityEval = {
+          authenticity_score: 60,
+          authenticity_band: "medium" as const,
+          eval_summary:
+            "Authenticity evaluation was unavailable for this run; persona was generated successfully.",
+          eval_dimensions: {
+            specificity: 60,
+            plausibility: 60,
+            non_genericity: 60,
+            consistency: 60,
+            diversity: 60,
+          },
+          flags: ["low_specificity"],
+          evalRaw: {
+            fallback: true,
+            reason:
+              error instanceof Error ? error.message : "unknown authenticity evaluator error",
+          },
+          backstoryEmbedding: [],
+        };
+      }
 
       const createdPersona = await prisma.persona.create({
         data: {
