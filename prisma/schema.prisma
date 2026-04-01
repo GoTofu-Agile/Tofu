@@ -161,8 +161,23 @@ model Persona {
   sourceReference Json?
   llmSystemPrompt String?      @db.Text
   embedding       Unsupported("vector(1536)")?
+  embeddingJson   Json?
+  normalizedText  String?      @db.Text
+  generatedContent Json?
+  rawInput        Json?
+  authenticityScore Int?
+  authenticityBand  ConfidenceLabel?
+  evalSummary       String?    @db.Text
+  evalDimensions    Json?
+  evalFlags         Json?
+  evalVersion       String?
+  evalRaw           Json?
+  backstoryEmbeddingJson Json?
   qualityScore    Float?
   isActive        Boolean      @default(true)
+  evaluationStatus PersonaEvaluationStatus @default(PENDING)
+  evaluationVersion Int        @default(1)
+  evaluationError Json?
 
   // Rich persona fields
   archetype           String?
@@ -181,8 +196,63 @@ model Persona {
   sessions     Session[]
   tags         TagOnPersona[]
   dataSources  PersonaDataSource[]
+  evaluations  PersonaEvaluation[]
+  claims       PersonaClaim[]
+  similarityMatches         SimilarityMatch[] @relation("PersonaSimilaritySource")
+  reverseSimilarityMatches  SimilarityMatch[] @relation("PersonaSimilarityMatched")
 
   @@index([personaGroupId, isActive])
+}
+
+model PersonaEvaluation {
+  id                String   @id @default(cuid())
+  personaId          String
+  persona            Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  trustScore         Int
+  uniquenessScore    Int
+  factualityScore    Int
+  consistencyScore   Int
+  realismScore       Int
+  verifiabilityScore Int
+  confidenceLabel    ConfidenceLabel
+  summary            String?  @db.Text
+  riskFlags          Json?
+  evidence           Json?
+  evaluatedAt        DateTime @default(now())
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([personaId, evaluatedAt])
+}
+
+model PersonaClaim {
+  id         String            @id @default(cuid())
+  personaId  String
+  persona    Persona           @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  claimText  String            @db.Text
+  claimType  String
+  status     PersonaClaimStatus
+  confidence Int?
+  evidence   Json?
+  createdAt  DateTime          @default(now())
+
+  @@index([personaId, claimType])
+  @@index([personaId, status])
+}
+
+model SimilarityMatch {
+  id              String   @id @default(cuid())
+  personaId        String
+  persona          Persona  @relation("PersonaSimilaritySource", fields: [personaId], references: [id], onDelete: Cascade)
+  matchedPersonaId String
+  matchedPersona   Persona  @relation("PersonaSimilarityMatched", fields: [matchedPersonaId], references: [id], onDelete: Cascade)
+  similarityScore  Float
+  reason           String?
+  createdAt        DateTime @default(now())
+
+  @@index([personaId, similarityScore])
+  @@index([matchedPersonaId])
 }
 
 model PersonalityProfile {
@@ -511,4 +581,24 @@ enum ProcessingStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum PersonaEvaluationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum PersonaClaimStatus {
+  SUPPORTED
+  UNSUPPORTED
+  UNCERTAIN
+  SYNTHETIC
+}
+
+enum ConfidenceLabel {
+  low
+  medium
+  high
 }

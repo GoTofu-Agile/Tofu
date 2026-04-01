@@ -9,7 +9,8 @@
     "dev": "next dev --port 3004",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

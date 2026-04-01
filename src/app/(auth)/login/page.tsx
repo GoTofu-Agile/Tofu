@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,21 +15,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { login } from "../actions";
-
-function isRedirectError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "digest" in error &&
-    typeof error.digest === "string" &&
-    error.digest.includes("NEXT_REDIRECT")
-  );
-}
+import { createClient } from "@/lib/supabase/client";
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const next = searchParams.get("next");
@@ -37,23 +28,41 @@ function LoginForm() {
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
-    let isRedirecting = false;
     try {
-      const result = await login(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
-    } catch (error) {
-      // Server action redirects throw NEXT_REDIRECT; treat that as success.
-      if (isRedirectError(error)) {
-        isRedirecting = true;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) {
+        setError(
+          "Missing Supabase config. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+        );
         return;
       }
+
+      const supabase = createClient();
+      const email = String(formData.get("email") ?? "").trim();
+      const password = String(formData.get("password") ?? "");
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      const nextPath =
+        typeof formData.get("next") === "string" &&
+        String(formData.get("next")).startsWith("/") &&
+        !String(formData.get("next")).startsWith("//")
+          ? String(formData.get("next"))
+          : "/dashboard";
+      router.push(nextPath);
+      router.refresh();
+    } catch {
       setError("Something went wrong. Please try again.");
     } finally {
-      if (!isRedirecting) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }
 

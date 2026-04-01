@@ -96,6 +96,8 @@ export async function POST(request: NextRequest) {
           type: "done",
           generated: result.generated,
           errors: result.errors,
+          evaluationsQueued: result.evaluationsQueued,
+          authenticity: result.authenticity,
         });
         controller.enqueue(encoder.encode(doneEvent + "\n"));
       } catch (error) {
