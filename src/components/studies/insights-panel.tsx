@@ -12,6 +12,7 @@ import {
   Lightbulb,
   RefreshCw,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { triggerInsights } from "@/app/(dashboard)/studies/actions";
 
 interface Theme {
@@ -93,17 +94,13 @@ export function InsightsPanel({
 
   if (!report) {
     return (
-      <div className="rounded-lg border border-dashed p-6 text-center">
-        <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/50" />
-        <h3 className="mt-3 font-medium">No insights yet</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Generate AI-powered insights from your interview transcripts.
-        </p>
-        <Button
-          className="mt-4"
-          onClick={handleGenerate}
-          disabled={generating}
-        >
+      <EmptyState
+        variant="compact"
+        icon={Sparkles}
+        title="No insights yet"
+        description="Generate AI-powered insights from your interview transcripts."
+      >
+        <Button onClick={handleGenerate} disabled={generating}>
           {generating ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -116,7 +113,7 @@ export function InsightsPanel({
             </>
           )}
         </Button>
-      </div>
+      </EmptyState>
     );
   }
 

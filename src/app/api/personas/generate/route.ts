@@ -6,6 +6,10 @@ import { getPersonaGroup } from "@/lib/db/queries/personas";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { generateAndSavePersonas } from "@/lib/ai/generate-personas";
 import { getPersonaTemplateById } from "@/lib/personas/templates";
+import {
+  assertPersonaGenerationAllowed,
+  getPersonaGenerationGuardForGroup,
+} from "@/lib/personas/persona-generation-guard";
 
 const requestSchema = z.object({
   groupId: z.string().min(1),
@@ -13,6 +17,8 @@ const requestSchema = z.object({
   domainContext: z.string().max(2000).optional(),
   sourceTypeOverride: z.enum(["PROMPT_GENERATED", "DATA_BASED", "UPLOAD_BASED"]).optional(),
   templateId: z.string().min(1).optional(),
+  /** True when the client used the “deep search” research path (Quick or Guided). */
+  usedDeepResearchPipeline: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -66,6 +72,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const guard = await getPersonaGenerationGuardForGroup(body.groupId);
+  if (!guard) {
+    return new Response(JSON.stringify({ error: "Group not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    assertPersonaGenerationAllowed({
+      guard,
+      requestedCount: body.count,
+      usedDeepResearchPipeline: body.usedDeepResearchPipeline,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Invalid request";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   // Stream generation progress as NDJSON
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -81,6 +109,7 @@ export async function POST(request: NextRequest) {
           domainContext: body.domainContext,
           sourceTypeOverride: body.sourceTypeOverride,
           templateConfig,
+          qualityTier: guard.tier,
           onProgress: (completed, total, personaName) => {
             const event = JSON.stringify({
               type: "progress",

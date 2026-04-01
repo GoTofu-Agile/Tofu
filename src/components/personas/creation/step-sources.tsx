@@ -14,6 +14,7 @@ interface StepSourcesProps {
   onBack: () => void;
   onGenerate: () => void;
   loading: boolean;
+  maxPersonas?: number;
 }
 
 interface SourcesSettingsProps {
@@ -25,6 +26,7 @@ interface SourcesSettingsProps {
   onIncludeSkepticsChange: (value: boolean) => void;
   /** When false, research depth controls are hidden (depth props are still used server-side if needed). */
   showResearchDepth?: boolean;
+  maxPersonas?: number;
 }
 
 export function SourcesSettings({
@@ -35,6 +37,7 @@ export function SourcesSettings({
   includeSkeptics,
   onIncludeSkepticsChange,
   showResearchDepth = true,
+  maxPersonas = 500,
 }: SourcesSettingsProps) {
   return (
     <div className="space-y-6">
@@ -92,15 +95,15 @@ export function SourcesSettings({
         </Label>
         <input
           type="range"
-          min={3}
-          max={500}
-          value={personaCount}
+          min={1}
+          max={maxPersonas}
+          value={Math.min(personaCount, maxPersonas)}
           onChange={(e) => onPersonaCountChange(Number(e.target.value))}
           className="w-full accent-primary"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span>3</span>
-          <span>500</span>
+          <span>1</span>
+          <span>{maxPersonas}</span>
         </div>
       </div>
     </div>
@@ -117,6 +120,7 @@ export function StepSources({
   onBack,
   onGenerate,
   loading,
+  maxPersonas,
 }: StepSourcesProps) {
   return (
     <div className="space-y-6">
@@ -128,6 +132,7 @@ export function StepSources({
         includeSkeptics={includeSkeptics}
         onIncludeSkepticsChange={onIncludeSkepticsChange}
         showResearchDepth
+        maxPersonas={maxPersonas}
       />
       {/* Actions */}
       <div className="flex gap-3 pt-2">

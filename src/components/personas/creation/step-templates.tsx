@@ -11,6 +11,7 @@ interface StepTemplatesProps {
   onPersonaCountChange: (count: number) => void;
   onContinue: (templateId: string) => Promise<void> | void;
   loading: boolean;
+  maxPersonas?: number;
 }
 
 export function StepTemplates({
@@ -18,6 +19,7 @@ export function StepTemplates({
   onPersonaCountChange,
   onContinue,
   loading,
+  maxPersonas = 100,
 }: StepTemplatesProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedTemplate = PERSONA_TEMPLATES.find((t) => t.id === selectedId) ?? null;
@@ -113,15 +115,15 @@ export function StepTemplates({
             <input
               type="range"
               min={1}
-              max={100}
-              value={personaCount}
+              max={maxPersonas}
+              value={Math.min(personaCount, maxPersonas)}
               onChange={(e) => onPersonaCountChange(Number(e.target.value))}
               disabled={loading}
               className="w-full accent-primary"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>1</span>
-              <span>100</span>
+              <span>{maxPersonas}</span>
             </div>
           </div>
         </div>

@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Check, Users, MessageSquare, ClipboardList, Users2, Monitor, Lock, ChevronDown, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
 import { SAMPLE_SIZE_GUIDELINES } from "@/lib/ai/mom-test-rules";
 
 type StudyType = "INTERVIEW" | "SURVEY" | "FOCUS_GROUP" | "USABILITY_TEST";
@@ -124,13 +127,17 @@ export function StepSetup({
       <div className="space-y-2">
         <label className="text-sm font-medium">Persona groups</label>
         {groups.length === 0 ? (
-          <div className="rounded-xl border border-dashed p-6 text-center">
-            <Users className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No persona groups yet.</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">
-              Create personas first, then come back.
-            </p>
-          </div>
+          <EmptyState
+            variant="compact"
+            icon={Users}
+            title="No persona groups yet"
+            description="Create personas first, then come back to attach them to this study."
+            className="rounded-xl"
+          >
+            <Link href="/personas/new" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Create personas
+            </Link>
+          </EmptyState>
         ) : (
           <div className="space-y-2">
             {groups.map((g) => {

@@ -1,5 +1,7 @@
 import { generateObject } from "ai";
-import { getModel } from "./provider";
+import { getPersonaGenerationModel } from "./provider";
+import { qualityTierFromOrgPersonaCount, type PersonaQualityTier } from "@/lib/personas/persona-creation-policy";
+import { countPersonasForOrganization } from "@/lib/db/queries/personas";
 import { personaSchema, type PersonaOutput } from "@/lib/validation/schemas";
 import { prisma } from "@/lib/db/prisma";
 import type { PersonaTemplateConfig } from "@/lib/personas/templates";
@@ -15,6 +17,8 @@ export interface GeneratePersonasParams {
   sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
   templateConfig?: PersonaTemplateConfig;
   onProgress?: (completed: number, total: number, personaName: string) => void;
+  /** When set (e.g. from API guard), skips an extra org count query. */
+  qualityTier?: PersonaQualityTier;
 }
 
 export interface GeneratePersonasResult {
@@ -494,6 +498,20 @@ export async function generateAndSavePersonas(
   const { groupId, count, domainContext, sourceTypeOverride, templateConfig, onProgress } =
     params;
 
+  let qualityTier = params.qualityTier;
+  if (qualityTier == null) {
+    const g = await prisma.personaGroup.findUnique({
+      where: { id: groupId },
+      select: { organizationId: true },
+    });
+    if (!g) {
+      throw new Error("Persona group not found");
+    }
+    const orgCount = await countPersonasForOrganization(g.organizationId);
+    qualityTier = qualityTierFromOrgPersonaCount(orgCount);
+  }
+  const personaModel = getPersonaGenerationModel(qualityTier);
+
   // Load domain knowledge for RAG context (with provenance tracking)
   const knowledge = await prisma.domainKnowledge.findMany({
     where: { personaGroupId: groupId },
@@ -542,7 +560,7 @@ export async function generateAndSavePersonas(
               : undefined,
         });
         const { object: draft } = await generateObject({
-          model: getModel(),
+          model: personaModel,
           schema: personaSchema,
           prompt,
         });
@@ -616,6 +634,7 @@ export async function generateAndSavePersonas(
             domainContext: domainContext ?? null,
             ragContextPresent: Boolean(ragContext),
             templateId: templateConfig?.id ?? null,
+            qualityTier,
           },
           normalizedText: [
             persona.name,

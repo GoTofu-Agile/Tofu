@@ -5,7 +5,10 @@ import { motion } from "framer-motion";
 import { FlaskConical, MessageSquare, Users, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MotionListRow } from "@/components/motion/page-motion";
-import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { safeInitial, useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
+import { pageEnterTransition } from "@/lib/motion/motion-system";
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -37,26 +40,20 @@ export function DashboardRecentStudiesBlock({
   if (studies.length === 0) {
     return (
       <motion.div
-        initial={reduced ? false : { opacity: 0, y: 12 }}
+        initial={safeInitial({ opacity: 0, y: 10 }, reduced)}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl border border-dashed p-8 text-center"
+        transition={pageEnterTransition(reduced)}
       >
-        <motion.div
-          animate={reduced ? undefined : { y: [0, -5, 0] }}
-          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+        <EmptyState
+          variant="compact"
+          icon={FlaskConical}
+          title="No studies yet"
+          description="Studies are where interviews run and insights are generated."
         >
-          <FlaskConical className="mx-auto h-8 w-8 text-muted-foreground/30" />
-        </motion.div>
-        <p className="mt-3 text-sm text-muted-foreground">No studies yet</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Studies are where interviews run and insights are generated.
-        </p>
-        <Link
-          href="/studies/new"
-          className="mt-3 inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-        >
-          Create your first study
-        </Link>
+          <Link href="/studies/new" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Create your first study
+          </Link>
+        </EmptyState>
       </motion.div>
     );
   }
@@ -96,24 +93,20 @@ export function DashboardRecentPersonasBlock({
   if (groups.length === 0) {
     return (
       <motion.div
-        initial={reduced ? false : { opacity: 0, y: 12 }}
+        initial={safeInitial({ opacity: 0, y: 10 }, reduced)}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl border border-dashed p-8 text-center"
+        transition={pageEnterTransition(reduced)}
       >
-        <motion.div
-          animate={reduced ? undefined : { y: [0, -5, 0] }}
-          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+        <EmptyState
+          variant="compact"
+          icon={Users}
+          title="No persona groups yet"
+          description="Create a group first, then use it in studies."
         >
-          <Users className="mx-auto h-8 w-8 text-muted-foreground/30" />
-        </motion.div>
-        <p className="mt-3 text-sm text-muted-foreground">No persona groups yet</p>
-        <p className="mt-1 text-xs text-muted-foreground">Create a group first, then use it in studies.</p>
-        <Link
-          href="/personas/new"
-          className="mt-3 inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-        >
-          Create your first personas
-        </Link>
+          <Link href="/personas/new" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Create your first personas
+          </Link>
+        </EmptyState>
       </motion.div>
     );
   }

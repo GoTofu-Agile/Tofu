@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Sparkles, Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface GeneratePersonasButtonProps {
   groupId: string;
@@ -136,7 +138,11 @@ export function GeneratePersonasButton({
         : 0;
 
     return (
-      <div className="rounded-lg border border-dashed p-12 text-center space-y-6">
+      <div className="space-y-6 rounded-lg border border-border bg-card p-8 text-center">
+        <div className="mx-auto max-w-md space-y-2">
+          <Skeleton className="mx-auto h-5 w-48" variant="shimmer" />
+          <Skeleton className="mx-auto h-4 w-64" variant="shimmer" />
+        </div>
         <div className="flex items-center justify-center gap-2">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           <h3 className="text-lg font-medium">Generating personas...</h3>
@@ -159,15 +165,15 @@ export function GeneratePersonasButton({
   }
 
   return (
-    <div className="rounded-lg border border-dashed p-12 text-center space-y-4">
-      <h3 className="text-lg font-medium">No personas yet</h3>
-      <p className="text-sm text-muted-foreground">
-        Generate AI-powered personas for this group.
-      </p>
+    <EmptyState
+      icon={Sparkles}
+      title="No personas yet"
+      description="Generate AI-powered personas for this group."
+    >
       <Button onClick={startGeneration} disabled={generating}>
         <Sparkles className="mr-2 h-4 w-4" />
         Generate {defaultCount} Personas
       </Button>
-    </div>
+    </EmptyState>
   );
 }

@@ -5,6 +5,7 @@ import { CreateOrgForm } from "./create-org-form";
 import { OrgInviteGenerator } from "./org-invite-generator";
 import { CopyInviteButton } from "./copy-invite-button";
 import { Building2, Users, BookOpen } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function AdminPage() {
   const user = await requireAuth();
@@ -24,12 +25,7 @@ export default async function AdminPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">GoTofu Admin</h2>
-        <p className="text-muted-foreground">
-          Manage customer workspaces and onboarding.
-        </p>
-      </div>
+      <PageHeader title="GoTofu Admin" description="Manage customer workspaces and onboarding." />
 
       {/* Create org */}
       <div className="rounded-lg border p-6 space-y-4">

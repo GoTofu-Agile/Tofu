@@ -33,25 +33,35 @@ interface PersonaInputWizardProps {
   chatBar: React.ReactNode;
   onSelectMethod: (method: CreationMethod) => void;
   orgContextHint?: boolean;
+  /** Per-method disable reasons (e.g. deep-search until workspace milestone). */
+  methodLockReason?: Partial<Record<CreationMethod, string>>;
 }
 
 function MethodTile({
   methodId,
   onSelect,
   index,
+  disabledReason,
 }: {
   methodId: CreationMethod;
   onSelect: (m: CreationMethod) => void;
   index: number;
+  /** When set, tile is visible but not selectable (e.g. progression gate). */
+  disabledReason?: string | null;
 }) {
   const m = CREATION_METHOD_OPTIONS.find((x) => x.id === methodId);
   const reduced = useReducedMotion();
   if (!m || m.comingSoon) return null;
   const Icon = m.icon;
+  const disabled = Boolean(disabledReason);
   return (
     <motion.button
       type="button"
-      onClick={() => onSelect(m.id)}
+      disabled={disabled}
+      onClick={() => {
+        if (!disabled) onSelect(m.id);
+      }}
+      title={disabledReason ?? undefined}
       initial={reduced ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={
@@ -88,6 +98,7 @@ export function PersonaInputWizard({
   chatBar,
   onSelectMethod,
   orgContextHint,
+  methodLockReason,
 }: PersonaInputWizardProps) {
   const [tab, setTab] = useState("quick");
   const reduced = useReducedMotion();
@@ -211,7 +222,12 @@ export function PersonaInputWizard({
                     Build manually
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <MethodTile methodId="manual" onSelect={onSelectMethod} index={4} />
+                    <MethodTile
+                      methodId="manual"
+                      onSelect={onSelectMethod}
+                      index={4}
+                      disabledReason={methodLockReason?.manual}
+                    />
                   </div>
                 </section>
               </motion.div>
@@ -232,7 +248,13 @@ export function PersonaInputWizard({
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {IMPORT_ORDER.map((id, i) => (
-                    <MethodTile key={id} methodId={id} onSelect={onSelectMethod} index={i} />
+                    <MethodTile
+                      key={id}
+                      methodId={id}
+                      onSelect={onSelectMethod}
+                      index={i}
+                      disabledReason={methodLockReason?.[id]}
+                    />
                   ))}
                 </div>
               </motion.div>

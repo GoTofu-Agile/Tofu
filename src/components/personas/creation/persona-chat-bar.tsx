@@ -33,9 +33,10 @@ import {
   MotionPersonaSubmitButton,
 } from "@/components/motion/persona-creation-motion";
 import { cn } from "@/lib/utils";
+import { DEEP_SEARCH_UNLOCK_AT_ORG_PERSONAS } from "@/lib/personas/persona-creation-policy";
 
 const PERSONA_PRESETS = [5, 10, 20, 50] as const;
-const PERSONA_MAX = 500;
+const PERSONA_HARD_MAX = 500;
 
 export interface PersonaChatBarProps {
   value: string;
@@ -44,6 +45,10 @@ export interface PersonaChatBarProps {
   loading?: boolean;
   personaCount: number;
   onPersonaCountChange: (count: number) => void;
+  /** Workspace batch cap (progression). Defaults to 500. */
+  maxPersonaBatch?: number;
+  /** When true, “Deep search” source is disabled until milestone. */
+  deepSearchLocked?: boolean;
 }
 
 const ROTATING_PLACEHOLDERS = [
@@ -70,9 +75,12 @@ export function PersonaChatBar({
   loading,
   personaCount,
   onPersonaCountChange,
+  maxPersonaBatch,
+  deepSearchLocked,
 }: PersonaChatBarProps) {
   const reduced = useReducedMotion();
   const [dataSource, setDataSource] = useState<(typeof DATA_SOURCES)[0]>(DATA_SOURCES[0]);
+  const personaMax = Math.min(PERSONA_HARD_MAX, maxPersonaBatch ?? PERSONA_HARD_MAX);
   const [customDraft, setCustomDraft] = useState<string>("");
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [improving, setImproving] = useState(false);
@@ -87,8 +95,14 @@ export function PersonaChatBar({
     return () => window.clearInterval(id);
   }, [value]);
 
+  useEffect(() => {
+    if (deepSearchLocked && dataSource.id === "deep-search") {
+      setDataSource(DATA_SOURCES[0]);
+    }
+  }, [deepSearchLocked, dataSource.id]);
+
   function clampCount(n: number) {
-    return Math.min(PERSONA_MAX, Math.max(1, Math.round(n)));
+    return Math.min(personaMax, Math.max(1, Math.round(n)));
   }
 
   function applyCustomFromDraft() {
@@ -236,14 +250,26 @@ export function PersonaChatBar({
           <DropdownMenuContent side="top" align="end">
             {DATA_SOURCES.map((option) => {
               const Icon = option.icon;
+              const locked = option.id === "deep-search" && deepSearchLocked;
               return (
                 <DropdownMenuItem
                   key={option.id}
-                  onClick={() => setDataSource(option)}
+                  disabled={locked}
+                  title={
+                    locked
+                      ? `Unlocks after ${DEEP_SEARCH_UNLOCK_AT_ORG_PERSONAS} personas in this workspace`
+                      : undefined
+                  }
+                  onClick={() => {
+                    if (!locked) setDataSource(option);
+                  }}
                   className="text-xs"
                 >
                   <Icon className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   {option.label}
+                  {locked ? (
+                    <span className="ml-auto pl-2 text-[10px] text-muted-foreground">Locked</span>
+                  ) : null}
                 </DropdownMenuItem>
               );
             })}
@@ -263,7 +289,7 @@ export function PersonaChatBar({
             <div className="px-3 pt-3 pb-2">
               <p className="text-xs font-medium text-muted-foreground">Persona count</p>
               <div className="mt-2 grid grid-cols-4 gap-1.5">
-                {PERSONA_PRESETS.map((n) => (
+                {PERSONA_PRESETS.filter((n) => n <= personaMax).map((n) => (
                   <motion.button
                     key={n}
                     type="button"
@@ -282,12 +308,12 @@ export function PersonaChatBar({
             </div>
             <Separator />
             <div className="p-3" onClick={(e) => e.stopPropagation()}>
-              <p className="text-xs font-medium text-muted-foreground">Custom (1–{PERSONA_MAX})</p>
+              <p className="text-xs font-medium text-muted-foreground">Custom (1–{personaMax})</p>
               <div className="mt-2 flex gap-2">
                 <Input
                   type="number"
                   min={1}
-                  max={PERSONA_MAX}
+                  max={personaMax}
                   placeholder={String(personaCount)}
                   value={customDraft}
                   onChange={(e) => setCustomDraft(e.target.value)}

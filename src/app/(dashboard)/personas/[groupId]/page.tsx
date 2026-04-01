@@ -7,7 +7,10 @@ import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-revi
 import { GeneratePersonasButton } from "@/components/personas/generate-personas-button";
 import { AnimatedPersonaCards } from "@/components/personas/animated-persona-cards";
 import { MotionPageEnter } from "@/components/motion/page-motion";
+import { PersonaGroupEngagement } from "@/components/personas/persona-group-engagement";
+import { getPersonaCreationContext } from "@/lib/personas/persona-creation-context";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { ArrowLeft, Users } from "lucide-react";
 import { SOURCE_LABELS } from "@/lib/constants/source-labels";
 
@@ -16,7 +19,7 @@ export default async function PersonaGroupDetailPage({
   searchParams,
 }: {
   params: Promise<{ groupId: string }>;
-  searchParams: Promise<{ count?: string; domainContext?: string }>;
+  searchParams: Promise<{ count?: string; domainContext?: string; welcome?: string }>;
 }) {
   const { groupId } = await params;
   const query = await searchParams;
@@ -42,39 +45,36 @@ export default async function PersonaGroupDetailPage({
     appStoreReviews: appStoreReviewSnippetsFromPersona(persona.dataSources),
   }));
 
+  const creationContext = await getPersonaCreationContext(group.organizationId);
+
   return (
     <MotionPageEnter className="space-y-6">
       <div>
         <Link
           href="/personas"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
+          className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Back to Personas
         </Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight">
-              {group.name}
-            </h2>
-            {group.description && (
-              <p className="mt-1 text-muted-foreground">{group.description}</p>
-            )}
-            <div className="mt-2 flex items-center gap-3">
-              {group.sourceType !== "PROMPT_GENERATED" ? (
-                <Badge
-                  variant="secondary"
-                  className={SOURCE_LABELS[group.sourceType].className}
-                >
-                  {SOURCE_LABELS[group.sourceType].label}
-                </Badge>
-              ) : null}
-              <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Users className="h-3.5 w-3.5" />
-                {group._count.personas} personas
-              </span>
-            </div>
-          </div>
+        <PageHeader
+          className="mb-3 sm:mb-3"
+          title={group.name}
+          description={group.description ?? undefined}
+        />
+        <div className="mb-8 flex flex-wrap items-center gap-3">
+          {group.sourceType !== "PROMPT_GENERATED" ? (
+            <Badge
+              variant="secondary"
+              className={SOURCE_LABELS[group.sourceType].className}
+            >
+              {SOURCE_LABELS[group.sourceType].label}
+            </Badge>
+          ) : null}
+          <span className="flex items-center gap-1 text-sm text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            {group._count.personas} personas
+          </span>
         </div>
       </div>
 
@@ -86,7 +86,20 @@ export default async function PersonaGroupDetailPage({
           autoStart={!!query.count}
         />
       ) : (
-        <AnimatedPersonaCards groupId={groupId} rows={personaRows} />
+        <>
+          <PersonaGroupEngagement
+            groupId={groupId}
+            groupName={group.name}
+            personaCount={personas.length}
+            firstPersonaName={personas[0]?.name ?? null}
+            domainContext={group.domainContext}
+            welcomeIntent={query.welcome === "1"}
+            platformPersonasToday={creationContext.platformPersonasToday}
+            workspacePersonaCount={creationContext.organizationPersonaCount}
+            workspaceTierLabel={creationContext.qualityTierLabel}
+          />
+          <AnimatedPersonaCards groupId={groupId} rows={personaRows} />
+        </>
       )}
     </MotionPageEnter>
   );

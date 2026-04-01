@@ -48,7 +48,7 @@ export default async function DashboardLayout({
 
   return (
     <AssistantProvider>
-      <div className="relative h-screen w-screen bg-stone-100 overflow-hidden">
+      <div className="relative h-screen w-screen overflow-hidden bg-background">
         <AppFrame>
           <Sidebar
             user={user}
@@ -58,7 +58,9 @@ export default async function DashboardLayout({
           />
           <div className="flex flex-1 flex-col overflow-hidden">
             <Topbar />
-            <main className="flex-1 overflow-y-auto px-8 py-6">{children}</main>
+            <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-[var(--page-padding-x)] sm:py-[var(--page-padding-y)]">
+              {children}
+            </main>
           </div>
         </AppFrame>
         <AssistantChatLazy />
