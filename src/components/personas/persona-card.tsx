@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { AppStoreReviewSnippet } from "@/lib/personas/app-store-review-ui";
 import { PersonaSquircleIcon } from "@/components/personas/persona-squircle-icon";
+import { AuthenticityBadge } from "@/components/personas/authenticity-badge";
 
 interface PersonaCardProps {
   persona: {
@@ -14,6 +15,9 @@ interface PersonaCardProps {
     bio: string | null;
     archetype: string | null;
     representativeQuote: string | null;
+    authenticityScore?: number | null;
+    authenticityBand?: "low" | "medium" | "high" | null;
+    evalSummary?: string | null;
     personality: {
       openness: number;
       conscientiousness: number;
@@ -43,7 +47,7 @@ export function PersonaCard({
   return (
     <Link
       href={`/personas/${groupId}/${persona.id}`}
-      className="group flex h-full min-h-0 flex-col rounded-lg border bg-card p-4 transition-colors hover:border-foreground/20"
+      className="group flex h-full min-h-0 flex-col rounded-2xl border bg-card p-4 shadow-sm transition-[box-shadow,transform,border-color] duration-300 ease-out will-change-transform hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md active:translate-y-0 active:scale-[0.99]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -72,6 +76,14 @@ export function PersonaCard({
                 <Badge variant="outline" className="text-xs">
                   {archetypeOrTrait}
                 </Badge>
+              ) : null}
+              {persona.authenticityScore != null ? (
+                <AuthenticityBadge
+                  score={persona.authenticityScore}
+                  band={persona.authenticityBand}
+                  summary={persona.evalSummary}
+                  className="max-w-[min(100%,12rem)] truncate"
+                />
               ) : null}
             </div>
           )}

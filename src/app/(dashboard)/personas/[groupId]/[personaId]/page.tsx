@@ -9,6 +9,9 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
 import { PersonaSquircleIcon } from "@/components/personas/persona-squircle-icon";
 import { PersonaQualityStreak } from "@/components/personas/persona-quality-streak";
+import { AuthenticityBadge } from "@/components/personas/authenticity-badge";
+import { PersonaTrustPanel } from "@/components/personas/persona-trust-panel";
+import { PersonaDetailSections } from "@/components/personas/persona-detail-sections";
 import { MotionPageEnter } from "@/components/motion/page-motion";
 
 export default async function PersonaDetailPage({
@@ -33,6 +36,7 @@ export default async function PersonaDetailPage({
   const traits = persona.personality;
   const appReviews = appStoreReviewSnippetsFromPersona(persona.dataSources);
   const displayGender = normalizeBinaryGender(persona.gender);
+  const latestEval = persona.evaluations[0];
 
   return (
     <MotionPageEnter className="mx-auto max-w-3xl space-y-8">
@@ -71,7 +75,7 @@ export default async function PersonaDetailPage({
               </p>
             ) : null}
           </div>
-          <div className="flex shrink-0 flex-col items-end">
+          <div className="flex shrink-0 flex-col items-end gap-2">
             <PersonaSquircleIcon
               persona={{
                 id: persona.id,
@@ -83,7 +87,17 @@ export default async function PersonaDetailPage({
               }}
               size="xl"
             />
-            <PersonaQualityStreak qualityScore={persona.qualityScore} />
+            <div className="flex flex-col items-end gap-2">
+              {persona.authenticityScore != null ? (
+                <AuthenticityBadge
+                  score={persona.authenticityScore}
+                  band={persona.authenticityBand}
+                  summary={persona.evalSummary}
+                  celebrate={persona.authenticityBand === "high"}
+                />
+              ) : null}
+              <PersonaQualityStreak qualityScore={persona.qualityScore} />
+            </div>
           </div>
         </div>
 
@@ -93,6 +107,24 @@ export default async function PersonaDetailPage({
           </blockquote>
         )}
       </div>
+
+      <PersonaTrustPanel
+        authenticityScore={persona.authenticityScore}
+        authenticityBand={persona.authenticityBand}
+        evalSummary={persona.evalSummary}
+        evalFlags={persona.evalFlags}
+        evaluationStatus={persona.evaluationStatus}
+        trustScore={latestEval?.trustScore ?? null}
+        trustConfidence={latestEval?.confidenceLabel ?? null}
+        trustSummary={latestEval?.summary ?? null}
+      />
+
+      <p className="rounded-2xl border border-dashed bg-muted/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+        <span className="font-medium text-foreground">Iterate:</span> Open{" "}
+        <span className="text-foreground">Ask GoTofu</span> from the sidebar and ask to make
+        this persona more realistic, adjust their background, or add constraints — we&apos;ll
+        apply changes in context.
+      </p>
 
       {/* Occupation & Bio */}
       {persona.occupation && (
@@ -165,22 +197,34 @@ export default async function PersonaDetailPage({
         </>
       )}
 
-      {/* Story Section */}
-      <div>
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Backstory
-        </h3>
-        <p className="mt-1 whitespace-pre-line">{persona.backstory}</p>
-      </div>
-
-      {persona.dayInTheLife && (
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground">
-            A Day in Their Life
-          </h3>
-          <p className="mt-1 whitespace-pre-line">{persona.dayInTheLife}</p>
-        </div>
-      )}
+      <PersonaDetailSections
+        sections={[
+          {
+            id: "backstory",
+            title: "Backstory",
+            subtitle: "Formative context and life narrative",
+            defaultOpen: true,
+            children: (
+              <p className="whitespace-pre-line text-muted-foreground">{persona.backstory}</p>
+            ),
+          },
+          ...(persona.dayInTheLife
+            ? [
+                {
+                  id: "day",
+                  title: "A day in their life",
+                  subtitle: "Routine and environment",
+                  defaultOpen: false,
+                  children: (
+                    <p className="whitespace-pre-line text-muted-foreground">
+                      {persona.dayInTheLife}
+                    </p>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {/* Core Values */}
       {persona.coreValues &&
