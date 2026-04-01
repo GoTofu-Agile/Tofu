@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
+import { PersonaSquircleIcon } from "@/components/personas/persona-squircle-icon";
+import { PersonaQualityStreak } from "@/components/personas/persona-quality-streak";
 import { MotionPageEnter } from "@/components/motion/page-motion";
 
 export default async function PersonaDetailPage({
@@ -30,6 +32,7 @@ export default async function PersonaDetailPage({
 
   const traits = persona.personality;
   const appReviews = appStoreReviewSnippetsFromPersona(persona.dataSources);
+  const displayGender = normalizeBinaryGender(persona.gender);
 
   return (
     <MotionPageEnter className="mx-auto max-w-3xl space-y-8">
@@ -43,8 +46,8 @@ export default async function PersonaDetailPage({
           Back to {persona.personaGroup.name}
         </Link>
 
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
             <h2 className="text-2xl font-semibold tracking-tight">
               {persona.name}
             </h2>
@@ -56,22 +59,31 @@ export default async function PersonaDetailPage({
             <p className="mt-1 text-muted-foreground">
               {[
                 persona.age && `${persona.age} years old`,
-                persona.gender,
+                displayGender,
                 persona.location,
               ]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            {persona.domainExpertise ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {persona.domainExpertise}
+              </p>
+            ) : null}
           </div>
-          <div className="flex items-center gap-2">
-            {persona.qualityScore !== null && (
-              <Badge variant="outline">
-                Quality: {Math.round(persona.qualityScore * 100)}%
-              </Badge>
-            )}
-            {persona.domainExpertise && (
-              <Badge variant="secondary">{persona.domainExpertise}</Badge>
-            )}
+          <div className="flex shrink-0 flex-col items-end">
+            <PersonaSquircleIcon
+              persona={{
+                id: persona.id,
+                name: persona.name,
+                gender: persona.gender,
+                occupation: persona.occupation,
+                archetype: persona.archetype,
+                age: persona.age,
+              }}
+              size="xl"
+            />
+            <PersonaQualityStreak qualityScore={persona.qualityScore} />
           </div>
         </div>
 
@@ -337,6 +349,13 @@ export default async function PersonaDetailPage({
       )}
     </MotionPageEnter>
   );
+}
+
+function normalizeBinaryGender(gender: string | null | undefined): "Male" | "Female" | null {
+  const value = (gender ?? "").toLowerCase();
+  if (value.includes("female") || value === "f" || value.includes("woman")) return "Female";
+  if (value.includes("male") || value === "m" || value.includes("man")) return "Male";
+  return null;
 }
 
 function ListSection({

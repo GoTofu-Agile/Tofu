@@ -19,15 +19,32 @@ export interface GeneratePersonasResult {
   errors: string[];
 }
 
+type PreviousPersonaSummary = {
+  name: string;
+  archetype: string;
+  occupation: string;
+  ageBand: string;
+  personalityShape: string;
+};
+
 function buildPrompt(params: {
   index: number;
   count: number;
   domainContext?: string;
   ragContext?: string;
   templateConfig?: PersonaTemplateConfig;
-  previousPersonas: { name: string; archetype: string }[];
+  previousPersonas: PreviousPersonaSummary[];
+  additionalDifferentiation?: string;
 }): string {
-  const { index, count, domainContext, ragContext, templateConfig, previousPersonas } = params;
+  const {
+    index,
+    count,
+    domainContext,
+    ragContext,
+    templateConfig,
+    previousPersonas,
+    additionalDifferentiation,
+  } = params;
 
   const layers: string[] = [];
 
@@ -104,6 +121,9 @@ CRITICAL RULES:
     `This is persona ${index + 1} of ${count}.`,
     "Vary age, gender, location, occupation, and personality traits INDEPENDENTLY of each other.",
     "Ensure the Big Five personality scores create a unique profile — do NOT cluster around the middle (0.4-0.6).",
+    "Avoid near-duplicates: each persona should differ in occupation category, life-stage routine, and relationship to the product.",
+    "Create contrast in daily constraints (time pressure, family load, commute style, budget sensitivity, decision authority).",
+    "Use distinct archetype wording and avoid adjective reuse from previous personas.",
   ];
 
   // Anti-sycophancy: ensure some personas are critical/skeptical
@@ -128,26 +148,126 @@ CRITICAL RULES:
   // Layer 4: Differentiation Directive
   if (previousPersonas.length > 0) {
     const previousList = previousPersonas
-      .map((p) => `- ${p.name} (${p.archetype})`)
+      .map(
+        (p) =>
+          `- ${p.name} (${p.archetype}) | ${p.occupation} | ${p.ageBand} | profile: ${p.personalityShape}`
+      )
       .join("\n");
     layers.push(
-      `PREVIOUSLY GENERATED PERSONAS IN THIS BATCH:\n${previousList}\n\nThis persona MUST differ meaningfully from all of the above in archetype, personality profile, and backstory. Do NOT repeat similar archetypes.`
+      `PREVIOUSLY GENERATED PERSONAS IN THIS BATCH:\n${previousList}\n\nThis persona MUST differ meaningfully from all of the above in archetype wording, occupation category, personality profile shape, and life events. Do NOT repeat similar archetypes or routines.`
     );
+  }
+
+  if (additionalDifferentiation) {
+    layers.push(`EXTRA DIFFERENTIATION REQUIREMENT:\n${additionalDifferentiation}`);
   }
 
   // Layer 5: Output Quality Rules
   layers.push(
     `OUTPUT REQUIREMENTS:
 - archetype: A memorable 2-4 word label like "The Pragmatic Skeptic", "The Cautious Innovator", "The Empathetic Traditionalist"
+- gender: MUST be exactly "Male" or "Female" (no other values)
 - representativeQuote: A 1-2 sentence quote this persona would actually say, revealing their voice and perspective
-- backstory: At least 3 sentences with specific life events and turning points
-- dayInTheLife: A vivid paragraph describing a typical day
+- backstory: 5-7 sentences, include at least two concrete life events and one turning point that shaped today's behavior
+- dayInTheLife: Exactly 2 short paragraphs that describe routine, context, constraints, and trade-offs in a realistic day
 - communicationSample: Write a 2-3 sentence response to "What do you think about trying new technology?" in this persona's authentic voice
 - coreValues: 3-5 deeply held values, ranked by importance
+- Avoid generic filler such as "has always been passionate", "works hard every day", or repeated stock phrasing across personas
 - The personality traits should be COHERENT with the backstory and behaviors — a cautious person should have low riskTolerance, a blunt person should have high directness`
   );
 
   return layers.filter(Boolean).join("\n\n---\n\n");
+}
+
+function ageBandFromAge(age: number): string {
+  if (age < 26) return "18-25";
+  if (age < 36) return "26-35";
+  if (age < 46) return "36-45";
+  if (age < 56) return "46-55";
+  return "56+";
+}
+
+function personalityShape(persona: PersonaOutput): string {
+  const p = persona.personality;
+  const tags: string[] = [];
+  if (p.openness > 0.65) tags.push("high-openness");
+  if (p.openness < 0.35) tags.push("low-openness");
+  if (p.agreeableness > 0.65) tags.push("high-agreeableness");
+  if (p.agreeableness < 0.35) tags.push("low-agreeableness");
+  if (p.extraversion > 0.65) tags.push("high-extraversion");
+  if (p.extraversion < 0.35) tags.push("low-extraversion");
+  if (p.neuroticism > 0.65) tags.push("high-neuroticism");
+  if (p.neuroticism < 0.35) tags.push("low-neuroticism");
+  if (tags.length === 0) tags.push("balanced-profile");
+  return tags.slice(0, 3).join(", ");
+}
+
+function summaryFromPersona(persona: PersonaOutput): PreviousPersonaSummary {
+  return {
+    name: persona.name,
+    archetype: persona.archetype,
+    occupation: persona.occupation,
+    ageBand: ageBandFromAge(persona.age),
+    personalityShape: personalityShape(persona),
+  };
+}
+
+function normalizeTokens(input: string): string[] {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 2);
+}
+
+function personalityVector(persona: PersonaOutput): number[] {
+  const p = persona.personality;
+  return [p.openness, p.conscientiousness, p.extraversion, p.agreeableness, p.neuroticism];
+}
+
+function euclideanDistance(a: number[], b: number[]): number {
+  return Math.sqrt(a.reduce((sum, val, idx) => sum + (val - (b[idx] ?? 0)) ** 2, 0));
+}
+
+function overlapRatio(aTokens: string[], bTokens: string[]): number {
+  if (aTokens.length === 0 || bTokens.length === 0) return 0;
+  const aSet = new Set(aTokens);
+  const bSet = new Set(bTokens);
+  let overlap = 0;
+  for (const token of aSet) {
+    if (bSet.has(token)) overlap += 1;
+  }
+  return overlap / Math.min(aSet.size, bSet.size);
+}
+
+function buildDifferentiationNudge(candidate: PersonaOutput, prev: PreviousPersonaSummary[]): string | null {
+  const archetypeTokens = normalizeTokens(candidate.archetype);
+  const occupationTokens = normalizeTokens(candidate.occupation);
+  const candidateVector = personalityVector(candidate);
+  const close = prev
+    .map((p) => {
+      const nameArchetypeOverlap = overlapRatio(archetypeTokens, normalizeTokens(p.archetype));
+      const occupationOverlap = overlapRatio(occupationTokens, normalizeTokens(p.occupation));
+      const pseudoVector = normalizeTokens(p.personalityShape).includes("balanced-profile")
+        ? [0.5, 0.5, 0.5, 0.5, 0.5]
+        : null;
+      const personalityDistance = pseudoVector ? euclideanDistance(candidateVector, pseudoVector) : 1;
+      const isTooClose =
+        (nameArchetypeOverlap > 0.6 && occupationOverlap > 0.6) ||
+        (nameArchetypeOverlap > 0.75 && personalityDistance < 0.45);
+      return { p, isTooClose };
+    })
+    .filter((x) => x.isTooClose)
+    .slice(0, 2);
+
+  if (close.length === 0) return null;
+  const refs = close
+    .map(
+      ({ p }) =>
+        `${p.name} (${p.archetype}, ${p.occupation}, ${p.ageBand}, ${p.personalityShape})`
+    )
+    .join("; ");
+  return `The previous draft is too similar to: ${refs}. Regenerate with a different occupation category, a different life-stage routine, and a clearly different Big Five profile shape while staying inside the same market context.`;
 }
 
 function buildSystemPrompt(persona: PersonaOutput): string {
@@ -210,6 +330,7 @@ If you're skeptical, be skeptical. If you don't understand something, say you do
 }
 
 function computeQualityScore(persona: PersonaOutput): number {
+  const repeatedNarrativePenalty = hasRepetitiveNarrative(persona.backstory, persona.dayInTheLife);
   let score = 0;
   const checks = [
     persona.name.length > 2,
@@ -218,21 +339,50 @@ function computeQualityScore(persona: PersonaOutput): number {
     persona.location.length > 3,
     persona.occupation.length > 3,
     persona.bio.length > 50,
-    persona.backstory.length > 150,
+    persona.backstory.length > 320,
+    countSentences(persona.backstory) >= 5,
     persona.goals.length >= 2,
     persona.frustrations.length >= 2,
     persona.behaviors.length >= 2,
     persona.archetype.length > 3,
     persona.representativeQuote.length > 10,
-    persona.dayInTheLife.length > 50,
+    persona.dayInTheLife.length > 220,
+    countParagraphs(persona.dayInTheLife) >= 2,
     persona.coreValues.length >= 3,
     persona.communicationSample.length > 20,
     // Personality traits not all clustered in the middle
     Math.abs(persona.personality.openness - 0.5) > 0.15 ||
       Math.abs(persona.personality.agreeableness - 0.5) > 0.15,
+    !repeatedNarrativePenalty,
   ];
   score = checks.filter(Boolean).length / checks.length;
   return Math.round(score * 100) / 100;
+}
+
+function countSentences(text: string): number {
+  return text
+    .split(/[.!?]+/)
+    .map((s) => s.trim())
+    .filter(Boolean).length;
+}
+
+function countParagraphs(text: string): number {
+  return text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean).length;
+}
+
+function hasRepetitiveNarrative(backstory: string, dayInTheLife: string): boolean {
+  const combined = `${backstory} ${dayInTheLife}`.toLowerCase();
+  const weakPhrases = [
+    "has always been passionate",
+    "works hard every day",
+    "in today's fast-paced world",
+    "a typical day starts",
+    "balances work and life",
+  ];
+  return weakPhrases.filter((phrase) => combined.includes(phrase)).length >= 2;
 }
 
 export async function generateAndSavePersonas(
@@ -263,115 +413,113 @@ export async function generateAndSavePersonas(
     : undefined;
   const sourceType = sourceTypeOverride ?? (knowledge.length > 0 ? "DATA_BASED" : "PROMPT_GENERATED");
 
-  const BATCH_SIZE = 3;
-  const previousPersonas: { name: string; archetype: string }[] = [];
+  const previousPersonas: PreviousPersonaSummary[] = [];
   const errors: string[] = [];
   let generated = 0;
 
-  for (let batchStart = 0; batchStart < count; batchStart += BATCH_SIZE) {
-    const batchIndices = Array.from(
-      { length: Math.min(BATCH_SIZE, count - batchStart) },
-      (_, k) => batchStart + k
-    );
+  for (let i = 0; i < count; i++) {
+    try {
+      const initialPrompt = buildPrompt({
+        index: i,
+        count,
+        domainContext,
+        ragContext,
+        templateConfig,
+        previousPersonas,
+      });
 
-    // Snapshot so all personas in this batch see the same prior list
-    const previousSnapshot = [...previousPersonas];
+      const { object: firstDraft } = await generateObject({
+        model: getModel(),
+        schema: personaSchema,
+        prompt: initialPrompt,
+      });
 
-    const results = await Promise.allSettled(
-      batchIndices.map(async (i) => {
-        const prompt = buildPrompt({
+      const differentiationNudge = buildDifferentiationNudge(firstDraft, previousPersonas);
+      let persona = firstDraft;
+
+      if (differentiationNudge) {
+        const retryPrompt = buildPrompt({
           index: i,
           count,
           domainContext,
           ragContext,
           templateConfig,
-          previousPersonas: previousSnapshot,
+          previousPersonas,
+          additionalDifferentiation: differentiationNudge,
         });
-
-        const { object: persona } = await generateObject({
+        const { object: retryDraft } = await generateObject({
           model: getModel(),
           schema: personaSchema,
-          prompt,
+          prompt: retryPrompt,
         });
+        persona = retryDraft;
+      }
 
-        const qualityScore = computeQualityScore(persona);
-        const llmSystemPrompt = buildSystemPrompt(persona);
+      const qualityScore = computeQualityScore(persona);
+      const llmSystemPrompt = buildSystemPrompt(persona);
 
-        const createdPersona = await prisma.persona.create({
-          data: {
-            personaGroupId: groupId,
-            name: persona.name,
-            age: persona.age,
-            gender: persona.gender,
-            location: persona.location,
-            occupation: persona.occupation,
-            bio: persona.bio,
-            backstory: persona.backstory,
-            goals: persona.goals,
-            frustrations: persona.frustrations,
-            behaviors: persona.behaviors,
-            sourceType,
-            qualityScore,
-            llmSystemPrompt,
-            archetype: persona.archetype,
-            representativeQuote: persona.representativeQuote,
-            techLiteracy: persona.techLiteracy,
-            domainExpertise: persona.domainExpertise,
-            dayInTheLife: persona.dayInTheLife,
-            coreValues: persona.coreValues,
-            communicationSample: persona.communicationSample,
-            personality: {
-              create: {
-                openness: persona.personality.openness,
-                conscientiousness: persona.personality.conscientiousness,
-                extraversion: persona.personality.extraversion,
-                agreeableness: persona.personality.agreeableness,
-                neuroticism: persona.personality.neuroticism,
-                communicationStyle: persona.personality.communicationStyle,
-                responseLengthTendency: persona.personality.responseLengthTendency,
-                decisionMakingStyle: persona.personality.decisionMakingStyle,
-                riskTolerance: persona.personality.riskTolerance,
-                trustPropensity: persona.personality.trustPropensity,
-                emotionalExpressiveness: persona.personality.emotionalExpressiveness,
-                directness: persona.personality.directness,
-                criticalFeedbackTendency: persona.personality.criticalFeedbackTendency,
-                vocabularyLevel: persona.personality.vocabularyLevel,
-                tangentTendency: persona.personality.tangentTendency,
-              },
+      const createdPersona = await prisma.persona.create({
+        data: {
+          personaGroupId: groupId,
+          name: persona.name,
+          age: persona.age,
+          gender: persona.gender,
+          location: persona.location,
+          occupation: persona.occupation,
+          bio: persona.bio,
+          backstory: persona.backstory,
+          goals: persona.goals,
+          frustrations: persona.frustrations,
+          behaviors: persona.behaviors,
+          sourceType,
+          qualityScore,
+          llmSystemPrompt,
+          archetype: persona.archetype,
+          representativeQuote: persona.representativeQuote,
+          techLiteracy: persona.techLiteracy,
+          domainExpertise: persona.domainExpertise,
+          dayInTheLife: persona.dayInTheLife,
+          coreValues: persona.coreValues,
+          communicationSample: persona.communicationSample,
+          personality: {
+            create: {
+              openness: persona.personality.openness,
+              conscientiousness: persona.personality.conscientiousness,
+              extraversion: persona.personality.extraversion,
+              agreeableness: persona.personality.agreeableness,
+              neuroticism: persona.personality.neuroticism,
+              communicationStyle: persona.personality.communicationStyle,
+              responseLengthTendency: persona.personality.responseLengthTendency,
+              decisionMakingStyle: persona.personality.decisionMakingStyle,
+              riskTolerance: persona.personality.riskTolerance,
+              trustPropensity: persona.personality.trustPropensity,
+              emotionalExpressiveness: persona.personality.emotionalExpressiveness,
+              directness: persona.personality.directness,
+              criticalFeedbackTendency: persona.personality.criticalFeedbackTendency,
+              vocabularyLevel: persona.personality.vocabularyLevel,
+              tangentTendency: persona.personality.tangentTendency,
             },
           },
+        },
+      });
+
+      if (nonAppReviewKnowledgeIds.length > 0) {
+        await prisma.personaDataSource.createMany({
+          data: nonAppReviewKnowledgeIds.map((dkId) => ({
+            personaId: createdPersona.id,
+            domainKnowledgeId: dkId,
+          })),
+          skipDuplicates: true,
         });
-
-        // Link persona to non–App-Store RAG sources only; App Store reviews are
-        // assigned per-persona after generation via assignAppStoreReviewsToPersonas.
-        if (nonAppReviewKnowledgeIds.length > 0) {
-          await prisma.personaDataSource.createMany({
-            data: nonAppReviewKnowledgeIds.map((dkId) => ({
-              personaId: createdPersona.id,
-              domainKnowledgeId: dkId,
-            })),
-            skipDuplicates: true,
-          });
-        }
-
-        // Notify frontend immediately when this persona completes
-        generated++;
-        onProgress?.(generated, count, persona.name);
-
-        return { name: persona.name, archetype: persona.archetype };
-      })
-    );
-
-    // Add completed personas to the list for the next batch's diversity prompting
-    for (const result of results) {
-      if (result.status === "fulfilled") {
-        previousPersonas.push(result.value);
-      } else {
-        const message =
-          result.reason instanceof Error ? result.reason.message : "Unknown error";
-        errors.push(`Persona ${batchStart + 1}: ${message}`);
-        console.error(`[generate-personas] Failed:`, result.reason);
       }
+
+      previousPersonas.push(summaryFromPersona(persona));
+      generated++;
+      onProgress?.(generated, count, persona.name);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      errors.push(`Persona ${i + 1}: ${message}`);
+      console.error(`[generate-personas] Failed:`, error);
     }
   }
 

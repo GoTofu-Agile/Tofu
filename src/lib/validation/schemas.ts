@@ -9,14 +9,18 @@ export const createPersonaGroupSchema = z.object({
 
 export type CreatePersonaGroupInput = z.infer<typeof createPersonaGroupSchema>;
 
+const personaGenderSchema = z
+  .enum(["Male", "Female", "male", "female"])
+  .transform((value) => (value.toLowerCase() === "female" ? "Female" : "Male"));
+
 export const personaSchema = z.object({
   name: z.string(),
   age: z.number().int().min(18).max(100),
-  gender: z.string(),
+  gender: personaGenderSchema,
   location: z.string(),
   occupation: z.string(),
   bio: z.string(),
-  backstory: z.string(),
+  backstory: z.string().min(200),
   goals: z.array(z.string()),
   frustrations: z.array(z.string()),
   behaviors: z.array(z.string()),
@@ -26,7 +30,7 @@ export const personaSchema = z.object({
   representativeQuote: z.string(), // a quote capturing their voice
   techLiteracy: z.number().int().min(1).max(5),
   domainExpertise: z.enum(["novice", "intermediate", "expert"]),
-  dayInTheLife: z.string(), // narrative scenario
+  dayInTheLife: z.string().min(160), // narrative scenario
   coreValues: z.array(z.string()), // ranked list of values
   communicationSample: z.string(), // example response showing voice
 
