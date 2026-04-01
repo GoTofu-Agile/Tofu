@@ -6,8 +6,12 @@ import { Users, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { SOURCE_LABELS } from "@/lib/constants/source-labels";
 import type { SourceType } from "@prisma/client";
-import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { safeInitial, useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { MotionStaggerCard } from "@/components/motion/page-motion";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
+import { pageEnterTransition } from "@/lib/motion/motion-system";
 
 export type PersonaGroupListItem = {
   id: string;
@@ -21,24 +25,24 @@ export function PersonaGroupsHeader() {
   const reduced = useReducedMotion();
 
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Personas</h2>
-        <p className="text-muted-foreground">Create persona groups for your studies.</p>
-      </div>
-      <motion.div
-        whileHover={reduced ? undefined : { scale: 1.05 }}
-        whileTap={reduced ? undefined : { scale: 0.97 }}
-      >
-        <Link
-          href="/personas/new"
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 h-9 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+    <PageHeader
+      title="Personas"
+      description="Create persona groups for your studies."
+      actions={
+        <motion.div
+          whileHover={reduced ? undefined : { scale: 1.03 }}
+          whileTap={reduced ? undefined : { scale: 0.98 }}
         >
-          <Plus className="h-4 w-4" />
-          Create Personas
-        </Link>
-      </motion.div>
-    </div>
+          <Link
+            href="/personas/new"
+            className={buttonVariants({ variant: "default", className: "gap-1.5 px-4" })}
+          >
+            <Plus className="h-4 w-4" />
+            Create Personas
+          </Link>
+        </motion.div>
+      }
+    />
   );
 }
 
@@ -48,37 +52,28 @@ export function PersonaGroupsList({ items }: { items: PersonaGroupListItem[] }) 
   if (items.length === 0) {
     return (
       <motion.div
-        initial={reduced ? false : { opacity: 0, y: 16 }}
+        initial={safeInitial({ opacity: 0, y: 12 }, reduced)}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-lg border border-dashed p-12 text-center"
+        transition={pageEnterTransition(reduced)}
       >
-        <motion.div
-          animate={reduced ? undefined : { y: [0, -6, 0] }}
-          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+        <EmptyState
+          icon={Users}
+          title="No persona groups yet"
+          description='Start with one audience-focused group (for example: "SMB founders evaluating analytics tools"). Tip: adding Product Context in Settings improves persona quality.'
         >
-          <Users className="mx-auto h-10 w-10 text-muted-foreground/50" />
-        </motion.div>
-        <h3 className="mt-4 text-lg font-medium">No persona groups yet</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Start with one audience-focused group (for example: &ldquo;SMB founders evaluating analytics
-          tools&rdquo;).
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Tip: adding Product Context in Settings improves persona quality.
-        </p>
-        <motion.div
-          className="mt-4 inline-block"
-          whileHover={reduced ? undefined : { scale: 1.03 }}
-          whileTap={reduced ? undefined : { scale: 0.98 }}
-        >
-          <Link
-            href="/personas/new"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 h-9 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+          <motion.div
+            whileHover={reduced ? undefined : { scale: 1.02 }}
+            whileTap={reduced ? undefined : { scale: 0.98 }}
           >
-            <Plus className="h-4 w-4" />
-            Create persona group
-          </Link>
-        </motion.div>
+            <Link
+              href="/personas/new"
+              className={buttonVariants({ variant: "default", className: "gap-1.5" })}
+            >
+              <Plus className="h-4 w-4" />
+              Create persona group
+            </Link>
+          </motion.div>
+        </EmptyState>
       </motion.div>
     );
   }

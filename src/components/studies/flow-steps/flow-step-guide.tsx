@@ -24,6 +24,7 @@ import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 import { updateStudyGuide } from "@/app/(dashboard)/studies/actions";
 import { readNDJSONStream } from "@/lib/streaming/ndjson";
 import { SetupPreviewCard } from "../setup-preview-card";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface GuideQuestion {
   index: number;
@@ -761,17 +762,15 @@ export function FlowStepGuide({
           <motion.div
             initial={reduced ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="rounded-xl border border-dashed p-8 text-center"
+            className="w-full"
           >
-            <motion.div
-              animate={reduced ? undefined : { y: [0, -4, 0] }}
-              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-            >
-              <Sparkles className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
-            </motion.div>
-            <p className="text-sm text-muted-foreground">
-              No questions yet. Generate from your objective or write your own.
-            </p>
+            <EmptyState
+              variant="compact"
+              icon={Sparkles}
+              title="No questions yet"
+              description="Generate from your objective or add your own questions below."
+              className="rounded-xl"
+            />
           </motion.div>
         )}
       </div>

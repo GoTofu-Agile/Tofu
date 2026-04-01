@@ -1,6 +1,7 @@
 import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { getStudiesForOrg } from "@/lib/db/queries/studies";
 import { StudiesList, StudiesHeader } from "@/components/studies/studies-list";
+import { MotionPageEnter } from "@/components/motion/page-motion";
 
 export default async function StudiesPage() {
   const { activeOrgId } = await requireAuthWithActiveOrg();
@@ -8,9 +9,9 @@ export default async function StudiesPage() {
   const studies = await getStudiesForOrg(activeOrgId);
 
   return (
-    <div className="space-y-6">
+    <MotionPageEnter className="space-y-6">
       <StudiesHeader />
       <StudiesList studies={studies} />
-    </div>
+    </MotionPageEnter>
   );
 }

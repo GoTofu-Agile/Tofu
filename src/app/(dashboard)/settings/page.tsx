@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getOrgProductContext } from "@/lib/db/queries/organizations";
 import { SettingsForm } from "./settings-form";
 import { OrgSetupChat } from "@/components/org/org-setup-chat";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function SettingsPage() {
   const { activeOrgId } = await requireAuthWithActiveOrg();
@@ -14,12 +15,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Settings</h2>
-        <p className="text-muted-foreground">
-          Manage your workspace settings.
-        </p>
-      </div>
+      <PageHeader title="Settings" description="Manage your workspace settings." />
 
       <SettingsForm
         orgId={activeOrgId}

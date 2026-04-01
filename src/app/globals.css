@@ -45,6 +45,32 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Motion (matches src/lib/motion/motion-system.ts) */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  /* Spacing scale — use with arbitrary values: p-[var(--space-4)] */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  /* Shell */
+  --page-padding-x: var(--space-8);
+  --page-padding-y: var(--space-6);
+  /* Elevation */
+  --shadow-soft: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-card: 0 4px 24px -8px rgb(0 0 0 / 0.1);
+  --shadow-lift: 0 12px 40px -12px rgb(0 0 0 / 0.14);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
 }
 
 :root {
@@ -80,6 +106,10 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --success: oklch(0.52 0.14 145);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.7 0.14 85);
+  --warning-foreground: oklch(0.22 0.04 85);
 }
 
 .dark {
@@ -114,6 +144,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --success: oklch(0.62 0.16 150);
+  --success-foreground: oklch(0.12 0.02 150);
+  --warning: oklch(0.78 0.12 90);
+  --warning-foreground: oklch(0.2 0.04 90);
 }
 
 @layer base {
@@ -125,6 +159,43 @@
   }
   html {
     @apply scroll-smooth font-sans;
+  }
+}
+
+/* ── Design system utilities (typography + surfaces) ── */
+@layer components {
+  .ds-page-title {
+    @apply text-2xl font-semibold tracking-tight text-foreground sm:text-3xl;
+  }
+  .ds-page-description {
+    @apply text-[15px] leading-relaxed text-muted-foreground;
+  }
+  .ds-section-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+  .ds-skeleton-shimmer {
+    @apply relative overflow-hidden rounded-md bg-muted;
+  }
+  .ds-skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(1 0 0 / 0.12),
+      transparent
+    );
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+  .dark .ds-skeleton-shimmer::after {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(1 0 0 / 0.06),
+      transparent
+    );
   }
 }
 
@@ -299,6 +370,9 @@
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
+  .ds-skeleton-shimmer::after {
+    animation: none !important;
+  }
   .animate-fade-in-up,
   .animate-scale-in,
   .animate-pulse-glow,

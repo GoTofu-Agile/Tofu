@@ -145,3 +145,13 @@ export async function getPersonaCount(groupId: string) {
     where: { personaGroupId: groupId, isActive: true },
   });
 }
+
+/** All active personas belonging to any group in the organization (for progression / tiers). */
+export async function countPersonasForOrganization(organizationId: string) {
+  return prisma.persona.count({
+    where: {
+      isActive: true,
+      personaGroup: { organizationId },
+    },
+  });
+}

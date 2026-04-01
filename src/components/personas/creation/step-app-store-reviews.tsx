@@ -59,6 +59,7 @@ interface StepAppStoreReviewsProps {
   initialText?: string;
   personaCount: number;
   onPersonaCountChange: (count: number) => void;
+  maxPersonas?: number;
   audienceMappingStatus: AudienceMappingUiStatus;
   audienceMappedApps: AppStoreAudienceMappedApp[] | null;
   audienceMappingError: string | null;
@@ -75,6 +76,7 @@ export function StepAppStoreReviews({
   initialText,
   personaCount,
   onPersonaCountChange,
+  maxPersonas = 100,
   audienceMappingStatus,
   audienceMappedApps,
   audienceMappingError,
@@ -196,14 +198,14 @@ export function StepAppStoreReviews({
         <input
           type="range"
           min={1}
-          max={100}
-          value={personaCount}
+          max={maxPersonas}
+          value={Math.min(personaCount, maxPersonas)}
           onChange={(e) => onPersonaCountChange(Number(e.target.value))}
           className="w-full accent-primary"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>1</span>
-          <span>100</span>
+          <span>{maxPersonas}</span>
         </div>
       </div>
 

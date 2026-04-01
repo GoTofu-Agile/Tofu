@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Check, Users, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
 
 interface PersonaGroup {
   id: string;
@@ -37,11 +40,17 @@ export function StepAudience({ groups, selected, onSelect, onNext, onBack }: Ste
       </div>
 
       {groups.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-8 text-center">
-          <Users className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">No persona groups yet.</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Create personas first, then come back to set up a study.</p>
-        </div>
+        <EmptyState
+          variant="compact"
+          icon={Users}
+          title="No persona groups yet"
+          description="Create personas first, then return to select groups for this study."
+          className="rounded-xl"
+        >
+          <Link href="/personas/new" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Create personas
+          </Link>
+        </EmptyState>
       ) : (
         <div className="space-y-2">
           {groups.map((g) => {

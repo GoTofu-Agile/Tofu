@@ -13,6 +13,8 @@ interface StepManualProps {
   personaCount: number;
   onPersonaCountChange: (count: number) => void;
   loading?: boolean;
+  /** Workspace batch cap (default 100). */
+  maxPersonas?: number;
 }
 
 export function StepManual({
@@ -20,6 +22,7 @@ export function StepManual({
   personaCount,
   onPersonaCountChange,
   loading = false,
+  maxPersonas = 100,
 }: StepManualProps) {
   const [groupName, setGroupName] = useState("");
   const [targetUserRole, setTargetUserRole] = useState("");
@@ -106,7 +109,7 @@ export function StepManual({
         </div>
       </div>
 
-      {/* Persona count + full-width Continue (max 100, same cap as App Store Reviews) */}
+      {/* Persona count + full-width Continue */}
       <div className="space-y-2">
         <Label>
           Number of Personas: <span className="font-semibold">{personaCount}</span>
@@ -114,15 +117,15 @@ export function StepManual({
         <input
           type="range"
           min={1}
-          max={100}
-          value={personaCount}
+          max={maxPersonas}
+          value={Math.min(personaCount, maxPersonas)}
           onChange={(e) => onPersonaCountChange(Number(e.target.value))}
           disabled={loading}
           className="w-full accent-primary"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>1</span>
-          <span>100</span>
+          <span>{maxPersonas}</span>
         </div>
       </div>
 

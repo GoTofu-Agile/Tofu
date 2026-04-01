@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { triggerInsights } from "@/app/(dashboard)/studies/actions";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Theme {
   name: string;
@@ -117,13 +118,12 @@ export function AnalysisWorkspace({
   // No completed sessions yet
   if (!hasCompletedSessions) {
     return (
-      <div className="rounded-xl border border-dashed p-8 text-center">
-        <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/30" />
-        <h3 className="mt-3 text-sm font-medium">No interviews completed yet</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Complete some interviews first, then come back to analyze the results.
-        </p>
-      </div>
+      <EmptyState
+        variant="compact"
+        icon={Sparkles}
+        title="No interviews completed yet"
+        description="Complete some interviews first, then come back to analyze the results."
+      />
     );
   }
 

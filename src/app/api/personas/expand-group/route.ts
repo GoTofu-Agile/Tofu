@@ -5,10 +5,14 @@ import { getUser } from "@/lib/db/queries/users";
 import { getPersonaGroup } from "@/lib/db/queries/personas";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { generateAndSavePersonas } from "@/lib/ai/generate-personas";
+import {
+  assertPersonaGenerationAllowed,
+  getPersonaGenerationGuardForGroup,
+} from "@/lib/personas/persona-generation-guard";
 
 const requestSchema = z.object({
   groupId: z.string().min(1),
-  count: z.number().int().min(1).max(20).default(5),
+  count: z.number().int().min(1).max(100).default(5),
 });
 
 export async function POST(request: NextRequest) {
@@ -41,11 +45,27 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Access denied" }, { status: 403 });
   }
 
+  const guard = await getPersonaGenerationGuardForGroup(body.groupId);
+  if (!guard) {
+    return Response.json({ error: "Group not found" }, { status: 404 });
+  }
+
+  try {
+    assertPersonaGenerationAllowed({
+      guard,
+      requestedCount: body.count,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Invalid request";
+    return Response.json({ error: message }, { status: 400 });
+  }
+
   try {
     const result = await generateAndSavePersonas({
       groupId: body.groupId,
       count: body.count,
       domainContext: group.domainContext ?? undefined,
+      qualityTier: guard.tier,
     });
 
     return Response.json({

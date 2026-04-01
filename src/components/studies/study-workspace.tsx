@@ -15,7 +15,8 @@ import {
   Check,
   Users,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { StudyLifecycleStepper, type LifecycleStage } from "./study-lifecycle-stepper";
 import { StudyNextAction } from "./study-next-action";
@@ -238,15 +239,17 @@ export function StudyWorkspace({
               Persona Groups
             </label>
             {availableGroups.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-4 text-center">
-                <Users className="mx-auto h-5 w-5 text-muted-foreground/30" />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  No persona groups yet.{" "}
-                  <Link href="/personas/new" className="underline">
-                    Create some first
-                  </Link>
-                </p>
-              </div>
+              <EmptyState
+                variant="compact"
+                icon={Users}
+                title="No persona groups yet"
+                description="Create a persona group first, then select it for this study."
+                className="rounded-xl"
+              >
+                <Link href="/personas/new" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  Create personas
+                </Link>
+              </EmptyState>
             ) : (
               <div className="space-y-1.5">
                 {availableGroups.map((g) => {
@@ -415,12 +418,13 @@ export function StudyWorkspace({
         </div>
 
         {!hasCompletedSessions ? (
-          <div className="rounded-xl border border-dashed p-6 text-center opacity-40">
-            <Sparkles className="mx-auto h-6 w-6 text-muted-foreground/30" />
-            <p className="mt-2 text-sm text-muted-foreground">
-              Complete interviews to unlock AI-powered analysis
-            </p>
-          </div>
+          <EmptyState
+            variant="compact"
+            icon={Sparkles}
+            title="Analysis locked"
+            description="Complete interviews to unlock AI-powered analysis."
+            className="rounded-xl opacity-90"
+          />
         ) : (
           <AnalysisWorkspace
             studyId={studyId}

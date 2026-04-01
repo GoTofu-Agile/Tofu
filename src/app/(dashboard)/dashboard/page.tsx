@@ -103,13 +103,11 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       <MotionStaggerSection index={0} className="space-y-1">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          {orgDisplayName}
-        </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">
+        <p className="ds-section-label tracking-widest">{orgDisplayName}</p>
+        <h1 className="ds-page-title mt-1">
           {getGreeting()}, {user.name?.split(" ")[0] || "there"}
         </h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+        <p className="ds-page-description mt-2 max-w-2xl">
           {isFirstTime
             ? "Start here: define context, create personas, then run your first study."
             : "Track progress, resume work, and move to your next insight faster."}

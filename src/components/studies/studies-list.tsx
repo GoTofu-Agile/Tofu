@@ -2,10 +2,15 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ClipboardList, Plus, MessageSquare, CheckCircle2, Clock, Sparkles } from "lucide-react";
+import { ClipboardList, Plus, MessageSquare, CheckCircle2, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
+import { useReducedMotion, safeInitial } from "@/lib/hooks/use-reduced-motion";
 import { cn } from "@/lib/utils";
+import { MotionStaggerCard } from "@/components/motion/page-motion";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
+import { pageEnterTransition } from "@/lib/motion/motion-system";
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -50,26 +55,19 @@ export function StudiesList({ studies }: StudiesListProps) {
   if (studies.length === 0) {
     return (
       <motion.div
-        initial={reduced ? false : { opacity: 0, y: 16 }}
+        initial={safeInitial({ opacity: 0, y: 12 }, reduced)}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-lg border border-dashed p-12 text-center"
+        transition={pageEnterTransition(reduced)}
       >
-        <motion.div
-          animate={reduced ? undefined : { y: [0, -6, 0] }}
-          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+        <EmptyState
+          icon={ClipboardList}
+          title="No studies yet"
+          description="Create a study to generate a guide, run interviews, and get an insights report."
         >
-          <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground/50" />
-        </motion.div>
-        <h3 className="mt-4 text-lg font-medium">No studies yet</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Create a study to generate a guide, run interviews, and get an insights report.
-        </p>
-        <Link
-          href="/studies/new"
-          className="mt-4 inline-flex items-center rounded-lg border px-3 h-9 text-sm font-medium hover:bg-muted transition-colors"
-        >
-          Create your first study
-        </Link>
+          <Link href="/studies/new" className={buttonVariants({ variant: "outline" })}>
+            Create your first study
+          </Link>
+        </EmptyState>
       </motion.div>
     );
   }
@@ -82,13 +80,7 @@ export function StudiesList({ studies }: StudiesListProps) {
         const progressPct = totalSessions > 0 ? (study.completedCount / totalSessions) * 100 : 0;
 
         return (
-          <motion.div
-            key={study.id}
-            initial={reduced ? false : { opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={reduced ? { duration: 0 } : { delay: i * 0.06, type: "spring", stiffness: 300, damping: 25 }}
-            whileHover={reduced ? undefined : { y: -4, scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 25 } }}
-          >
+          <MotionStaggerCard key={study.id} index={i}>
             <Link
               href={`/studies/${study.id}`}
               className={cn(
@@ -152,7 +144,7 @@ export function StudiesList({ studies }: StudiesListProps) {
                 </div>
               )}
             </Link>
-          </motion.div>
+          </MotionStaggerCard>
         );
       })}
     </div>
@@ -164,25 +156,23 @@ export function StudiesHeader() {
   const reduced = useReducedMotion();
 
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Studies</h2>
-        <p className="text-muted-foreground">
-          Run interview studies with your personas and turn sessions into insights.
-        </p>
-      </div>
-      <motion.div
-        whileHover={reduced ? undefined : { scale: 1.05 }}
-        whileTap={reduced ? undefined : { scale: 0.97 }}
-      >
-        <Link
-          href="/studies/new"
-          className="inline-flex items-center rounded-lg bg-primary px-3 h-9 text-sm font-medium text-primary-foreground hover:bg-primary/80 transition-colors gap-1.5"
+    <PageHeader
+      title="Studies"
+      description="Run interview studies with your personas and turn sessions into insights."
+      actions={
+        <motion.div
+          whileHover={reduced ? undefined : { scale: 1.03 }}
+          whileTap={reduced ? undefined : { scale: 0.98 }}
         >
-          <Plus className="h-4 w-4" />
-          New Study
-        </Link>
-      </motion.div>
-    </div>
+          <Link
+            href="/studies/new"
+            className={buttonVariants({ variant: "default", className: "gap-1.5" })}
+          >
+            <Plus className="h-4 w-4" />
+            New Study
+          </Link>
+        </motion.div>
+      }
+    />
   );
 }

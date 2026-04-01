@@ -5,9 +5,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { buttonVariants } from "@/components/ui/button";
-
-const springTap = { type: "spring" as const, stiffness: 520, damping: 32 };
-const springHover = { type: "spring" as const, stiffness: 380, damping: 28 };
+import { MOTION_DURATION_S, MOTION_EASE, MOTION_SPRING } from "@/lib/motion/motion-system";
 
 /** Subtitle line: “Analyzing” with pulsing dots (respects reduced motion). */
 export function PulsingDots({
@@ -79,7 +77,7 @@ export function MotionPersonaSubmitButton({
           : { y: -2, boxShadow: "0 10px 28px -8px rgba(0,0,0,0.22)" }
       }
       whileTap={reduced || disabled ? undefined : { scale: 0.97 }}
-      transition={springTap}
+      transition={MOTION_SPRING.tap}
     >
       {children}
     </motion.button>
@@ -113,7 +111,7 @@ export function MotionGhostTextButton({
       )}
       whileHover={reduced || disabled ? undefined : { y: -1 }}
       whileTap={reduced || disabled ? undefined : { scale: 0.97 }}
-      transition={springHover}
+      transition={MOTION_SPRING.hover}
     >
       {children}
     </motion.button>
@@ -128,9 +126,7 @@ export const personaTabContent = {
   exit: (reduced: boolean) =>
     reduced ? undefined : { opacity: 0, x: -10 },
   transition: (reduced: boolean) =>
-    reduced
-      ? { duration: 0 }
-      : { type: "spring" as const, stiffness: 320, damping: 30 },
+    reduced ? { duration: 0 } : MOTION_SPRING.tab,
 };
 
 /** Phase blocks (pick → form → progress): fade + small rise. */
@@ -138,5 +134,7 @@ export const personaPhase = {
   initial: (reduced: boolean) => (reduced ? false : { opacity: 0, y: 10 }),
   animate: { opacity: 1, y: 0 },
   transition: (reduced: boolean) =>
-    reduced ? { duration: 0 } : { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] as const },
+    reduced
+      ? { duration: 0 }
+      : { duration: MOTION_DURATION_S.fast, ease: MOTION_EASE.standard },
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -35,6 +35,33 @@ import type {
 import type { AudienceMappingUiStatus } from "./audience-app-mapping-preview";
 import { ALL_RESEARCH_SOURCE_IDS, buildQueriesFromContext } from "@/lib/research/build-queries";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { DEFAULT_PERSONA_PROMPT } from "@/lib/personas/quick-starters";
+import {
+  getNewlyReachedMilestones,
+  loadPersonaEngagement,
+  milestoneLabel,
+  recordPersonasGenerated,
+} from "@/lib/personas/persona-engagement";
+import { PersonaProgressTracker } from "@/components/personas/persona-progress-tracker";
+import { PersonaQuickStarters } from "@/components/personas/persona-quick-starters";
+import { PersonaPromptHistory } from "@/components/personas/persona-prompt-history";
+import type { PersonaCreationContext } from "@/lib/personas/persona-creation-context";
+import { DEEP_SEARCH_UNLOCK_AT_ORG_PERSONAS } from "@/lib/personas/persona-creation-policy";
+
+async function readGenerateApiError(response: Response): Promise<string> {
+  try {
+    const data = (await response.json()) as { error?: unknown };
+    if (typeof data?.error === "string") return data.error;
+  } catch {
+    // ignore
+  }
+  return "Generation failed";
+}
+
+async function ensureGenerateResponseOk(response: Response): Promise<void> {
+  if (response.ok) return;
+  throw new Error(await readGenerateApiError(response));
+}
 
 type Phase = "pick" | "form" | "progress";
 
@@ -48,6 +75,10 @@ export interface OrgContext {
 
 interface UnifiedCreationFlowProps {
   orgContext?: OrgContext;
+  /** URL `prefill` — jump-starts the main brief */
+  initialPrompt?: string;
+  /** Server: workspace progression (quality tier, batch cap, deep-search gate). */
+  initialCreationContext?: PersonaCreationContext;
 }
 
 // Methods that skip the sources/research step
@@ -302,7 +333,11 @@ function buildWorkflowSteps(params: {
   ];
 }
 
-export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
+export function UnifiedCreationFlow({
+  orgContext,
+  initialPrompt,
+  initialCreationContext,
+}: UnifiedCreationFlowProps) {
   const router = useRouter();
   const reduced = useReducedMotion();
 
@@ -337,7 +372,46 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   const [chatPipelineSteps, setChatPipelineSteps] = useState<ChatPipelineStepView[] | null>(null);
 
   // Chat entry → describe step
-  const [promptText, setPromptText] = useState("");
+  const [promptText, setPromptText] = useState(
+    () => initialPrompt?.trim() || DEFAULT_PERSONA_PROMPT
+  );
+  useEffect(() => {
+    const t = initialPrompt?.trim();
+    if (t) setPromptText(t);
+  }, [initialPrompt]);
+
+  const [creationContext, setCreationContext] = useState<PersonaCreationContext | null>(
+    initialCreationContext ?? null
+  );
+  useEffect(() => {
+    setCreationContext(initialCreationContext ?? null);
+  }, [initialCreationContext]);
+
+  useEffect(() => {
+    if (initialCreationContext) return;
+    let cancelled = false;
+    void fetch("/api/personas/creation-context")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: PersonaCreationContext | null) => {
+        if (!cancelled && data) setCreationContext(data);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialCreationContext]);
+
+  useEffect(() => {
+    if (!creationContext) return;
+    setPersonaCount((c) => Math.min(c, creationContext.maxBatchPersonas));
+  }, [creationContext]);
+
+  const methodLockReason = useMemo(() => {
+    if (!creationContext || creationContext.deepSearchUnlocked) return undefined;
+    return {
+      "deep-search": `Unlocks after ${DEEP_SEARCH_UNLOCK_AT_ORG_PERSONAS} personas in this workspace (${creationContext.personasUntilDeepSearch} to go).`,
+    } as Partial<Record<CreationMethod, string>>;
+  }, [creationContext]);
+
   const [initialDescribeText, setInitialDescribeText] = useState<string | null>(null);
   const [deepSearchFreetext, setDeepSearchFreetext] = useState("");
   const [companyUrl, setCompanyUrl] = useState("");
@@ -383,6 +457,12 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   // --- Method selection ---
 
   function handleMethodSelect(m: CreationMethod) {
+    if (m === "deep-search" && creationContext && !creationContext.deepSearchUnlocked) {
+      toast.message(
+        `Deep research unlocks after ${DEEP_SEARCH_UNLOCK_AT_ORG_PERSONAS} personas in this workspace (${creationContext.personasUntilDeepSearch} to go).`
+      );
+      return;
+    }
     setMethod(m);
     setPhase("form");
     if (m === "deep-search") {
@@ -397,7 +477,8 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
       setCvResumeError(null);
     }
     if (m === "manual") {
-      setPersonaCount((c) => Math.min(100, Math.max(1, c)));
+      const cap = creationContext?.maxBatchPersonas ?? 100;
+      setPersonaCount((c) => Math.min(cap, Math.max(1, c)));
     }
     if (m === "ai-generate") {
       resetAppStoreAudienceMappingUi();
@@ -428,12 +509,18 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
 
   // --- Chat pipeline (All Data Sources / scoped sources) ---
   async function handleChatPipelineCreate(text: string, dataSourceId: string) {
+    const source = (dataSourceId || "all") as ChatDataSourceId;
+    if (source === "deep-search" && creationContext && !creationContext.deepSearchUnlocked) {
+      toast.message(
+        `Deep research unlocks after ${DEEP_SEARCH_UNLOCK_AT_ORG_PERSONAS} personas in this workspace (${creationContext.personasUntilDeepSearch} to go).`
+      );
+      return;
+    }
+
     setStarting(true);
     setGenerationIssue(null);
     setGenCompleted(0);
     setGenCurrentName("");
-
-    const source = (dataSourceId || "all") as ChatDataSourceId;
     const displayPlan = buildChatDisplayPipeline(source, text, orgContext, Date.now());
     setChatPipelineSteps(
       displayPlan.map((s) => ({ id: s.id, label: s.label, status: "pending" as const }))
@@ -563,9 +650,10 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
           count: personaCount,
           domainContext,
           sourceTypeOverride,
+          usedDeepResearchPipeline: source === "deep-search",
         }),
       });
-      if (!response.ok) throw new Error("Generation failed");
+      await ensureGenerateResponseOk(response);
       await streamGenerationProgress(response, gId, {
         onGenerationUiComplete: () => {
           if (genStep) setPipelineStatus(genStep.id, "done");
@@ -654,10 +742,11 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
           count: personaCount,
           domainContext,
           sourceTypeOverride: "DATA_BASED",
+          usedDeepResearchPipeline: false,
         }),
       });
 
-      if (!response.ok) throw new Error("Generation failed");
+      await ensureGenerateResponseOk(response);
       await streamGenerationProgress(response, gId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -798,10 +887,11 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
           count: personaCount,
           domainContext,
           sourceTypeOverride: "DATA_BASED",
+          usedDeepResearchPipeline: false,
         }),
       });
 
-      if (!response.ok) throw new Error("Generation failed");
+      await ensureGenerateResponseOk(response);
       await streamGenerationProgress(response, gId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -930,10 +1020,11 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
           count: personaCount,
           domainContext: extracted.domainContext,
           sourceTypeOverride,
+          usedDeepResearchPipeline: false,
         }),
       });
 
-      if (!response.ok) throw new Error("Generation failed");
+      await ensureGenerateResponseOk(response);
       await streamGenerationProgress(response, gId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -1001,6 +1092,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
     setGenTotal(personaCount);
 
     const sourceTypeOverride = method ? SOURCE_TYPE_MAP[method] : undefined;
+    const usedDeepResearchPipeline = method === "deep-search";
 
     try {
       const response = await fetch("/api/personas/generate", {
@@ -1011,10 +1103,11 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
           count: personaCount,
           domainContext: extracted.domainContext,
           sourceTypeOverride,
+          usedDeepResearchPipeline,
         }),
       });
 
-      if (!response.ok) throw new Error("Generation failed");
+      await ensureGenerateResponseOk(response);
       await streamGenerationProgress(response, gId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -1084,8 +1177,15 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
               toast.success(`Generated ${generated} personas!`);
             }
 
+            const beforeLifetime = loadPersonaEngagement().lifetimeGenerated;
+            recordPersonasGenerated(generated, promptText.trim() || undefined);
+            const afterLifetime = loadPersonaEngagement().lifetimeGenerated;
+            for (const m of getNewlyReachedMilestones(beforeLifetime, afterLifetime)) {
+              toast.success(`Milestone: ${milestoneLabel(m)}`);
+            }
+
             setTimeout(() => {
-              router.push(`/personas/${gId}`);
+              router.push(`/personas/${gId}?welcome=1`);
             }, 1800);
           } else if (event.type === "error") {
             setStarting(false);
@@ -1099,6 +1199,8 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   }
 
   // --- Render ---
+  const maxBatchUi = creationContext?.maxBatchPersonas ?? 100;
+
   const headerTitle =
     phase === "progress"
       ? "Creating Your Personas"
@@ -1135,7 +1237,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                   : method === "templates"
                     ? "Pick a starting audience template and we’ll generate personas for you."
                     : "Choose a creation method."
-        : "Describe your audience or choose a creation method.";
+        : "Brief is pre-filled — tap a starter or edit, then generate. Advanced paths in other tabs.";
 
   return (
     <div className="mx-auto max-w-3xl px-1 sm:px-0">
@@ -1179,15 +1281,27 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
             exit={reduced ? undefined : { opacity: 0, x: -16 }}
             transition={{ duration: reduced ? 0 : 0.28, ease: [0.25, 0.1, 0.25, 1] }}
           >
+            <div className="mb-6 space-y-4">
+              <PersonaProgressTracker
+                variant="compact"
+                workspacePersonaCount={creationContext?.organizationPersonaCount}
+                workspaceTierLabel={creationContext?.qualityTierLabel}
+              />
+              <PersonaQuickStarters onSelect={(p) => setPromptText(p)} />
+              <PersonaPromptHistory />
+            </div>
             <PersonaInputWizard
               orgContextHint={Boolean(orgContext)}
               onSelectMethod={handleMethodSelect}
+              methodLockReason={methodLockReason}
               chatBar={
                 <PersonaChatBar
                   value={promptText}
                   onChange={setPromptText}
                   personaCount={personaCount}
                   onPersonaCountChange={setPersonaCount}
+                  maxPersonaBatch={maxBatchUi}
+                  deepSearchLocked={creationContext ? !creationContext.deepSearchUnlocked : false}
                   loading={starting || extracting}
                   onSubmit={(value, dataSourceId) => {
                     setPromptText(value);
@@ -1212,6 +1326,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
             <StepTemplates
               personaCount={personaCount}
               onPersonaCountChange={setPersonaCount}
+              maxPersonas={maxBatchUi}
               loading={starting}
               onContinue={async (templateId) => {
                 setStarting(true);
@@ -1274,10 +1389,11 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                       domainContext: domainContext ?? result.domainContext,
                       sourceTypeOverride: "PROMPT_GENERATED",
                       templateId,
+                      usedDeepResearchPipeline: false,
                     }),
                   });
 
-                  if (!response.ok) throw new Error("Generation failed");
+                  await ensureGenerateResponseOk(response);
                   await streamGenerationProgress(response, gId);
                 } catch (error) {
                   toast.error(
@@ -1308,6 +1424,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                 onPersonaCountChange={setPersonaCount}
                 includeSkeptics={includeSkeptics}
                 onIncludeSkepticsChange={setIncludeSkeptics}
+                maxPersonas={maxBatchUi}
               />
               <Button
                 type="button"
@@ -1349,6 +1466,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                 includeSkeptics={includeSkeptics}
                 onIncludeSkepticsChange={setIncludeSkeptics}
                 showResearchDepth={false}
+                maxPersonas={maxBatchUi}
               />
               <Button
                 type="button"
@@ -1390,6 +1508,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
                 includeSkeptics={includeSkeptics}
                 onIncludeSkepticsChange={setIncludeSkeptics}
                 showResearchDepth={false}
+                maxPersonas={maxBatchUi}
               />
               <Button
                 type="button"
@@ -1417,6 +1536,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
               onSubmit={(ctx) => generateOnlyFromExtracted(ctx)}
               personaCount={personaCount}
               onPersonaCountChange={setPersonaCount}
+              maxPersonas={maxBatchUi}
               loading={starting}
             />
           )}
@@ -1430,6 +1550,7 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
               initialText={initialDescribeText ?? undefined}
               personaCount={personaCount}
               onPersonaCountChange={setPersonaCount}
+              maxPersonas={maxBatchUi}
               audienceMappingStatus={audienceMappingStatus}
               audienceMappedApps={audienceMappedApps}
               audienceMappingError={audienceMappingError}
