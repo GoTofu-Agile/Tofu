@@ -18,7 +18,12 @@ export default async function DashboardLayout({
   try {
     authData = await requireAuthWithOrgs();
   } catch {
-    redirect("/login");
+    redirect(
+      "/login?message=" +
+        encodeURIComponent(
+          "Could not load your account. If you switched Supabase project, verify env vars and run database setup."
+        )
+    );
   }
 
   const { user, organizations } = authData;

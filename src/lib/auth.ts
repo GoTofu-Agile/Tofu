@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { getUser, upsertUser } from "@/lib/db/queries/users";
+import { getUser, getUserByEmail, upsertUser } from "@/lib/db/queries/users";
 import {
   getOrganizationsForUser,
   createPersonalWorkspace,
@@ -55,9 +55,14 @@ export async function requireAuth() {
     throw new Error("Not authenticated");
   }
 
-  // Read first, only upsert on first login
-  const dbUser = (await getUser(authUser.id)) ??
-    await upsertUser(authUser.id, authUser.email!, authUser.user_metadata?.name);
+  const email = authUser.email;
+  if (!email) throw new Error("Authenticated user has no email");
+
+  // Resolve by auth id first, then by email (for Supabase account migration), then upsert.
+  const dbUser =
+    (await getUser(authUser.id)) ??
+    (await getUserByEmail(email)) ??
+    (await upsertUser(authUser.id, email, authUser.user_metadata?.name));
 
   return dbUser;
 }
@@ -68,20 +73,22 @@ export async function requireAuthWithOrgs() {
     throw new Error("Not authenticated");
   }
 
-  // Read user + fetch orgs in parallel (avoid DB write on every request)
-  const [existingUser, organizations] = await Promise.all([
-    getUser(authUser.id),
-    getOrganizationsForUser(authUser.id),
-  ]);
+  const email = authUser.email;
+  if (!email) throw new Error("Authenticated user has no email");
 
-  // Only upsert if user doesn't exist yet (first login)
-  const dbUser = existingUser ??
-    await upsertUser(authUser.id, authUser.email!, authUser.user_metadata?.name);
+  // Resolve user robustly across Supabase project switches.
+  const dbUser =
+    (await getUser(authUser.id)) ??
+    (await getUserByEmail(email)) ??
+    (await upsertUser(authUser.id, email, authUser.user_metadata?.name));
+
+  // Fetch orgs for resolved app user id (not necessarily current auth id).
+  const organizations = await getOrganizationsForUser(dbUser.id);
 
   // Ensure personal workspace exists
   if (organizations.length === 0) {
     try {
-      await createPersonalWorkspace(authUser.id, authUser.email!);
+      await createPersonalWorkspace(dbUser.id, email);
     } catch (error) {
       if (
         !(error instanceof Error && error.message.includes("Unique constraint"))
@@ -90,7 +97,7 @@ export async function requireAuthWithOrgs() {
       }
     }
     // Re-fetch orgs after creating workspace
-    const updatedOrgs = await getOrganizationsForUser(authUser.id);
+    const updatedOrgs = await getOrganizationsForUser(dbUser.id);
     return { user: dbUser, organizations: updatedOrgs };
   }
 

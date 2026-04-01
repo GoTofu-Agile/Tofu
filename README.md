@@ -179,5 +179,26 @@ See [`VERCEL-SETUP.md`](VERCEL-SETUP.md) for full deployment details.
 1. **shadcn/ui v4 uses base-ui, NOT Radix** — no `asChild` prop. Using it won't error but will break rendering.
 2. **Port 3004**, not 3000 — configured in `package.json`.
 3. **Two `.env` files required** — `.env.local` (Next.js) + `.env` (Prisma). Both need `DATABASE_URL`.
+
+## Persona Evaluation Backend
+
+- Persona creation now sets `evaluationStatus = PENDING` and queues async evaluation via Inngest event `persona/evaluate.requested`.
+- Evaluation computes and stores:
+  - `trustScore`
+  - `uniquenessScore`
+  - `factualityScore`
+  - `consistencyScore`
+  - `realismScore`
+  - `verifiabilityScore`
+- APIs:
+  - `GET /api/personas/[personaId]`
+  - `GET /api/personas/[personaId]/evaluation`
+  - `POST /api/personas/[personaId]/evaluation/retry`
+
+### Required env vars
+
+- `INNGEST_EVENT_KEY` (for sending events from server runtime)
+- `INNGEST_SIGNING_KEY` (for `/api/inngest` verification)
+- `OPENAI_API_KEY` (or Anthropic/Google key depending on `LLM_PROVIDER`) for judge scoring + embeddings fallback path.
 4. **Prisma v5 on Node 20** — don't upgrade to v6 (requires Node 20.19+).
 5. **Transaction Pooler (Port 6543)** for production — Session Pooler (5432) fails on serverless. Use `?pgbouncer=true&connection_limit=10`.

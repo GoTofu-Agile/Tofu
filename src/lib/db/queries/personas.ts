@@ -60,6 +60,10 @@ export async function getPersonasForGroup(
     include: {
       personality: true,
       dataSources: appReviewDataSourcesInclude,
+      evaluations: {
+        orderBy: { evaluatedAt: "desc" },
+        take: 1,
+      },
     },
     orderBy: { createdAt: "asc" },
     skip: options?.skip,
@@ -82,6 +86,19 @@ export async function getPersonasForGroupList(groupId: string) {
       bio: true,
       representativeQuote: true,
       qualityScore: true,
+      authenticityScore: true,
+      authenticityBand: true,
+      evalSummary: true,
+      evaluationStatus: true,
+      evaluations: {
+        orderBy: { evaluatedAt: "desc" },
+        take: 1,
+        select: {
+          trustScore: true,
+          confidenceLabel: true,
+          summary: true,
+        },
+      },
       personality: {
         select: {
           openness: true,
@@ -107,6 +124,15 @@ export async function getPersona(personaId: string) {
     include: {
       personality: true,
       dataSources: appReviewDataSourcesInclude,
+      evaluations: {
+        orderBy: { evaluatedAt: "desc" },
+        take: 1,
+      },
+      claims: true,
+      similarityMatches: {
+        orderBy: { similarityScore: "desc" },
+        take: 5,
+      },
       personaGroup: {
         select: { id: true, name: true, organizationId: true },
       },

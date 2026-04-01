@@ -4,6 +4,9 @@ import { personaSchema, type PersonaOutput } from "@/lib/validation/schemas";
 import { prisma } from "@/lib/db/prisma";
 import type { PersonaTemplateConfig } from "@/lib/personas/templates";
 import { assignAppStoreReviewsToPersonas } from "@/lib/personas/assign-app-store-reviews";
+import { inngest } from "@/lib/inngest/client";
+import { scorePersonaAuthenticity } from "@/lib/evals/persona-authenticity";
+import { Prisma } from "@prisma/client";
 
 export interface GeneratePersonasParams {
   groupId: string;
@@ -17,7 +20,25 @@ export interface GeneratePersonasParams {
 export interface GeneratePersonasResult {
   generated: number;
   errors: string[];
+  evaluationsQueued: number;
+  authenticity: Array<{
+    personaId: string;
+    authenticity_score: number;
+    authenticity_band: "low" | "medium" | "high";
+  }>;
 }
+
+type UpbringingType = "urban" | "suburban" | "rural" | "immigrant" | "third-culture";
+type SocioEconomicBand =
+  | "working-class"
+  | "middle-class"
+  | "affluent"
+  | "financial-instability";
+type LifePathType =
+  | "career-pivot"
+  | "non-linear-education"
+  | "self-taught"
+  | "career-break";
 
 type PreviousPersonaSummary = {
   name: string;
@@ -25,6 +46,7 @@ type PreviousPersonaSummary = {
   occupation: string;
   ageBand: string;
   personalityShape: string;
+  signature: string;
 };
 
 function buildPrompt(params: {
@@ -34,6 +56,11 @@ function buildPrompt(params: {
   ragContext?: string;
   templateConfig?: PersonaTemplateConfig;
   previousPersonas: PreviousPersonaSummary[];
+  diversityPlan: {
+    upbringing: UpbringingType;
+    socioeconomic: SocioEconomicBand;
+    lifePath: LifePathType;
+  };
   additionalDifferentiation?: string;
 }): string {
   const {
@@ -43,6 +70,7 @@ function buildPrompt(params: {
     ragContext,
     templateConfig,
     previousPersonas,
+    diversityPlan,
     additionalDifferentiation,
   } = params;
 
@@ -58,7 +86,8 @@ CRITICAL RULES:
 - Never link demographics to personality stereotypically (age doesn't determine tech-savviness, gender doesn't determine communication style)
 - The backstory must reference specific life events, not generic descriptions
 - The representative quote must reveal the persona's unique communication style and voice
-- Core values should feel genuinely held, not generic platitudes`
+- Core values should feel genuinely held, not generic platitudes
+- FORBIDDEN CLICHES: never use "small village", "humble beginnings", "always had a passion", "from a young age", "dreamed of success"`
   );
 
   // Layer 2: Domain Context
@@ -124,6 +153,9 @@ CRITICAL RULES:
     "Avoid near-duplicates: each persona should differ in occupation category, life-stage routine, and relationship to the product.",
     "Create contrast in daily constraints (time pressure, family load, commute style, budget sensitivity, decision authority).",
     "Use distinct archetype wording and avoid adjective reuse from previous personas.",
+    `Required upbringing profile for this persona: ${diversityPlan.upbringing}.`,
+    `Required socioeconomic context: ${diversityPlan.socioeconomic}.`,
+    `Required life-path signal: ${diversityPlan.lifePath}.`,
   ];
 
   // Anti-sycophancy: ensure some personas are critical/skeptical
@@ -169,10 +201,12 @@ CRITICAL RULES:
 - gender: MUST be exactly "Male" or "Female" (no other values)
 - representativeQuote: A 1-2 sentence quote this persona would actually say, revealing their voice and perspective
 - backstory: 5-7 sentences, include at least two concrete life events and one turning point that shaped today's behavior
+- backstory MUST include specific city + country, first job/early work context, and one concrete trade-off (time/money/location)
 - dayInTheLife: Exactly 2 short paragraphs that describe routine, context, constraints, and trade-offs in a realistic day
 - communicationSample: Write a 2-3 sentence response to "What do you think about trying new technology?" in this persona's authentic voice
 - coreValues: 3-5 deeply held values, ranked by importance
 - Avoid generic filler such as "has always been passionate", "works hard every day", or repeated stock phrasing across personas
+- Writing style: neutral and observational, concise, information-dense, avoid inspirational storytelling tone
 - The personality traits should be COHERENT with the backstory and behaviors — a cautious person should have low riskTolerance, a blunt person should have high directness`
   );
 
@@ -203,12 +237,18 @@ function personalityShape(persona: PersonaOutput): string {
 }
 
 function summaryFromPersona(persona: PersonaOutput): PreviousPersonaSummary {
+  const signature = normalizeTokens(
+    `${persona.backstory} ${persona.dayInTheLife} ${persona.archetype} ${persona.occupation}`
+  )
+    .slice(0, 35)
+    .join(" ");
   return {
     name: persona.name,
     archetype: persona.archetype,
     occupation: persona.occupation,
     ageBand: ageBandFromAge(persona.age),
     personalityShape: personalityShape(persona),
+    signature,
   };
 }
 
@@ -385,6 +425,69 @@ function hasRepetitiveNarrative(backstory: string, dayInTheLife: string): boolea
   return weakPhrases.filter((phrase) => combined.includes(phrase)).length >= 2;
 }
 
+function buildBatchDiversityPlan(count: number) {
+  const upbringingPool: UpbringingType[] = [
+    "urban",
+    "suburban",
+    "immigrant",
+    "third-culture",
+    "urban",
+    "suburban",
+  ];
+  const maxRural = Math.max(1, Math.floor(count * 0.15));
+  for (let i = 0; i < maxRural; i++) upbringingPool.push("rural");
+
+  const socioeconomicPool: SocioEconomicBand[] = [
+    "working-class",
+    "middle-class",
+    "affluent",
+    "financial-instability",
+  ];
+  const lifePathPool: LifePathType[] = [
+    "career-pivot",
+    "non-linear-education",
+    "self-taught",
+    "career-break",
+  ];
+
+  return Array.from({ length: count }, (_, index) => ({
+    upbringing: upbringingPool[index % upbringingPool.length],
+    socioeconomic: socioeconomicPool[index % socioeconomicPool.length],
+    lifePath: lifePathPool[index % lifePathPool.length],
+  }));
+}
+
+function containsForbiddenTropes(text: string): boolean {
+  const normalized = text.toLowerCase();
+  const forbidden = [
+    "small village",
+    "humble beginnings",
+    "always had a passion",
+    "from a young age",
+    "dreamed of success",
+  ];
+  return forbidden.some((phrase) => normalized.includes(phrase));
+}
+
+function jaccard(a: string[], b: string[]) {
+  const sa = new Set(a);
+  const sb = new Set(b);
+  if (!sa.size || !sb.size) return 0;
+  let overlap = 0;
+  for (const token of sa) {
+    if (sb.has(token)) overlap += 1;
+  }
+  return overlap / new Set([...sa, ...sb]).size;
+}
+
+function isTooSimilarToBatch(candidate: PersonaOutput, previous: PreviousPersonaSummary[]) {
+  if (previous.length === 0) return false;
+  const candidateTokens = normalizeTokens(
+    `${candidate.backstory} ${candidate.dayInTheLife} ${candidate.archetype} ${candidate.occupation}`
+  );
+  return previous.some((entry) => jaccard(candidateTokens, normalizeTokens(entry.signature)) > 0.46);
+}
+
 export async function generateAndSavePersonas(
   params: GeneratePersonasParams
 ): Promise<GeneratePersonasResult> {
@@ -414,49 +517,59 @@ export async function generateAndSavePersonas(
   const sourceType = sourceTypeOverride ?? (knowledge.length > 0 ? "DATA_BASED" : "PROMPT_GENERATED");
 
   const previousPersonas: PreviousPersonaSummary[] = [];
+  const diversityPlan = buildBatchDiversityPlan(count);
   const errors: string[] = [];
   let generated = 0;
+  let evaluationsQueued = 0;
+  const authenticity: GeneratePersonasResult["authenticity"] = [];
 
   for (let i = 0; i < count; i++) {
     try {
-      const initialPrompt = buildPrompt({
-        index: i,
-        count,
-        domainContext,
-        ragContext,
-        templateConfig,
-        previousPersonas,
-      });
-
-      const { object: firstDraft } = await generateObject({
-        model: getModel(),
-        schema: personaSchema,
-        prompt: initialPrompt,
-      });
-
-      const differentiationNudge = buildDifferentiationNudge(firstDraft, previousPersonas);
-      let persona = firstDraft;
-
-      if (differentiationNudge) {
-        const retryPrompt = buildPrompt({
+      let persona: PersonaOutput | null = null;
+      const MAX_ATTEMPTS = 3;
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const prompt = buildPrompt({
           index: i,
           count,
           domainContext,
           ragContext,
           templateConfig,
           previousPersonas,
-          additionalDifferentiation: differentiationNudge,
+          diversityPlan: diversityPlan[i],
+          additionalDifferentiation:
+            attempt > 0
+              ? "Previous draft was too generic or too similar. Regenerate with a clearly different upbringing context, life events, and wording."
+              : undefined,
         });
-        const { object: retryDraft } = await generateObject({
+        const { object: draft } = await generateObject({
           model: getModel(),
           schema: personaSchema,
-          prompt: retryPrompt,
+          prompt,
         });
-        persona = retryDraft;
+        const tooGeneric = containsForbiddenTropes(`${draft.backstory} ${draft.dayInTheLife}`);
+        const tooSimilar = isTooSimilarToBatch(draft, previousPersonas);
+        const nudge = buildDifferentiationNudge(draft, previousPersonas);
+        if (!tooGeneric && !tooSimilar && !nudge) {
+          persona = draft;
+          break;
+        }
+        if (attempt === MAX_ATTEMPTS - 1) {
+          persona = draft;
+        }
+      }
+      if (!persona) {
+        throw new Error("Unable to generate non-repetitive persona after retries");
       }
 
       const qualityScore = computeQualityScore(persona);
       const llmSystemPrompt = buildSystemPrompt(persona);
+      const recentPersonas = await prisma.persona.findMany({
+        where: { personaGroupId: groupId, isActive: true },
+        select: { backstory: true, dayInTheLife: true, archetype: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      });
+      const authenticityEval = await scorePersonaAuthenticity(persona, recentPersonas);
 
       const createdPersona = await prisma.persona.create({
         data: {
@@ -473,6 +586,32 @@ export async function generateAndSavePersonas(
           behaviors: persona.behaviors,
           sourceType,
           qualityScore,
+          generatedContent: persona,
+          rawInput: {
+            domainContext: domainContext ?? null,
+            ragContextPresent: Boolean(ragContext),
+            templateId: templateConfig?.id ?? null,
+          },
+          normalizedText: [
+            persona.name,
+            persona.archetype,
+            persona.bio,
+            persona.backstory,
+            persona.dayInTheLife,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase(),
+          authenticityScore: authenticityEval.authenticity_score,
+          authenticityBand: authenticityEval.authenticity_band,
+          evalSummary: authenticityEval.eval_summary,
+          evalDimensions: authenticityEval.eval_dimensions as unknown as Prisma.InputJsonValue,
+          evalFlags: authenticityEval.flags as unknown as Prisma.InputJsonValue,
+          evalVersion: "persona-auth-v1",
+          evalRaw: authenticityEval.evalRaw as Prisma.InputJsonValue,
+          backstoryEmbeddingJson:
+            authenticityEval.backstoryEmbedding as unknown as Prisma.InputJsonValue,
+          evaluationStatus: "PENDING",
           llmSystemPrompt,
           archetype: persona.archetype,
           representativeQuote: persona.representativeQuote,
@@ -516,6 +655,17 @@ export async function generateAndSavePersonas(
       previousPersonas.push(summaryFromPersona(persona));
       generated++;
       onProgress?.(generated, count, persona.name);
+
+      await inngest.send({
+        name: "persona/evaluate.requested",
+        data: { personaId: createdPersona.id },
+      });
+      evaluationsQueued++;
+      authenticity.push({
+        personaId: createdPersona.id,
+        authenticity_score: authenticityEval.authenticity_score,
+        authenticity_band: authenticityEval.authenticity_band,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       errors.push(`Persona ${i + 1}: ${message}`);
@@ -543,5 +693,5 @@ export async function generateAndSavePersonas(
     }
   }
 
-  return { generated, errors };
+  return { generated, errors, evaluationsQueued, authenticity };
 }

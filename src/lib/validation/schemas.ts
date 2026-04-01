@@ -140,3 +140,43 @@ export const appStoreAudienceMappingResultSchema = z.object({
 export type AppStoreAudienceMappedApp = z.infer<
   typeof appStoreAudienceMappedAppSchema
 >;
+
+export const personaEvaluationStatusSchema = z.enum([
+  "PENDING",
+  "RUNNING",
+  "COMPLETED",
+  "FAILED",
+]);
+
+export const personaClaimJudgeSchema = z.object({
+  claimText: z.string().min(3),
+  claimType: z.enum([
+    "identity",
+    "demographic",
+    "career",
+    "education",
+    "skills",
+    "location",
+    "preference",
+    "behavioral",
+    "timeline",
+    "other",
+  ]),
+  status: z.enum(["SUPPORTED", "UNSUPPORTED", "UNCERTAIN", "SYNTHETIC"]),
+  confidence: z.number().int().min(0).max(100),
+  evidence: z.array(z.string()).default([]),
+});
+
+export const personaJudgeOutputSchema = z.object({
+  factualityScore: z.number().int().min(0).max(100),
+  consistencyScore: z.number().int().min(0).max(100),
+  realismScore: z.number().int().min(0).max(100),
+  verifiabilityScore: z.number().int().min(0).max(100),
+  summary: z.string().max(1000),
+  riskFlags: z.array(z.string()).default([]),
+  extractedClaims: z.array(personaClaimJudgeSchema).default([]),
+});
+
+export const personaRetryEvaluationSchema = z.object({
+  force: z.boolean().optional().default(false),
+});
