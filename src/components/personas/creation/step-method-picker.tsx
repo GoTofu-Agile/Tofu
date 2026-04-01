@@ -10,7 +10,7 @@ export type CreationMethod =
   | "company-url"
   | "deep-search";
 
-interface Method {
+export interface CreationMethodOption {
   id: CreationMethod;
   icon: React.ElementType;
   title: string;
@@ -20,7 +20,8 @@ interface Method {
   comingSoon?: boolean;
 }
 
-const METHODS: Method[] = [
+/** Shared catalog for wizard + legacy grid */
+export const CREATION_METHOD_OPTIONS: CreationMethodOption[] = [
   {
     id: "templates",
     icon: LayoutTemplate,
@@ -79,7 +80,7 @@ export function StepMethodPicker({ onSelect }: StepMethodPickerProps) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {METHODS.map((m) => {
+        {CREATION_METHOD_OPTIONS.map((m) => {
           const Icon = m.icon;
           return (
             <button

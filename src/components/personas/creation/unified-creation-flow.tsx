@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, ChevronLeft, Loader2 } from "lucide-react";
 import { createGroup } from "@/app/(dashboard)/personas/actions";
 import { PERSONA_TEMPLATES } from "@/lib/personas/templates";
-import { StepMethodPicker, type CreationMethod } from "./step-method-picker";
+import { type CreationMethod } from "./step-method-picker";
+import { PersonaInputWizard } from "./persona-input-wizard";
+import { PersonaStreamingProgress } from "@/components/personas/persona-streaming-progress";
 import { StepDescribe } from "./step-describe";
 import { StepManual } from "./step-manual";
 import { StepLinkedin } from "./step-linkedin";
@@ -31,6 +34,7 @@ import type {
 } from "@/lib/validation/schemas";
 import type { AudienceMappingUiStatus } from "./audience-app-mapping-preview";
 import { ALL_RESEARCH_SOURCE_IDS, buildQueriesFromContext } from "@/lib/research/build-queries";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 
 type Phase = "pick" | "form" | "progress";
 
@@ -300,6 +304,7 @@ function buildWorkflowSteps(params: {
 
 export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
   const router = useRouter();
+  const reduced = useReducedMotion();
 
   const [phase, setPhase] = useState<Phase>("pick");
   const [method, setMethod] = useState<CreationMethod | null>(null);
@@ -1133,37 +1138,76 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
         : "Describe your audience or choose a creation method.";
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold tracking-tight">{headerTitle}</h2>
-        <p className="text-muted-foreground mt-1">{headerSubtitle}</p>
+    <div className="mx-auto max-w-3xl px-1 sm:px-0">
+      {phase === "form" && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mb-6 -ml-2 gap-1 text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            setPhase("pick");
+            setMethod(null);
+          }}
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </Button>
+      )}
+      <motion.div
+        key={`${phase}-${method ?? ""}`}
+        initial={reduced ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduced ? 0 : 0.24, ease: [0.25, 0.1, 0.25, 1] }}
+        className="mb-8"
+      >
+        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{headerTitle}</h2>
+        <p className="text-muted-foreground mt-2 text-[15px] leading-relaxed">{headerSubtitle}</p>
         {!orgContext && phase !== "progress" && (
-          <div className="mt-3 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+          <div className="mt-4 rounded-2xl border border-dashed px-4 py-3 text-xs leading-relaxed text-muted-foreground">
             Tip: add Product Context in Settings first for better persona quality and relevance.
           </div>
         )}
-      </div>
+      </motion.div>
 
-      {phase === "pick" && (
-        <PersonaChatBar
-          value={promptText}
-          onChange={setPromptText}
-          personaCount={personaCount}
-          onPersonaCountChange={setPersonaCount}
-          loading={starting || extracting}
-          onSubmit={(value, dataSourceId) => {
-            setPromptText(value);
-            setInitialDescribeText(value);
-            handleChatPipelineCreate(value, dataSourceId);
-          }}
-        />
-      )}
-
-      {phase === "pick" && (
-        <StepMethodPicker onSelect={handleMethodSelect} />
-      )}
-      {phase === "form" && method && (
-        <div className="space-y-6">
+      <AnimatePresence mode="wait" initial={false}>
+        {phase === "pick" ? (
+          <motion.div
+            key="pick"
+            initial={reduced ? false : { opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={reduced ? undefined : { opacity: 0, x: -16 }}
+            transition={{ duration: reduced ? 0 : 0.28, ease: [0.25, 0.1, 0.25, 1] }}
+          >
+            <PersonaInputWizard
+              orgContextHint={Boolean(orgContext)}
+              onSelectMethod={handleMethodSelect}
+              chatBar={
+                <PersonaChatBar
+                  value={promptText}
+                  onChange={setPromptText}
+                  personaCount={personaCount}
+                  onPersonaCountChange={setPersonaCount}
+                  loading={starting || extracting}
+                  onSubmit={(value, dataSourceId) => {
+                    setPromptText(value);
+                    setInitialDescribeText(value);
+                    handleChatPipelineCreate(value, dataSourceId);
+                  }}
+                />
+              }
+            />
+          </motion.div>
+        ) : null}
+        {phase === "form" && method ? (
+          <motion.div
+            key={`form-${method}`}
+            initial={reduced ? false : { opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={reduced ? undefined : { opacity: 0, x: -16 }}
+            transition={{ duration: reduced ? 0 : 0.28, ease: [0.25, 0.1, 0.25, 1] }}
+            className="space-y-6"
+          >
           {method === "templates" && (
             <StepTemplates
               personaCount={personaCount}
@@ -1393,11 +1437,24 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
               onClearAudienceMapping={resetAppStoreAudienceMappingUi}
             />
           )}
-        </div>
-      )}
-
-      {phase === "progress" && (
-        <div className="space-y-4">
+          </motion.div>
+        ) : null}
+        {phase === "progress" ? (
+          <motion.div
+            key="progress"
+            initial={reduced ? false : { opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduced ? undefined : { opacity: 0, y: -10 }}
+            transition={{ duration: reduced ? 0 : 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+            className="space-y-5"
+          >
+          <PersonaStreamingProgress
+            phase={progressPhase}
+            genCompleted={genCompleted}
+            genTotal={genTotal}
+            currentName={genCurrentName || lastGeneratedName}
+            researchLabel={researchLabel}
+          />
           <PersonaWorkflowCarousel
             steps={workflowSteps}
             done={progressPhase === "done"}
@@ -1433,8 +1490,9 @@ export function UnifiedCreationFlow({ orgContext }: UnifiedCreationFlowProps) {
               </div>
             </div>
           ) : null}
-        </div>
-      )}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

@@ -247,9 +247,17 @@ export function PersonaWorkflowCarousel({
               })}
             </AnimatePresence>
             {activeSteps.length === 0 && !isRunning && (
-              <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Preparing workflow...
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.28 }}
+                className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground"
+              >
+                <div className="mx-auto mb-3 h-2 max-w-[200px] overflow-hidden rounded-full bg-muted">
+                  <span className="block h-full w-full animate-shimmer opacity-60" />
+                </div>
+                <p className="animate-pulse">Preparing workflow…</p>
+              </motion.div>
             )}
             <AnimatePresence>
               {done ? (
