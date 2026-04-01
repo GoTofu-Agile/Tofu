@@ -16,22 +16,24 @@ export function getPersonaAvatarDataUri(params: {
   occupation?: string | null;
 }): string {
   const { personaId, pixelSize, gender, occupation } = params;
-  const style = pickStyleForGender(gender);
   const backgroundColor = pickBackgroundForOccupation(occupation);
+  const g = (gender ?? "").toLowerCase();
 
-  return createAvatar(style, {
+  if (g.includes("female") || g === "f" || g.includes("woman")) {
+    return createAvatar(lorelei, {
+      seed: personaId,
+      size: pixelSize,
+      radius: 22,
+      backgroundColor,
+    }).toDataUri();
+  }
+
+  return createAvatar(adventurer, {
     seed: personaId,
     size: pixelSize,
     radius: 22,
     backgroundColor,
   }).toDataUri();
-}
-
-function pickStyleForGender(gender: string | null | undefined) {
-  const g = (gender ?? "").toLowerCase();
-  if (g.includes("female") || g === "f" || g.includes("woman")) return lorelei;
-  if (g.includes("male") || g === "m" || g.includes("man")) return adventurer;
-  return adventurer;
 }
 
 function pickBackgroundForOccupation(occupation: string | null | undefined): string[] {
