@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { AppStoreReviewSnippet } from "@/lib/personas/app-store-review-ui";
+import { PersonaSquircleIcon } from "@/components/personas/persona-squircle-icon";
 
 interface PersonaCardProps {
   persona: {
@@ -35,50 +36,63 @@ export function PersonaCard({
 }: PersonaCardProps) {
   const traits = persona.personality;
   const feedbackTendency = traits?.criticalFeedbackTendency ?? null;
+  const archetypeOrTrait =
+    persona.archetype ?? (traits ? getTopTrait(traits) : null);
+  const displayGender = normalizeBinaryGender(persona.gender);
 
   return (
     <Link
       href={`/personas/${groupId}/${persona.id}`}
       className="group rounded-lg border bg-card p-4 transition-colors hover:border-foreground/20"
     >
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h4 className="font-medium group-hover:underline">{persona.name}</h4>
-          <p className="text-sm text-muted-foreground">
-            {[persona.age && `${persona.age}y`, persona.gender, persona.location]
+          {(archetypeOrTrait || feedbackTendency !== null) && (
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              {feedbackTendency !== null && (
+                <span
+                  className={`h-2 w-2 shrink-0 rounded-full ${
+                    feedbackTendency > 0.6
+                      ? "bg-red-400"
+                      : feedbackTendency < 0.3
+                        ? "bg-green-400"
+                        : "bg-yellow-400"
+                  }`}
+                  title={
+                    feedbackTendency > 0.6
+                      ? "Gives tough, critical feedback"
+                      : feedbackTendency < 0.3
+                        ? "Tends to be agreeable"
+                        : "Balanced feedback style"
+                  }
+                />
+              )}
+              {archetypeOrTrait ? (
+                <Badge variant="outline" className="text-xs">
+                  {archetypeOrTrait}
+                </Badge>
+              ) : null}
+            </div>
+          )}
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {[persona.age && `${persona.age}y`, displayGender, persona.location]
               .filter(Boolean)
               .join(" · ")}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          {feedbackTendency !== null && (
-            <span
-              className={`h-2 w-2 rounded-full ${
-                feedbackTendency > 0.6
-                  ? "bg-red-400"
-                  : feedbackTendency < 0.3
-                    ? "bg-green-400"
-                    : "bg-yellow-400"
-              }`}
-              title={
-                feedbackTendency > 0.6
-                  ? "Gives tough, critical feedback"
-                  : feedbackTendency < 0.3
-                    ? "Tends to be agreeable"
-                    : "Balanced feedback style"
-              }
-            />
-          )}
-          {persona.archetype ? (
-            <Badge variant="outline" className="text-xs">
-              {persona.archetype}
-            </Badge>
-          ) : traits ? (
-            <Badge variant="outline" className="text-xs">
-              {getTopTrait(traits)}
-            </Badge>
-          ) : null}
-        </div>
+        <PersonaSquircleIcon
+          persona={{
+            id: persona.id,
+            name: persona.name,
+            gender: persona.gender,
+            occupation: persona.occupation,
+            archetype: persona.archetype,
+            age: persona.age,
+          }}
+          size="lg"
+          className="shrink-0"
+        />
       </div>
       {persona.occupation && (
         <p className="mt-2 text-sm">{persona.occupation}</p>
@@ -132,6 +146,13 @@ export function PersonaCard({
       )}
     </Link>
   );
+}
+
+function normalizeBinaryGender(gender: string | null | undefined): "Male" | "Female" | null {
+  const value = (gender ?? "").toLowerCase();
+  if (value.includes("female") || value === "f" || value.includes("woman")) return "Female";
+  if (value.includes("male") || value === "m" || value.includes("man")) return "Male";
+  return null;
 }
 
 function TraitBar({ label, value }: { label: string; value: number }) {
