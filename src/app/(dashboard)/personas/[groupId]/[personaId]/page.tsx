@@ -9,6 +9,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
 import { PersonaSquircleIcon } from "@/components/personas/persona-squircle-icon";
 import { PersonaQualityStreak } from "@/components/personas/persona-quality-streak";
+import { MotionPageEnter } from "@/components/motion/page-motion";
 
 export default async function PersonaDetailPage({
   params,
@@ -34,7 +35,7 @@ export default async function PersonaDetailPage({
   const displayGender = normalizeBinaryGender(persona.gender);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <MotionPageEnter className="mx-auto max-w-3xl space-y-8">
       {/* Hero Section */}
       <div>
         <Link
@@ -346,7 +347,7 @@ export default async function PersonaDetailPage({
           </div>
         </>
       )}
-    </div>
+    </MotionPageEnter>
   );
 }
 

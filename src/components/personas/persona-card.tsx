@@ -43,7 +43,7 @@ export function PersonaCard({
   return (
     <Link
       href={`/personas/${groupId}/${persona.id}`}
-      className="group rounded-lg border bg-card p-4 transition-colors hover:border-foreground/20"
+      className="group flex h-full min-h-0 flex-col rounded-lg border bg-card p-4 transition-colors hover:border-foreground/20"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -156,15 +156,23 @@ function normalizeBinaryGender(gender: string | null | undefined): "Male" | "Fem
 }
 
 function TraitBar({ label, value }: { label: string; value: number }) {
+  const v = Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+  const pct = Math.round(v * 100);
   return (
-    <div className="flex flex-1 flex-col items-center gap-0.5">
-      <div className="h-8 w-full rounded-sm bg-muted overflow-hidden flex flex-col justify-end">
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
+      <div
+        className="flex h-8 w-full min-h-8 flex-col justify-end overflow-hidden rounded-sm border border-border/60 bg-muted/80"
+        title={`${label}: ${pct}%`}
+      >
         <div
-          className="bg-foreground/20 rounded-sm transition-all"
-          style={{ height: `${value * 100}%` }}
+          className="w-full min-w-0 rounded-sm bg-primary/70 transition-all dark:bg-primary/60"
+          style={{
+            height: `${pct}%`,
+            minHeight: v > 0 ? "3px" : 0,
+          }}
         />
       </div>
-      <span className="text-[10px] text-muted-foreground">{label}</span>
+      <span className="text-[10px] tabular-nums text-muted-foreground">{label}</span>
     </div>
   );
 }
