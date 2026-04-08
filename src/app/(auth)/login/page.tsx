@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 function LoginForm() {
   const [error, setError] = useState<string | null>(null);
@@ -67,33 +68,43 @@ function LoginForm() {
   }
 
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-semibold tracking-tight">
-          Welcome back
+    <AuthShell>
+    <Card className="border-border/80 shadow-[var(--shadow-card)]">
+      <CardHeader className="text-center sm:text-left">
+        <CardTitle className="text-xl font-semibold tracking-tight">
+          Sign in
         </CardTitle>
-        <CardDescription>Sign in to your account</CardDescription>
+        <CardDescription>
+          Use your work email—we’ll drop you back where you left off.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {message && (
-          <p className="mb-4 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+          <p
+            className="mb-4 rounded-md border border-border bg-card p-3 text-sm text-muted-foreground"
+            role="status"
+          >
             {message}
           </p>
         )}
         {error && (
-          <p className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          <p
+            className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+            role="alert"
+          >
             {error}
           </p>
         )}
         <form action={handleSubmit} className="space-y-4">
           {next ? <input type="hidden" name="next" value={next} /> : null}
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Work email</Label>
             <Input
               id="email"
               name="email"
               type="email"
-              placeholder="you@example.com"
+              autoComplete="email"
+              placeholder="you@company.com"
               required
             />
           </div>
@@ -103,11 +114,12 @@ function LoginForm() {
               id="password"
               name="password"
               type="password"
-              placeholder="Your password"
+              autoComplete="current-password"
+              placeholder="Enter your password"
               required
             />
           </div>
-          <Button type="submit" className="w-full cursor-pointer" disabled={loading}>
+          <Button type="submit" className="w-full cursor-pointer" size="lg" disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -119,18 +131,19 @@ function LoginForm() {
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="justify-center">
+      <CardFooter className="justify-center border-t border-border/60 pt-6 sm:justify-start">
         <p className="text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
+          New to GoTofu?{" "}
           <Link
             href={next ? `/signup?next=${encodeURIComponent(next)}` : "/signup"}
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
-            Sign up
+            Create an account
           </Link>
         </p>
       </CardFooter>
     </Card>
+    </AuthShell>
   );
 }
 

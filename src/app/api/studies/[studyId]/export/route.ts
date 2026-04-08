@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
-import { getStudy, getStudyTranscripts } from "@/lib/db/queries/studies";
+import { getStudyTranscripts } from "@/lib/db/queries/studies";
+import { prisma } from "@/lib/db/prisma";
 import { getUserRole } from "@/lib/db/queries/organizations";
 
 export async function GET(
@@ -23,7 +24,10 @@ export async function GET(
     return Response.json({ error: "User not found" }, { status: 401 });
   }
 
-  const study = await getStudy(studyId);
+  const study = await prisma.study.findUnique({
+    where: { id: studyId },
+    select: { title: true, organizationId: true },
+  });
   if (!study) {
     return Response.json({ error: "Study not found" }, { status: 404 });
   }

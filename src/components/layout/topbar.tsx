@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Sparkles,
   PanelLeft,
+  Upload,
 } from "lucide-react";
 import { useAssistant } from "@/components/assistant/assistant-provider";
 
@@ -20,13 +21,37 @@ const routes: Record<string, { title: string; icon: typeof LayoutDashboard }> = 
   "/settings": { title: "Settings", icon: Settings },
   "/settings/members": { title: "Members", icon: UserPlus },
   "/admin": { title: "Admin", icon: ShieldCheck },
+  "/uploads": { title: "Uploads", icon: Upload },
 };
+
+function resolveRoute(pathname: string): { title: string; icon: typeof LayoutDashboard } {
+  const exact = routes[pathname];
+  if (exact) return exact;
+
+  if (pathname.startsWith("/personas/new")) {
+    return { title: "New persona group", icon: Users };
+  }
+  if (/^\/personas\/[^/]+$/.test(pathname)) {
+    return { title: "Persona group", icon: Users };
+  }
+  if (pathname.startsWith("/studies/new")) {
+    return { title: "New study", icon: FlaskConical };
+  }
+  if (/^\/studies\/[^/]+/.test(pathname)) {
+    return { title: "Study", icon: FlaskConical };
+  }
+  if (pathname.startsWith("/o/")) {
+    return { title: "Workspace", icon: LayoutDashboard };
+  }
+
+  return { title: "GoTofu", icon: LayoutDashboard };
+}
 
 export function Topbar() {
   const pathname = usePathname();
   const { toggle, isOpen, toggleSidebar } = useAssistant();
 
-  const route = routes[pathname] ?? { title: "GoTofu", icon: LayoutDashboard };
+  const route = resolveRoute(pathname);
   const Icon = route.icon;
 
   return (
@@ -57,7 +82,7 @@ export function Topbar() {
               ? "border-foreground bg-foreground text-background"
               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
           }`}
-          aria-label="Toggle Ask assistant"
+          aria-label="Open Ask — your research copilot"
           aria-expanded={isOpen}
           aria-controls="ask-panel"
         >
