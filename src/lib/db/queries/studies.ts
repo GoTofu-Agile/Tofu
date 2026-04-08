@@ -1,7 +1,18 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { StudyType, StudyStatus, SessionStatus } from "@prisma/client";
 
 // ─── Study CRUD ───
+
+export type GetStudyOptions = {
+  /**
+   * When false, skips loading sessions (much faster for auth checks, guide gen, study page).
+   * Default false — callers that need a session list should pass true.
+   */
+  includeSessions?: boolean;
+  /** When sessions are included, cap rows (newest first). Default 250. */
+  sessionLimit?: number;
+};
 
 export async function getStudiesForOrg(organizationId: string) {
   return prisma.study.findMany({
@@ -21,43 +32,109 @@ export async function getStudiesForOrg(organizationId: string) {
   });
 }
 
-export async function getStudy(studyId: string) {
+const studyIncludeBase = {
+  createdBy: { select: { name: true, email: true } },
+  personaGroups: {
+    include: {
+      personaGroup: {
+        include: {
+          personas: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              name: true,
+              archetype: true,
+              occupation: true,
+              age: true,
+              gender: true,
+            },
+            orderBy: { name: "asc" },
+          },
+          _count: { select: { personas: true } },
+        },
+      },
+    },
+  },
+} as const;
+
+export async function getStudy(studyId: string, options: GetStudyOptions = {}) {
+  const includeSessions = options.includeSessions === true;
+  const sessionLimit = options.sessionLimit ?? 250;
+
   return prisma.study.findUnique({
     where: { id: studyId },
     include: {
-      createdBy: { select: { name: true, email: true } },
-      personaGroups: {
-        include: {
-          personaGroup: {
-            include: {
-              personas: {
-                where: { isActive: true },
-                select: {
-                  id: true,
-                  name: true,
-                  archetype: true,
-                  occupation: true,
-                  age: true,
-                  gender: true,
+      ...studyIncludeBase,
+      ...(includeSessions
+        ? {
+            sessions: {
+              include: {
+                persona: {
+                  select: { name: true, archetype: true },
                 },
-                orderBy: { name: "asc" },
+                _count: { select: { messages: true } },
               },
-              _count: { select: { personas: true } },
+              orderBy: { createdAt: "desc" },
+              take: sessionLimit,
             },
-          },
-        },
-      },
-      sessions: {
-        include: {
-          persona: {
-            select: { name: true, archetype: true },
-          },
-          _count: { select: { messages: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      },
+          }
+        : {}),
     },
   });
+}
+
+/** Distinct persona ids that already have at least one session (for batch / pending counts). */
+export async function getPersonaIdsWithSessionsForStudy(studyId: string) {
+  const rows = await prisma.session.findMany({
+    where: { studyId },
+    select: { personaId: true },
+    distinct: ["personaId"],
+  });
+  return rows.map((r) => r.personaId);
+}
+
+/** Aggregates for study workspace (accurate even when sessions are not loaded). */
+export async function getStudySessionStats(studyId: string) {
+  const [total, completed, agg] = await Promise.all([
+    prisma.session.count({ where: { studyId } }),
+    prisma.session.count({ where: { studyId, status: "COMPLETED" } }),
+    prisma.session.aggregate({
+      where: { studyId, status: "COMPLETED" },
+      _avg: { durationMs: true },
+    }),
+  ]);
+  return {
+    total,
+    completed,
+    avgDurationMs: agg._avg.durationMs ?? 0,
+  };
+}
+
+/**
+ * One “best” session per persona: prefer COMPLETED, else newest.
+ * Used for interview links / progress when we do not load full session lists.
+ */
+export async function getPersonaSessionMapForStudy(
+  studyId: string
+): Promise<Record<string, { sessionId: string; status: string }>> {
+  const rows = await prisma.$queryRaw<
+    { sessionId: string; personaId: string; status: string }[]
+  >(Prisma.sql`
+    SELECT DISTINCT ON (s."personaId")
+      s.id AS "sessionId",
+      s."personaId",
+      s.status::text AS "status"
+    FROM "Session" s
+    WHERE s."studyId" = ${studyId}
+    ORDER BY s."personaId",
+      CASE WHEN s.status = 'COMPLETED'::"SessionStatus" THEN 0 ELSE 1 END,
+      s."createdAt" DESC
+  `);
+  const map: Record<string, { sessionId: string; status: string }> = {};
+  for (const r of rows) {
+    map[r.personaId] = { sessionId: r.sessionId, status: r.status };
+  }
+  return map;
 }
 
 export async function createStudy(data: {

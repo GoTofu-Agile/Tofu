@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuthWithActiveOrg } from "@/lib/auth";
-import { getStudy, getAnalysisReport, getAnalysisReports } from "@/lib/db/queries/studies";
+import {
+  getStudy,
+  getAnalysisReport,
+  getAnalysisReports,
+  getStudySessionStats,
+  getPersonaSessionMapForStudy,
+} from "@/lib/db/queries/studies";
 import { getPersonaGroupsForOrg } from "@/lib/db/queries/personas";
 import { getOrgProductContext } from "@/lib/db/queries/organizations";
 import { ArrowLeft } from "lucide-react";
@@ -11,13 +17,13 @@ import type { FlowStep } from "@/components/studies/study-flow-stepper";
 function computeInitialStep(
   study: { interviewGuide: string | null; status: string },
   analysisReport: unknown,
-  sessions: Array<{ status: string }>,
+  sessionStats: { total: number; completed: number },
 ): FlowStep {
   // Fresh DRAFT with no sessions = always start at setup
-  if (study.status === "DRAFT" && sessions.length === 0) return "setup";
+  if (study.status === "DRAFT" && sessionStats.total === 0) return "setup";
   if (analysisReport) return "insights";
-  if (sessions.some((s) => s.status === "COMPLETED")) return "insights";
-  if (sessions.length > 0 || study.status === "ACTIVE") return "interviews";
+  if (sessionStats.completed > 0) return "insights";
+  if (sessionStats.total > 0 || study.status === "ACTIVE") return "interviews";
   if (study.interviewGuide?.trim()) return "guide";
   return "setup";
 }
@@ -30,32 +36,18 @@ export default async function StudyDetailPage({
   const { studyId } = await params;
   const { activeOrgId } = await requireAuthWithActiveOrg();
 
-  const [study, analysisReport, analysisReports, availableGroups, orgContext] = await Promise.all([
-    getStudy(studyId),
-    getAnalysisReport(studyId),
-    getAnalysisReports(studyId),
-    getPersonaGroupsForOrg(activeOrgId),
-    getOrgProductContext(activeOrgId),
-  ]);
+  const [study, analysisReport, analysisReports, availableGroups, orgContext, sessionStats, personaSessionMap] =
+    await Promise.all([
+      getStudy(studyId),
+      getAnalysisReport(studyId),
+      getAnalysisReports(studyId),
+      getPersonaGroupsForOrg(activeOrgId),
+      getOrgProductContext(activeOrgId),
+      getStudySessionStats(studyId),
+      getPersonaSessionMapForStudy(studyId),
+    ]);
   if (!study || study.organizationId !== activeOrgId) {
     notFound();
-  }
-
-  // Build persona -> session mapping
-  const personaSessionMap: Record<
-    string,
-    { sessionId: string; status: string }
-  > = {};
-  for (const session of study.sessions) {
-    if (
-      !personaSessionMap[session.personaId] ||
-      session.status === "COMPLETED"
-    ) {
-      personaSessionMap[session.personaId] = {
-        sessionId: session.id,
-        status: session.status,
-      };
-    }
   }
 
   // Group personas by their persona group
@@ -72,20 +64,12 @@ export default async function StudyDetailPage({
   const pendingCount = allPersonas.filter(
     (p) => !personaSessionMap[p.id]
   ).length;
-  const completedCount = study.sessions.filter(
-    (s) => s.status === "COMPLETED"
-  ).length;
+  const completedCount = sessionStats.completed;
 
   const selectedGroupIds = study.personaGroups.map((pg) => pg.personaGroup.id);
-  const initialStep = computeInitialStep(study, analysisReport, study.sessions);
+  const initialStep = computeInitialStep(study, analysisReport, sessionStats);
 
-  // Calculate avg duration for results
-  const completedSessions = study.sessions.filter((s) => s.status === "COMPLETED");
-  const avgDurationMs =
-    completedSessions.length > 0
-      ? completedSessions.reduce((sum, s) => sum + (s.durationMs || 0), 0) /
-        completedSessions.length
-      : 0;
+  const avgDurationMs = sessionStats.avgDurationMs;
 
   const productContext = orgContext?.setupCompleted
     ? {

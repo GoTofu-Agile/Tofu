@@ -13,6 +13,8 @@ import {
   removeGroupFromStudy,
   deleteStudy,
   getStudy,
+  getStudySessionStats,
+  getPersonaIdsWithSessionsForStudy,
   getSession,
   completeSession,
 } from "@/lib/db/queries/studies";
@@ -113,8 +115,10 @@ export async function runBatchInterviews(studyId: string) {
     return { error: "Study not found" };
   }
 
-  // Count pending personas
-  const existingPersonaIds = new Set(study.sessions.map((s) => s.personaId));
+  // Count pending personas (all-time sessions, not a capped list)
+  const existingPersonaIds = new Set(
+    await getPersonaIdsWithSessionsForStudy(studyId)
+  );
   const allPersonas = study.personaGroups.flatMap(
     (spg) => spg.personaGroup.personas
   );
@@ -148,10 +152,8 @@ export async function triggerInsights(
     return { error: "Study not found" };
   }
 
-  const completedSessions = study.sessions.filter(
-    (s) => s.status === "COMPLETED"
-  );
-  if (completedSessions.length === 0) {
+  const { completed: completedInterviewCount } = await getStudySessionStats(studyId);
+  if (completedInterviewCount === 0) {
     return { error: "No completed interviews to analyze" };
   }
 

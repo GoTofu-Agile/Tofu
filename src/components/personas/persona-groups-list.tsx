@@ -27,7 +27,7 @@ export function PersonaGroupsHeader() {
   return (
     <PageHeader
       title="Personas"
-      description="Create persona groups for your studies."
+      description="Define who you’re researching—each group is one audience (e.g. role, industry, or behavior)."
       actions={
         <motion.div
           whileHover={reduced ? undefined : { scale: 1.03 }}
@@ -38,7 +38,7 @@ export function PersonaGroupsHeader() {
             className={buttonVariants({ variant: "default", className: "gap-1.5 px-4" })}
           >
             <Plus className="h-4 w-4" />
-            Create Personas
+            New group
           </Link>
         </motion.div>
       }

@@ -62,9 +62,9 @@ export function StudiesList({ studies }: StudiesListProps) {
         <EmptyState
           icon={ClipboardList}
           title="No studies yet"
-          description="Create a study to generate a guide, run interviews, and get an insights report."
+          description="Studies connect your personas to a guided interview and a shareable insight report. Start with one objective—you can duplicate later."
         >
-          <Link href="/studies/new" className={buttonVariants({ variant: "outline" })}>
+          <Link href="/studies/new" className={buttonVariants({ variant: "default", size: "lg" })}>
             Create your first study
           </Link>
         </EmptyState>
@@ -158,7 +158,7 @@ export function StudiesHeader() {
   return (
     <PageHeader
       title="Studies"
-      description="Run interview studies with your personas and turn sessions into insights."
+      description="Each study holds your guide, AI-led interviews, and an insight report—open one to continue or start fresh."
       actions={
         <motion.div
           whileHover={reduced ? undefined : { scale: 1.03 }}

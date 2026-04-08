@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
-import { getStudy } from "@/lib/db/queries/studies";
+import { getStudy, getPersonaIdsWithSessionsForStudy } from "@/lib/db/queries/studies";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { inngest } from "@/lib/inngest/client";
 
@@ -34,8 +34,10 @@ export async function POST(
     return Response.json({ error: "Access denied" }, { status: 403 });
   }
 
-  // Count personas that need interviews
-  const existingPersonaIds = new Set(study.sessions.map((s) => s.personaId));
+  // Count personas that need interviews (distinct personas with any session)
+  const existingPersonaIds = new Set(
+    await getPersonaIdsWithSessionsForStudy(studyId)
+  );
   const allPersonas = study.personaGroups.flatMap(
     (spg) => spg.personaGroup.personas
   );
