@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { AppStoreReviewSnippet } from "@/lib/personas/app-store-review-ui";
@@ -33,7 +34,7 @@ interface PersonaCardProps {
   appStoreReviews?: AppStoreReviewSnippet[];
 }
 
-export function PersonaCard({
+export const PersonaCard = memo(function PersonaCard({
   persona,
   groupId,
   appStoreReviews = [],
@@ -158,7 +159,7 @@ export function PersonaCard({
       )}
     </Link>
   );
-}
+});
 
 function normalizeBinaryGender(gender: string | null | undefined): "Male" | "Female" | null {
   const value = (gender ?? "").toLowerCase();
