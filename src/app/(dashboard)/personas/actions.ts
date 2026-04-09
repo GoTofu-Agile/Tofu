@@ -8,6 +8,7 @@ import {
   createPersonaGroup,
   deletePersonaGroup,
   getPersonaGroup,
+  updatePersonaGroup,
 } from "@/lib/db/queries/personas";
 import { getUserRole } from "@/lib/db/queries/organizations";
 
@@ -74,5 +75,40 @@ export async function removeGroup(groupId: string) {
 
   await deletePersonaGroup(groupId);
   revalidatePath("/personas");
+  return { success: true };
+}
+
+export async function editGroup(groupId: string, payload: { name: string; description?: string }) {
+  const user = await requireAuth();
+
+  const cookieStore = await cookies();
+  const activeOrgId = cookieStore.get("activeOrgId")?.value;
+  if (!activeOrgId) {
+    return { error: "No active organization" };
+  }
+
+  const role = await getUserRole(activeOrgId, user.id);
+  if (!role || role === "VIEWER") {
+    return { error: "Insufficient permissions" };
+  }
+
+  const group = await getPersonaGroup(groupId);
+  if (!group || group.organizationId !== activeOrgId) {
+    return { error: "Group not found" };
+  }
+
+  const name = payload.name.trim();
+  if (name.length < 2 || name.length > 80) {
+    return { error: "Group name must be between 2 and 80 characters." };
+  }
+
+  await updatePersonaGroup({
+    groupId,
+    name,
+    description: payload.description?.trim() || undefined,
+  });
+
+  revalidatePath("/personas");
+  revalidatePath(`/personas/${groupId}`);
   return { success: true };
 }

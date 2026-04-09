@@ -5,6 +5,7 @@ import { Check, Loader2, Search, Sparkles, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { PulsingDots } from "@/components/motion/persona-creation-motion";
+import { getPersonaProgressStepCopy } from "@/lib/personas/progress-copy";
 
 export type CreationProgressPhase = "researching" | "generating" | "done";
 
@@ -50,6 +51,12 @@ export function PersonaStreamingProgress({
 }: PersonaStreamingProgressProps) {
   const reduced = useReducedMotion();
   const showBar = phase !== "done" || genTotal > 0;
+  const stepCopy = getPersonaProgressStepCopy({
+    phase,
+    researchLabel,
+    genCompleted,
+    genTotal,
+  });
 
   return (
     <motion.div
@@ -104,25 +111,25 @@ export function PersonaStreamingProgress({
                 </p>
                 <p className="truncate text-[11px] text-muted-foreground">
                   {s.id === "research" && state === "done" ? (
-                    "Signals gathered"
+                    stepCopy.research
                   ) : s.id === "research" && phase === "researching" ? (
                     researchLabel ? (
-                      researchLabel
+                      stepCopy.research
                     ) : (
-                      <PulsingDots label="Analyzing" />
+                      <PulsingDots label="In progress" />
                     )
                   ) : s.id === "generate" && phase === "generating" ? (
                     genTotal > 0 ? (
-                      `Persona ${genCompleted} of ${genTotal}`
+                      stepCopy.generate
                     ) : (
-                      <PulsingDots label="Starting" />
+                      <PulsingDots label={stepCopy.generate} />
                     )
                   ) : s.id === "generate" && phase === "done" ? (
-                    "All personas created"
+                    stepCopy.generate
                   ) : s.id === "quality" && phase === "generating" ? (
-                    <PulsingDots label="Scoring" />
+                    <PulsingDots label={stepCopy.quality} />
                   ) : s.id === "quality" && phase === "done" ? (
-                    "Complete"
+                    stepCopy.quality
                   ) : (
                     "\u00a0"
                   )}

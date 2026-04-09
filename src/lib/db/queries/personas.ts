@@ -44,6 +44,20 @@ export async function deletePersonaGroup(groupId: string) {
   });
 }
 
+export async function updatePersonaGroup(data: {
+  groupId: string;
+  name: string;
+  description?: string;
+}) {
+  return prisma.personaGroup.update({
+    where: { id: data.groupId },
+    data: {
+      name: data.name,
+      description: data.description,
+    },
+  });
+}
+
 const appReviewDataSourcesInclude = {
   where: { domainKnowledge: { sourceType: "APP_REVIEW" as const } },
   include: {

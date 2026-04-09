@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { ArrowLeft, Users } from "lucide-react";
 import { SOURCE_LABELS } from "@/lib/constants/source-labels";
+import { PersonaGroupActions } from "@/components/personas/persona-group-actions";
 
 export default async function PersonaGroupDetailPage({
   params,
@@ -35,6 +36,7 @@ export default async function PersonaGroupDetailPage({
   if (!role) {
     notFound();
   }
+  const canManage = role !== "VIEWER";
 
   const personas = await getPersonasForGroupList(groupId);
   const count = query.count ? parseInt(query.count, 10) : 5;
@@ -61,6 +63,15 @@ export default async function PersonaGroupDetailPage({
           className="mb-3 sm:mb-3"
           title={group.name}
           description={group.description ?? undefined}
+          actions={
+            canManage ? (
+              <PersonaGroupActions
+                groupId={groupId}
+                initialName={group.name}
+                initialDescription={group.description}
+              />
+            ) : null
+          }
         />
         <div className="mb-8 flex flex-wrap items-center gap-3">
           {group.sourceType !== "PROMPT_GENERATED" ? (

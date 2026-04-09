@@ -20,6 +20,7 @@ interface InvitationRowProps {
 export function InvitationRow({ invitation, canManage }: InvitationRowProps) {
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  const [status, setStatus] = useState<string>("");
 
   /* eslint-disable react-hooks/purity */
   const daysLeft = Math.ceil(
@@ -31,6 +32,7 @@ export function InvitationRow({ invitation, canManage }: InvitationRowProps) {
 
   async function handleCopy() {
     await navigator.clipboard.writeText(inviteUrl);
+    setStatus("Invite link copied.");
     setCopied(true);
     toast.success("Invite link copied!");
     setTimeout(() => setCopied(false), 2000);
@@ -39,11 +41,14 @@ export function InvitationRow({ invitation, canManage }: InvitationRowProps) {
   async function handleRevoke() {
     if (!confirm("Revoke this invitation?")) return;
     setRevoking(true);
+    setStatus("Revoking invitation...");
     const result = await revokeInvite(invitation.id);
     setRevoking(false);
     if ("error" in result) {
+      setStatus("Could not revoke invitation. Please retry.");
       toast.error(result.error);
     } else {
+      setStatus("Invitation revoked.");
       toast.success("Invitation revoked");
     }
   }
@@ -57,6 +62,11 @@ export function InvitationRow({ invitation, canManage }: InvitationRowProps) {
         <p className="text-xs text-muted-foreground">
           {invitation.role.charAt(0) + invitation.role.slice(1).toLowerCase()} · expires in {daysLeft}d
         </p>
+        {status ? (
+          <p className="mt-0.5 text-xs text-muted-foreground" aria-live="polite">
+            {status}
+          </p>
+        ) : null}
       </div>
 
       <button

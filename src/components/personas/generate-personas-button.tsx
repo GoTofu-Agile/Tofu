@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Sparkles, Loader2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { getPersonaProgressBadgeLabel } from "@/lib/personas/progress-copy";
 
 interface GeneratePersonasButtonProps {
   groupId: string;
@@ -156,14 +157,14 @@ export function GeneratePersonasButton({
         </div>
         <div className="flex items-center justify-center gap-2">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <h3 className="text-lg font-medium">Generating personas...</h3>
+          <h3 className="text-lg font-medium">{getPersonaProgressBadgeLabel("generating")}</h3>
         </div>
         <div className="mx-auto max-w-md space-y-2">
           <Progress value={percentage}>
             <ProgressLabel>
               {progress.currentName
                 ? `Creating "${progress.currentName}"`
-                : "Preparing..."}
+                : "Starting generation..."}
             </ProgressLabel>
             <ProgressValue />
           </Progress>

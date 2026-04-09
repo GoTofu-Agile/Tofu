@@ -49,7 +49,7 @@ function resolveRoute(pathname: string): { title: string; icon: typeof LayoutDas
 
 export function Topbar() {
   const pathname = usePathname();
-  const { toggle, isOpen, toggleSidebar } = useAssistant();
+  const { toggle, isOpen, toggleSidebar, sidebarCollapsed } = useAssistant();
 
   const route = resolveRoute(pathname);
   const Icon = route.icon;
@@ -61,8 +61,9 @@ export function Topbar() {
           type="button"
           onClick={toggleSidebar}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground transition-colors"
-          title="Toggle sidebar"
-          aria-label="Toggle sidebar"
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-pressed={sidebarCollapsed}
         >
           <PanelLeft className="h-4 w-4" />
         </button>
@@ -87,7 +88,8 @@ export function Topbar() {
           aria-controls="ask-panel"
         >
           <Sparkles className="h-3 w-3" />
-          Ask
+          <span className="hidden sm:inline">Ask AI</span>
+          <span className="sm:hidden">Ask</span>
         </button>
       </div>
     </header>

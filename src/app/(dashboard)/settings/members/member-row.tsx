@@ -25,6 +25,7 @@ const roleColors: Record<OrgRole, string> = {
 
 export function MemberRow({ member, currentUserId, canManage }: MemberRowProps) {
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<string>("");
   const isSelf = member.user.id === currentUserId;
   const isOwner = member.role === "OWNER";
   const initials = (member.user.name ?? member.user.email).slice(0, 2).toUpperCase();
@@ -32,22 +33,28 @@ export function MemberRow({ member, currentUserId, canManage }: MemberRowProps) 
   async function handleRemove() {
     if (!confirm(`Remove ${member.user.name ?? member.user.email}?`)) return;
     setLoading(true);
+    setStatus("Removing member...");
     const result = await kickMember(member.user.id);
     setLoading(false);
     if ("error" in result) {
+      setStatus("Could not remove member. Please retry.");
       toast.error(result.error);
     } else {
+      setStatus("Member removed.");
       toast.success("Member removed");
     }
   }
 
   async function handleRoleChange(newRole: "ADMIN" | "MEMBER" | "VIEWER") {
     setLoading(true);
+    setStatus("Updating role...");
     const result = await changeMemberRole(member.user.id, newRole);
     setLoading(false);
     if ("error" in result) {
+      setStatus("Could not update role. Please retry.");
       toast.error(result.error);
     } else {
+      setStatus("Role updated.");
       toast.success("Role updated");
     }
   }
@@ -72,6 +79,11 @@ export function MemberRow({ member, currentUserId, canManage }: MemberRowProps) 
         {member.user.name && (
           <p className="text-xs text-muted-foreground truncate">{member.user.email}</p>
         )}
+        {status ? (
+          <p className="mt-0.5 text-xs text-muted-foreground" aria-live="polite">
+            {status}
+          </p>
+        ) : null}
       </div>
 
       {/* Role */}
