@@ -25,6 +25,9 @@ export default async function PersonaDetailPage({
   if (!persona) {
     notFound();
   }
+  if (persona.personaGroup.id !== groupId) {
+    notFound();
+  }
 
   // Access control: verify user is member of the group's org
   const user = await requireAuth();
@@ -35,6 +38,10 @@ export default async function PersonaDetailPage({
 
   const traits = persona.personality;
   const appReviews = appStoreReviewSnippetsFromPersona(persona.dataSources);
+  const provenanceSources = persona.dataSources
+    .map((entry) => entry.domainKnowledge)
+    .filter((source) => source.sourceUrl)
+    .slice(0, 3);
   const displayGender = normalizeBinaryGender(persona.gender);
   const latestEval = persona.evaluations[0];
 
@@ -140,6 +147,39 @@ export default async function PersonaDetailPage({
         <div>
           <h3 className="text-sm font-medium text-muted-foreground">Bio</h3>
           <p className="mt-1">{persona.bio}</p>
+        </div>
+      )}
+
+      {provenanceSources.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Provenance sources
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Traceable sources used while grounding this persona.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {provenanceSources.map((source) => (
+              <li
+                key={source.id}
+                className="rounded-lg border border-border/80 bg-muted/20 p-3"
+              >
+                <p className="text-sm font-medium text-foreground">{source.title}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {source.sourceDomain ?? "Unknown domain"}
+                </p>
+                <a
+                  href={source.sourceUrl as string}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  Open source
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

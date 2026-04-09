@@ -74,43 +74,54 @@ export function GeneratePersonasButton({
 
       const decoder = new TextDecoder();
       let buffer = "";
+      const MAX_BUFFER_CHARS = 200_000;
+
+      const processStreamLine = (line: string) => {
+        if (!line.trim()) return;
+        try {
+          const event: StreamEvent = JSON.parse(line);
+
+          if (event.type === "progress") {
+            setProgress({
+              completed: event.completed,
+              total: event.total,
+              currentName: event.personaName,
+            });
+          } else if (event.type === "done") {
+            if (event.errors.length > 0) {
+              toast.warning(
+                `Generated ${event.generated} personas. ${event.errors.length} failed.`
+              );
+            } else {
+              toast.success(
+                `Generated ${event.generated} personas successfully!`
+              );
+            }
+          } else if (event.type === "error") {
+            toast.error(event.message);
+          }
+        } catch {
+          // Skip malformed JSON lines
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
+        if (buffer.length > MAX_BUFFER_CHARS) {
+          throw new Error("Generation stream payload exceeded expected size.");
+        }
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const event: StreamEvent = JSON.parse(line);
-
-            if (event.type === "progress") {
-              setProgress({
-                completed: event.completed,
-                total: event.total,
-                currentName: event.personaName,
-              });
-            } else if (event.type === "done") {
-              if (event.errors.length > 0) {
-                toast.warning(
-                  `Generated ${event.generated} personas. ${event.errors.length} failed.`
-                );
-              } else {
-                toast.success(
-                  `Generated ${event.generated} personas successfully!`
-                );
-              }
-            } else if (event.type === "error") {
-              toast.error(event.message);
-            }
-          } catch {
-            // Skip malformed JSON lines
-          }
+          processStreamLine(line);
         }
+      }
+      if (buffer.trim()) {
+        processStreamLine(buffer);
       }
 
     } catch (error) {

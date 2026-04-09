@@ -16,7 +16,13 @@ export interface GeneratePersonasParams {
   domainContext?: string;
   sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
   templateConfig?: PersonaTemplateConfig;
-  onProgress?: (completed: number, total: number, personaName: string) => void;
+  includeSkeptics?: boolean;
+  onProgress?: (
+    completed: number,
+    total: number,
+    personaName: string,
+    personaId: string
+  ) => void;
   /** When set (e.g. from API guard), skips an extra org count query. */
   qualityTier?: PersonaQualityTier;
 }
@@ -66,6 +72,7 @@ function buildPrompt(params: {
     lifePath: LifePathType;
   };
   additionalDifferentiation?: string;
+  includeSkeptics?: boolean;
 }): string {
   const {
     index,
@@ -76,6 +83,7 @@ function buildPrompt(params: {
     previousPersonas,
     diversityPlan,
     additionalDifferentiation,
+    includeSkeptics,
   } = params;
 
   const layers: string[] = [];
@@ -100,6 +108,19 @@ CRITICAL RULES:
   }
   if (ragContext) {
     layers.push(`BACKGROUND RESEARCH:\n${ragContext}`);
+    layers.push(
+      "GROUNDING CONSTRAINTS:\n" +
+        "- Anchor persona details to the background research evidence.\n" +
+        "- Do not fabricate specific employers, credentials, or demographics unless they are implied by evidence.\n" +
+        "- Prefer conservative phrasing over invented precision when evidence is limited."
+    );
+  }
+  if (includeSkeptics === false) {
+    layers.push(
+      "AUDIENCE TONALITY:\n" +
+        "- Keep personas broadly solution-positive and less skeptical than average.\n" +
+        "- Avoid defaulting to distrustful or cynical responses unless strongly supported by evidence."
+    );
   }
 
   // Optional layer: Template constraints (demographics + behavior profile)
@@ -495,8 +516,17 @@ function isTooSimilarToBatch(candidate: PersonaOutput, previous: PreviousPersona
 export async function generateAndSavePersonas(
   params: GeneratePersonasParams
 ): Promise<GeneratePersonasResult> {
-  const { groupId, count, domainContext, sourceTypeOverride, templateConfig, onProgress } =
+  const {
+    groupId,
+    count,
+    domainContext,
+    sourceTypeOverride,
+    templateConfig,
+    includeSkeptics = true,
+    onProgress,
+  } =
     params;
+  const startedAt = Date.now();
 
   let qualityTier = params.qualityTier;
   if (qualityTier == null) {
@@ -540,12 +570,23 @@ export async function generateAndSavePersonas(
   let generated = 0;
   let evaluationsQueued = 0;
   const authenticity: GeneratePersonasResult["authenticity"] = [];
+  const recentPersonas = await prisma.persona.findMany({
+    where: { personaGroupId: groupId, isActive: true },
+    select: { backstory: true, dayInTheLife: true, archetype: true },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
 
   for (let i = 0; i < count; i++) {
     try {
       let persona: PersonaOutput | null = null;
+      let lastDraft: PersonaOutput | null = null;
       const MAX_ATTEMPTS = 3;
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const nudgeFromPreviousAttempt =
+          attempt > 0 && lastDraft
+            ? buildDifferentiationNudge(lastDraft, previousPersonas)
+            : null;
         const prompt = buildPrompt({
           index: i,
           count,
@@ -556,14 +597,16 @@ export async function generateAndSavePersonas(
           diversityPlan: diversityPlan[i],
           additionalDifferentiation:
             attempt > 0
-              ? "Previous draft was too generic or too similar. Regenerate with a clearly different upbringing context, life events, and wording."
+              ? `Previous draft was too generic or too similar. Regenerate with a clearly different upbringing context, life events, and wording.${nudgeFromPreviousAttempt ? `\nSpecific differentiation required: ${nudgeFromPreviousAttempt}` : ""}`
               : undefined,
+          includeSkeptics,
         });
         const { object: draft } = await generateObject({
           model: personaModel,
           schema: personaSchema,
           prompt,
         });
+        lastDraft = draft;
         const tooGeneric = containsForbiddenTropes(`${draft.backstory} ${draft.dayInTheLife}`);
         const tooSimilar = isTooSimilarToBatch(draft, previousPersonas);
         const nudge = buildDifferentiationNudge(draft, previousPersonas);
@@ -581,12 +624,6 @@ export async function generateAndSavePersonas(
 
       const qualityScore = computeQualityScore(persona);
       const llmSystemPrompt = buildSystemPrompt(persona);
-      const recentPersonas = await prisma.persona.findMany({
-        where: { personaGroupId: groupId, isActive: true },
-        select: { backstory: true, dayInTheLife: true, archetype: true },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-      });
       let authenticityEval;
       try {
         authenticityEval = await scorePersonaAuthenticity(persona, recentPersonas);
@@ -697,8 +734,14 @@ export async function generateAndSavePersonas(
       }
 
       previousPersonas.push(summaryFromPersona(persona));
+      recentPersonas.unshift({
+        backstory: persona.backstory,
+        dayInTheLife: persona.dayInTheLife,
+        archetype: persona.archetype,
+      });
+      if (recentPersonas.length > 20) recentPersonas.length = 20;
       generated++;
-      onProgress?.(generated, count, persona.name);
+      onProgress?.(generated, count, persona.name, createdPersona.id);
 
       await inngest.send({
         name: "persona/evaluate.requested",
@@ -736,6 +779,16 @@ export async function generateAndSavePersonas(
       );
     }
   }
+
+  console.info("[generate-personas] completed", {
+    groupId,
+    requested: count,
+    generated,
+    failures: errors.length,
+    durationMs: Date.now() - startedAt,
+    knowledgeCount: knowledge.length,
+    includeSkeptics,
+  });
 
   return { generated, errors, evaluationsQueued, authenticity };
 }

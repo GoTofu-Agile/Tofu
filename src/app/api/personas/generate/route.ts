@@ -17,6 +17,7 @@ const requestSchema = z.object({
   domainContext: z.string().max(2000).optional(),
   sourceTypeOverride: z.enum(["PROMPT_GENERATED", "DATA_BASED", "UPLOAD_BASED"]).optional(),
   templateId: z.string().min(1).optional(),
+  includeSkeptics: z.boolean().optional(),
   /** True when the client used the “deep search” research path (Quick or Guided). */
   usedDeepResearchPipeline: z.boolean().optional(),
 });
@@ -109,13 +110,16 @@ export async function POST(request: NextRequest) {
           domainContext: body.domainContext,
           sourceTypeOverride: body.sourceTypeOverride,
           templateConfig,
+          includeSkeptics: body.includeSkeptics ?? true,
           qualityTier: guard.tier,
-          onProgress: (completed, total, personaName) => {
+          onProgress: (completed, total, personaName, personaId) => {
             const event = JSON.stringify({
               type: "progress",
               completed,
               total,
               personaName,
+              personaId,
+              sourceUrl: `/personas/${body.groupId}/${personaId}`,
             });
             controller.enqueue(encoder.encode(event + "\n"));
           },
