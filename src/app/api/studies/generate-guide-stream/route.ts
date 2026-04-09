@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
 import { getModel } from "@/lib/ai/provider";
 import { getStudy, updateStudy } from "@/lib/db/queries/studies";
-import { getOrgProductContext } from "@/lib/db/queries/organizations";
+import { getOrgProductContext, getUserRole } from "@/lib/db/queries/organizations";
 import { createNDJSONStream, streamDelay } from "@/lib/streaming/ndjson";
 
 const requestSchema = z.object({
@@ -53,34 +53,49 @@ export async function POST(request: NextRequest) {
     let groupCount = 0;
 
     const study = await getStudy(body.studyId);
-    if (study) {
-      if (study.personaGroups.length > 0) {
-        groupCount = study.personaGroups.length;
-        const groupDescriptions = study.personaGroups.map((spg) => {
-          const group = spg.personaGroup;
-          personaCount += group.personas.length;
-          const personaSummaries = group.personas.slice(0, 15).map((p) => {
-            const parts = [`${p.name}`];
-            if (p.archetype) parts.push(`(${p.archetype})`);
-            if (p.occupation) parts.push(`— ${p.occupation}`);
-            if (p.age) parts.push(`age ${p.age}`);
-            return parts.join(" ");
-          });
-          const groupDesc = group.description ? ` — ${group.description}` : "";
-          return `Group "${group.name}"${groupDesc}:\n  ${personaSummaries.join("\n  ")}`;
-        });
-        personaContext = `\nTarget Audience (use these profiles to understand WHO you are interviewing and choose relevant topics — do NOT create individual questions per person):\n${groupDescriptions.join("\n")}`;
-      }
+    if (!study) {
+      emit({
+        type: "error",
+        message: "Study not found",
+      });
+      return;
+    }
 
-      const orgCtx = await getOrgProductContext(study.organizationId);
-      if (orgCtx?.setupCompleted) {
-        const parts: string[] = [];
-        if (orgCtx.productName) parts.push(`Product: ${orgCtx.productName}`);
-        if (orgCtx.productDescription) parts.push(`Description: ${orgCtx.productDescription}`);
-        if (orgCtx.targetAudience) parts.push(`Target Audience: ${orgCtx.targetAudience}`);
-        if (orgCtx.industry) parts.push(`Industry: ${orgCtx.industry}`);
-        if (parts.length > 0) orgContextStr = `\nProduct Context:\n${parts.join("\n")}`;
-      }
+    const role = await getUserRole(study.organizationId, dbUser.id);
+    if (!role) {
+      emit({
+        type: "error",
+        message: "Access denied",
+      });
+      return;
+    }
+
+    if (study.personaGroups.length > 0) {
+      groupCount = study.personaGroups.length;
+      const groupDescriptions = study.personaGroups.map((spg) => {
+        const group = spg.personaGroup;
+        personaCount += group.personas.length;
+        const personaSummaries = group.personas.slice(0, 15).map((p) => {
+          const parts = [`${p.name}`];
+          if (p.archetype) parts.push(`(${p.archetype})`);
+          if (p.occupation) parts.push(`— ${p.occupation}`);
+          if (p.age) parts.push(`age ${p.age}`);
+          return parts.join(" ");
+        });
+        const groupDesc = group.description ? ` — ${group.description}` : "";
+        return `Group "${group.name}"${groupDesc}:\n  ${personaSummaries.join("\n  ")}`;
+      });
+      personaContext = `\nTarget Audience (use these profiles to understand WHO you are interviewing and choose relevant topics — do NOT create individual questions per person):\n${groupDescriptions.join("\n")}`;
+    }
+
+    const orgCtx = await getOrgProductContext(study.organizationId);
+    if (orgCtx?.setupCompleted) {
+      const parts: string[] = [];
+      if (orgCtx.productName) parts.push(`Product: ${orgCtx.productName}`);
+      if (orgCtx.productDescription) parts.push(`Description: ${orgCtx.productDescription}`);
+      if (orgCtx.targetAudience) parts.push(`Target Audience: ${orgCtx.targetAudience}`);
+      if (orgCtx.industry) parts.push(`Industry: ${orgCtx.industry}`);
+      if (parts.length > 0) orgContextStr = `\nProduct Context:\n${parts.join("\n")}`;
     }
 
     // Step 2: Reviewing personas

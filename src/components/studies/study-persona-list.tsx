@@ -83,9 +83,11 @@ export function StudyPersonaList({
           const isSelected = selectedPersonaId === persona.id;
 
           return (
-            <motion.div
+            <motion.button
               key={persona.id}
+              type="button"
               onClick={() => handleClick(persona.id)}
+              aria-label={isCompleted ? `Open completed interview for ${persona.name}` : `Open persona ${persona.name}`}
               initial={reduced ? false : { opacity: 0, y: 12, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={reduced ? { duration: 0 } : { delay: i * 0.04, type: "spring", stiffness: 300, damping: 25 }}
@@ -122,9 +124,13 @@ export function StudyPersonaList({
                     {persona.archetype}
                   </p>
                 )}
-                <div className="mt-1.5 flex flex-wrap gap-1">
+                <div className="mt-1.5 flex max-w-full flex-wrap gap-1">
                   {persona.occupation && (
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge
+                      variant="outline"
+                      className="max-w-full truncate text-[10px]"
+                      title={persona.occupation}
+                    >
                       {persona.occupation}
                     </Badge>
                   )}
@@ -159,7 +165,7 @@ export function StudyPersonaList({
                   </motion.div>
                 )}
               </div>
-            </motion.div>
+            </motion.button>
           );
         })}
       </div>

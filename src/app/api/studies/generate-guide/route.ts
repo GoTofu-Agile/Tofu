@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
 import { getModel } from "@/lib/ai/provider";
 import { getStudy } from "@/lib/db/queries/studies";
-import { getOrgProductContext } from "@/lib/db/queries/organizations";
+import { getOrgProductContext, getUserRole } from "@/lib/db/queries/organizations";
 
 const requestSchema = z.object({
   title: z.string().min(1),
@@ -47,6 +47,11 @@ export async function POST(request: NextRequest) {
     if (body.studyId) {
       const study = await getStudy(body.studyId);
       if (study) {
+        const role = await getUserRole(study.organizationId, dbUser.id);
+        if (!role) {
+          return Response.json({ error: "Access denied" }, { status: 403 });
+        }
+
         // Load persona context
         if (study.personaGroups.length > 0) {
           const groupDescriptions = study.personaGroups.map((spg) => {
