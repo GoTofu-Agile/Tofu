@@ -101,9 +101,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify group exists and user has access
-  const group = await getPersonaGroup(body.groupId);
-  if (!group) {
+  // Verify group exists, user has access, and fetch generation guard — in parallel.
+  const [group, guard] = await Promise.all([
+    getPersonaGroup(body.groupId),
+    getPersonaGenerationGuardForGroup(body.groupId),
+  ]);
+  if (!group || !guard) {
     return new Response(JSON.stringify({ error: "Group not found" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
@@ -116,14 +119,6 @@ export async function POST(request: NextRequest) {
       JSON.stringify({ error: "Not a member of this organization" }),
       { status: 403, headers: { "Content-Type": "application/json" } }
     );
-  }
-
-  const guard = await getPersonaGenerationGuardForGroup(body.groupId);
-  if (!guard) {
-    return new Response(JSON.stringify({ error: "Group not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
   }
 
   try {

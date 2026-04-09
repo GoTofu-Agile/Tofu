@@ -577,9 +577,140 @@ export async function generateAndSavePersonas(
     take: 20,
   });
 
-  for (let i = 0; i < count; i++) {
+  type PendingPersona = {
+    persona: PersonaOutput;
+    scorePromise: ReturnType<typeof scorePersonaAuthenticity>;
+    qualityScore: number;
+    llmSystemPrompt: string;
+  };
+
+  const inngestPersonaIds: string[] = [];
+  let pending: PendingPersona | null = null;
+
+  const savePendingPersona = async (p: PendingPersona) => {
+    let authenticityEval: Awaited<ReturnType<typeof scorePersonaAuthenticity>>;
     try {
-      let persona: PersonaOutput | null = null;
+      authenticityEval = await p.scorePromise;
+    } catch (error) {
+      console.error("[generate-personas] authenticity evaluation failed:", error);
+      authenticityEval = {
+        authenticity_score: 60,
+        authenticity_band: "medium" as const,
+        eval_summary:
+          "Authenticity evaluation was unavailable for this run; persona was generated successfully.",
+        eval_dimensions: {
+          specificity: 60,
+          plausibility: 60,
+          non_genericity: 60,
+          consistency: 60,
+          diversity: 60,
+        },
+        flags: ["low_specificity"],
+        evalRaw: {
+          fallback: true,
+          reason: error instanceof Error ? error.message : "unknown authenticity evaluator error",
+        },
+        backstoryEmbedding: [],
+      };
+    }
+
+    const persona = p.persona;
+    const createdPersona = await prisma.persona.create({
+      data: {
+        personaGroupId: groupId,
+        name: persona.name,
+        age: persona.age,
+        gender: persona.gender,
+        location: persona.location,
+        occupation: persona.occupation,
+        bio: persona.bio,
+        backstory: persona.backstory,
+        goals: persona.goals,
+        frustrations: persona.frustrations,
+        behaviors: persona.behaviors,
+        sourceType,
+        qualityScore: p.qualityScore,
+        generatedContent: persona,
+        rawInput: {
+          domainContext: domainContext ?? null,
+          ragContextPresent: Boolean(ragContext),
+          templateId: templateConfig?.id ?? null,
+          qualityTier,
+        },
+        normalizedText: [
+          persona.name,
+          persona.archetype,
+          persona.bio,
+          persona.backstory,
+          persona.dayInTheLife,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase(),
+        authenticityScore: authenticityEval.authenticity_score,
+        authenticityBand: authenticityEval.authenticity_band,
+        evalSummary: authenticityEval.eval_summary,
+        evalDimensions: authenticityEval.eval_dimensions as unknown as Prisma.InputJsonValue,
+        evalFlags: authenticityEval.flags as unknown as Prisma.InputJsonValue,
+        evalVersion: "persona-auth-v1",
+        evalRaw: authenticityEval.evalRaw as Prisma.InputJsonValue,
+        backstoryEmbeddingJson:
+          authenticityEval.backstoryEmbedding as unknown as Prisma.InputJsonValue,
+        evaluationStatus: "PENDING",
+        llmSystemPrompt: p.llmSystemPrompt,
+        archetype: persona.archetype,
+        representativeQuote: persona.representativeQuote,
+        techLiteracy: persona.techLiteracy,
+        domainExpertise: persona.domainExpertise,
+        dayInTheLife: persona.dayInTheLife,
+        coreValues: persona.coreValues,
+        communicationSample: persona.communicationSample,
+        personality: {
+          create: {
+            openness: persona.personality.openness,
+            conscientiousness: persona.personality.conscientiousness,
+            extraversion: persona.personality.extraversion,
+            agreeableness: persona.personality.agreeableness,
+            neuroticism: persona.personality.neuroticism,
+            communicationStyle: persona.personality.communicationStyle,
+            responseLengthTendency: persona.personality.responseLengthTendency,
+            decisionMakingStyle: persona.personality.decisionMakingStyle,
+            riskTolerance: persona.personality.riskTolerance,
+            trustPropensity: persona.personality.trustPropensity,
+            emotionalExpressiveness: persona.personality.emotionalExpressiveness,
+            directness: persona.personality.directness,
+            criticalFeedbackTendency: persona.personality.criticalFeedbackTendency,
+            vocabularyLevel: persona.personality.vocabularyLevel,
+            tangentTendency: persona.personality.tangentTendency,
+          },
+        },
+      },
+    });
+
+    if (nonAppReviewKnowledgeIds.length > 0) {
+      await prisma.personaDataSource.createMany({
+        data: nonAppReviewKnowledgeIds.map((dkId) => ({
+          personaId: createdPersona.id,
+          domainKnowledgeId: dkId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    inngestPersonaIds.push(createdPersona.id);
+    generated++;
+    authenticity.push({
+      personaId: createdPersona.id,
+      authenticity_score: authenticityEval.authenticity_score,
+      authenticity_band: authenticityEval.authenticity_band,
+    });
+    onProgress?.(generated, count, persona.name, createdPersona.id);
+  };
+
+  for (let i = 0; i < count; i++) {
+    // STEP 1: Generate persona (sequential for diversity tracking)
+    let persona: PersonaOutput | null = null;
+    try {
       let lastDraft: PersonaOutput | null = null;
       const MAX_ATTEMPTS = 3;
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -621,143 +752,68 @@ export async function generateAndSavePersonas(
       if (!persona) {
         throw new Error("Unable to generate non-repetitive persona after retries");
       }
-
-      const qualityScore = computeQualityScore(persona);
-      const llmSystemPrompt = buildSystemPrompt(persona);
-      let authenticityEval;
-      try {
-        authenticityEval = await scorePersonaAuthenticity(persona, recentPersonas);
-      } catch (error) {
-        console.error("[generate-personas] authenticity evaluation failed:", error);
-        authenticityEval = {
-          authenticity_score: 60,
-          authenticity_band: "medium" as const,
-          eval_summary:
-            "Authenticity evaluation was unavailable for this run; persona was generated successfully.",
-          eval_dimensions: {
-            specificity: 60,
-            plausibility: 60,
-            non_genericity: 60,
-            consistency: 60,
-            diversity: 60,
-          },
-          flags: ["low_specificity"],
-          evalRaw: {
-            fallback: true,
-            reason:
-              error instanceof Error ? error.message : "unknown authenticity evaluator error",
-          },
-          backstoryEmbedding: [],
-        };
-      }
-
-      const createdPersona = await prisma.persona.create({
-        data: {
-          personaGroupId: groupId,
-          name: persona.name,
-          age: persona.age,
-          gender: persona.gender,
-          location: persona.location,
-          occupation: persona.occupation,
-          bio: persona.bio,
-          backstory: persona.backstory,
-          goals: persona.goals,
-          frustrations: persona.frustrations,
-          behaviors: persona.behaviors,
-          sourceType,
-          qualityScore,
-          generatedContent: persona,
-          rawInput: {
-            domainContext: domainContext ?? null,
-            ragContextPresent: Boolean(ragContext),
-            templateId: templateConfig?.id ?? null,
-            qualityTier,
-          },
-          normalizedText: [
-            persona.name,
-            persona.archetype,
-            persona.bio,
-            persona.backstory,
-            persona.dayInTheLife,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase(),
-          authenticityScore: authenticityEval.authenticity_score,
-          authenticityBand: authenticityEval.authenticity_band,
-          evalSummary: authenticityEval.eval_summary,
-          evalDimensions: authenticityEval.eval_dimensions as unknown as Prisma.InputJsonValue,
-          evalFlags: authenticityEval.flags as unknown as Prisma.InputJsonValue,
-          evalVersion: "persona-auth-v1",
-          evalRaw: authenticityEval.evalRaw as Prisma.InputJsonValue,
-          backstoryEmbeddingJson:
-            authenticityEval.backstoryEmbedding as unknown as Prisma.InputJsonValue,
-          evaluationStatus: "PENDING",
-          llmSystemPrompt,
-          archetype: persona.archetype,
-          representativeQuote: persona.representativeQuote,
-          techLiteracy: persona.techLiteracy,
-          domainExpertise: persona.domainExpertise,
-          dayInTheLife: persona.dayInTheLife,
-          coreValues: persona.coreValues,
-          communicationSample: persona.communicationSample,
-          personality: {
-            create: {
-              openness: persona.personality.openness,
-              conscientiousness: persona.personality.conscientiousness,
-              extraversion: persona.personality.extraversion,
-              agreeableness: persona.personality.agreeableness,
-              neuroticism: persona.personality.neuroticism,
-              communicationStyle: persona.personality.communicationStyle,
-              responseLengthTendency: persona.personality.responseLengthTendency,
-              decisionMakingStyle: persona.personality.decisionMakingStyle,
-              riskTolerance: persona.personality.riskTolerance,
-              trustPropensity: persona.personality.trustPropensity,
-              emotionalExpressiveness: persona.personality.emotionalExpressiveness,
-              directness: persona.personality.directness,
-              criticalFeedbackTendency: persona.personality.criticalFeedbackTendency,
-              vocabularyLevel: persona.personality.vocabularyLevel,
-              tangentTendency: persona.personality.tangentTendency,
-            },
-          },
-        },
-      });
-
-      if (nonAppReviewKnowledgeIds.length > 0) {
-        await prisma.personaDataSource.createMany({
-          data: nonAppReviewKnowledgeIds.map((dkId) => ({
-            personaId: createdPersona.id,
-            domainKnowledgeId: dkId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
-      previousPersonas.push(summaryFromPersona(persona));
-      recentPersonas.unshift({
-        backstory: persona.backstory,
-        dayInTheLife: persona.dayInTheLife,
-        archetype: persona.archetype,
-      });
-      if (recentPersonas.length > 20) recentPersonas.length = 20;
-      generated++;
-      onProgress?.(generated, count, persona.name, createdPersona.id);
-
-      await inngest.send({
-        name: "persona/evaluate.requested",
-        data: { personaId: createdPersona.id },
-      });
-      evaluationsQueued++;
-      authenticity.push({
-        personaId: createdPersona.id,
-        authenticity_score: authenticityEval.authenticity_score,
-        authenticity_band: authenticityEval.authenticity_band,
-      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       errors.push(`Persona ${i + 1}: ${message}`);
       console.error(`[generate-personas] Failed:`, error);
+      // Still drain the previous pending so it isn't lost
+      if (pending) {
+        try { await savePendingPersona(pending); } catch (e) {
+          errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+        }
+        pending = null;
+      }
+      continue;
     }
+
+    // STEP 2: Start scoring current persona in the background.
+    // It will run concurrently with the next iteration's generateObject call.
+    const corpusSnapshot = recentPersonas.slice();
+    const scorePromise = scorePersonaAuthenticity(persona, corpusSnapshot);
+
+    // STEP 3: Save the previously generated persona whose score is now ready.
+    // (Its scorePromise started during the previous iteration's generateObject call,
+    // so it has had a full generation window to complete — typically instant to await.)
+    if (pending) {
+      try { await savePendingPersona(pending); } catch (e) {
+        errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+      }
+      pending = null;
+    }
+
+    // STEP 4: Update diversity tracking for subsequent generations.
+    previousPersonas.push(summaryFromPersona(persona));
+    recentPersonas.unshift({
+      backstory: persona.backstory,
+      dayInTheLife: persona.dayInTheLife,
+      archetype: persona.archetype,
+    });
+    if (recentPersonas.length > 20) recentPersonas.length = 20;
+
+    pending = {
+      persona,
+      scorePromise,
+      qualityScore: computeQualityScore(persona),
+      llmSystemPrompt: buildSystemPrompt(persona),
+    };
+  }
+
+  // Save the last pending persona (its score runs while we were finishing the loop).
+  if (pending) {
+    try { await savePendingPersona(pending); } catch (e) {
+      errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+    }
+  }
+
+  // Batch all inngest evaluation events into a single request.
+  if (inngestPersonaIds.length > 0) {
+    await inngest.send(
+      inngestPersonaIds.map((id) => ({
+        name: "persona/evaluate.requested" as const,
+        data: { personaId: id },
+      }))
+    );
+    evaluationsQueued = inngestPersonaIds.length;
   }
 
   // Update group persona count with actual DB count
@@ -770,14 +826,10 @@ export async function generateAndSavePersonas(
   });
 
   if (actualCount > 0) {
-    try {
-      await assignAppStoreReviewsToPersonas(groupId);
-    } catch (e) {
-      console.error(
-        "[generate-personas] assignAppStoreReviewsToPersonas failed:",
-        e
-      );
-    }
+    // Fire-and-forget — no need to block generation completion on this.
+    assignAppStoreReviewsToPersonas(groupId).catch((e) =>
+      console.error("[generate-personas] assignAppStoreReviewsToPersonas failed:", e)
+    );
   }
 
   console.info("[generate-personas] completed", {
