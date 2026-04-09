@@ -5,6 +5,7 @@ import { getUser } from "@/lib/db/queries/users";
 import { getSession, addMessageAutoSequence } from "@/lib/db/queries/studies";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { getModel } from "@/lib/ai/provider";
+import { checkRateLimit } from "@/lib/server/request-guards";
 
 export async function POST(request: NextRequest) {
   // Auth
@@ -29,6 +30,17 @@ export async function POST(request: NextRequest) {
 
   if (!sessionId || !uiMessages?.length) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
+  }
+  const rate = checkRateLimit({
+    key: `chat-session:${authUser.id}:${sessionId}`,
+    limit: 50,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    return Response.json(
+      { error: "Too many chat messages. Please wait and try again." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
+    );
   }
 
   // Load session with persona + study

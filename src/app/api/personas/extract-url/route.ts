@@ -6,6 +6,7 @@ import { getModel } from "@/lib/ai/provider";
 import { extractedContextSchema } from "@/lib/validation/schemas";
 import { tavily } from "@tavily/core";
 import { z } from "zod";
+import { checkRateLimit } from "@/lib/server/request-guards";
 
 const requestSchema = z.object({
   url: z.string().trim().min(1).max(2048),
@@ -50,6 +51,17 @@ export async function POST(request: NextRequest) {
   if (!authUser) return Response.json({ error: "Not authenticated" }, { status: 401 });
   const dbUser = await getUser(authUser.id);
   if (!dbUser) return Response.json({ error: "User not found" }, { status: 401 });
+  const rate = checkRateLimit({
+    key: `persona-extract-url:${authUser.id}`,
+    limit: 15,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    return Response.json(
+      { error: "Too many URL extraction requests. Please retry shortly." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
+    );
+  }
 
   let body: z.infer<typeof requestSchema>;
   try {

@@ -9,6 +9,7 @@ import {
   assertPersonaGenerationAllowed,
   getPersonaGenerationGuardForGroup,
 } from "@/lib/personas/persona-generation-guard";
+import { checkRateLimit } from "@/lib/server/request-guards";
 
 const requestSchema = z.object({
   groupId: z.string().min(1),
@@ -33,6 +34,18 @@ export async function POST(request: NextRequest) {
     body = requestSchema.parse(await request.json());
   } catch {
     return Response.json({ error: "Invalid request" }, { status: 400 });
+  }
+
+  const rate = checkRateLimit({
+    key: `persona-expand:${authUser.id}`,
+    limit: 8,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    return Response.json(
+      { error: "Too many expansion requests. Please retry shortly." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
+    );
   }
 
   const group = await getPersonaGroup(body.groupId);

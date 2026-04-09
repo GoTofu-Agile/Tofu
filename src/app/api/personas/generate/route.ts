@@ -7,6 +7,11 @@ import { getUserRole } from "@/lib/db/queries/organizations";
 import { generateAndSavePersonas } from "@/lib/ai/generate-personas";
 import { getPersonaTemplateById } from "@/lib/personas/templates";
 import {
+  acquireInFlightLease,
+  checkRateLimit,
+  releaseInFlightLease,
+} from "@/lib/server/request-guards";
+import {
   assertPersonaGenerationAllowed,
   getPersonaGenerationGuardForGroup,
 } from "@/lib/personas/persona-generation-guard";
@@ -54,6 +59,41 @@ export async function POST(request: NextRequest) {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  const rate = checkRateLimit({
+    key: `persona-generate:${authUser.id}`,
+    limit: 12,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: "Too many generation requests. Please wait a moment and retry.",
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(rate.retryAfterSeconds),
+        },
+      }
+    );
+  }
+
+  const leaseKey = `persona-generate:${authUser.id}:${body.groupId}`;
+  const leaseAcquired = acquireInFlightLease({
+    key: leaseKey,
+    ttlMs: 3 * 60_000,
+  });
+  if (!leaseAcquired) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "A generation is already in progress for this persona group. Please wait for it to finish.",
+      }),
+      { status: 409, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // Verify group exists and user has access
@@ -144,6 +184,7 @@ export async function POST(request: NextRequest) {
         });
         controller.enqueue(encoder.encode(errorEvent + "\n"));
       } finally {
+        releaseInFlightLease(leaseKey);
         controller.close();
       }
     },
