@@ -2,7 +2,7 @@ import { streamText, type UIMessage } from "ai";
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
-import { getSession, addMessage, getMessageCount } from "@/lib/db/queries/studies";
+import { getSession, addMessageAutoSequence } from "@/lib/db/queries/studies";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { getModel } from "@/lib/ai/provider";
 
@@ -69,12 +69,10 @@ export async function POST(request: NextRequest) {
   // Save the latest user message to DB
   const lastMsg = llmMessages[llmMessages.length - 1];
   if (lastMsg?.role === "user") {
-    const currentCount = await getMessageCount(sessionId);
-    await addMessage({
+    await addMessageAutoSequence({
       sessionId,
       role: "INTERVIEWER",
       content: lastMsg.content,
-      sequence: currentCount + 1,
     });
   }
 
@@ -85,12 +83,10 @@ export async function POST(request: NextRequest) {
       system: fullSystemPrompt,
       messages: llmMessages,
       async onFinish({ text }) {
-        const count = await getMessageCount(sessionId);
-        await addMessage({
+        await addMessageAutoSequence({
           sessionId,
           role: "RESPONDENT",
           content: text,
-          sequence: count + 1,
         });
       },
     });

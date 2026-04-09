@@ -15,6 +15,24 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
   if (!file) return Response.json({ error: "No file provided" }, { status: 400 });
+  if (file.size <= 0) {
+    return Response.json({ error: "Uploaded file is empty" }, { status: 400 });
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return Response.json(
+      { error: "File is too large. Please upload a PDF under 10MB." },
+      { status: 413 }
+    );
+  }
+  const mime = (file.type || "").toLowerCase();
+  const looksLikePdf =
+    mime.includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
+  if (!looksLikePdf) {
+    return Response.json(
+      { error: "Invalid file type. Please upload a PDF." },
+      { status: 400 }
+    );
+  }
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);

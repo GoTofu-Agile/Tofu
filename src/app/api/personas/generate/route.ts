@@ -103,6 +103,9 @@ export async function POST(request: NextRequest) {
         const templateConfig = body.templateId
           ? getPersonaTemplateById(body.templateId)
           : undefined;
+        if (body.templateId && !templateConfig) {
+          throw new Error("Selected template was not found.");
+        }
 
         const result = await generateAndSavePersonas({
           groupId: body.groupId,

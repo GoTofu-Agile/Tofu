@@ -5,6 +5,11 @@ import { getUser } from "@/lib/db/queries/users";
 import { getModel } from "@/lib/ai/provider";
 import { extractedContextSchema } from "@/lib/validation/schemas";
 import { tavily } from "@tavily/core";
+import { z } from "zod";
+
+const requestSchema = z.object({
+  url: z.string().trim().min(1).max(2048),
+});
 
 function normalizeCompanyUrl(raw: string): URL | null {
   try {
@@ -18,6 +23,16 @@ function normalizeCompanyUrl(raw: string): URL | null {
 
 function hostnameWithoutWww(hostname: string): string {
   return hostname.replace(/^www\./, "");
+}
+
+function isBlockedHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === "localhost" || h.endsWith(".local")) return true;
+  if (h === "127.0.0.1" || h === "::1") return true;
+  if (/^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h)) {
+    return true;
+  }
+  return false;
 }
 
 function guessCompanyNameFromDomain(domain: string): string {
@@ -36,13 +51,24 @@ export async function POST(request: NextRequest) {
   const dbUser = await getUser(authUser.id);
   if (!dbUser) return Response.json({ error: "User not found" }, { status: 401 });
 
-  const body = await request.json();
-  const url: string = body.url;
+  let body: z.infer<typeof requestSchema>;
+  try {
+    body = requestSchema.parse(await request.json());
+  } catch {
+    return Response.json({ error: "Invalid URL payload" }, { status: 400 });
+  }
+  const url = body.url;
   const parsedUrl = normalizeCompanyUrl(url);
   if (!parsedUrl) {
     return Response.json({ error: "Invalid URL" }, { status: 400 });
   }
   const companyDomain = hostnameWithoutWww(parsedUrl.hostname);
+  if (isBlockedHostname(companyDomain)) {
+    return Response.json(
+      { error: "Private or local network URLs are not allowed." },
+      { status: 400 }
+    );
+  }
 
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) return Response.json({ error: "TAVILY_API_KEY not set" }, { status: 500 });

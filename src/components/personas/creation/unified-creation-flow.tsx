@@ -905,6 +905,7 @@ export function UnifiedCreationFlow({
   // --- Step: Describe (AI Generate + Deep Search) ---
 
   async function handleFreetextInput(text: string) {
+    if (starting || extracting) return;
     setExtracting(true);
     setGenerationIssue(null);
     try {
@@ -928,6 +929,7 @@ export function UnifiedCreationFlow({
   }
 
   async function handleCompanyUrlContinue() {
+    if (starting || extracting) return;
     const url = companyUrl.trim();
     if (!isValidHttpUrl(url)) return;
 
@@ -958,6 +960,7 @@ export function UnifiedCreationFlow({
   }
 
   async function handleCvResumeContinue() {
+    if (starting || extracting) return;
     if (!cvResumeFile) return;
 
     setExtracting(true);
@@ -991,6 +994,7 @@ export function UnifiedCreationFlow({
   // --- Generate without research ---
 
   async function generateOnlyFromExtracted(extracted: ExtractedContext) {
+    if (starting) return;
     setStarting(true);
     setGenerationIssue(null);
 
@@ -1032,12 +1036,14 @@ export function UnifiedCreationFlow({
       await streamGenerationProgress(response, gId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
+      setStarting(false);
     }
   }
 
   // --- Research + Generate (Deep Search / LinkedIn / Company URL) ---
 
   async function researchAndGenerateFromExtracted(extracted: ExtractedContext) {
+    if (starting) return;
     setStarting(true);
     setGenerationIssue(null);
 
@@ -1124,6 +1130,7 @@ export function UnifiedCreationFlow({
       await streamGenerationProgress(response, gId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
+      setStarting(false);
     }
   }
 

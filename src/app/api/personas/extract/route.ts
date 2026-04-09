@@ -41,10 +41,11 @@ export async function POST(request: NextRequest) {
     ? `\n\nOrganization context:\n${orgParts.join("\n")}`
     : "";
 
-  const { object } = await generateObject({
-    model: getModel(),
-    schema: extractedContextSchema,
-    prompt: `You are helping a user create synthetic personas for user research. Extract structured information from their description.
+  try {
+    const { object } = await generateObject({
+      model: getModel(),
+      schema: extractedContextSchema,
+      prompt: `You are helping a user create synthetic personas for user research. Extract structured information from their description.
 
 User input: "${body.freetext}"
 ${orgContextStr}
@@ -58,7 +59,13 @@ Extract:
 - domainContext: A rich paragraph combining ALL available context (user input + org context) that will be fed to the persona generation AI. Include the user description, inferred details about this user type, and any organization context. This should be detailed enough to generate realistic personas.
 
 For short inputs like "ER nurses", infer reasonable details. For longer inputs, preserve all user-provided details.`,
-  });
+    });
 
-  return Response.json(object);
+    return Response.json(object);
+  } catch (error) {
+    console.error("[extract] AI generation failed:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to analyze input";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }

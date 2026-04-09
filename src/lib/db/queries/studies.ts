@@ -293,6 +293,28 @@ export async function addMessage(data: {
   return prisma.sessionMessage.create({ data });
 }
 
+export async function addMessageAutoSequence(data: {
+  sessionId: string;
+  role: "SYSTEM" | "INTERVIEWER" | "RESPONDENT";
+  content: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    // Lock session row to serialize sequence assignment per session.
+    await tx.$queryRaw`SELECT id FROM "Session" WHERE id = ${data.sessionId} FOR UPDATE`;
+    const count = await tx.sessionMessage.count({
+      where: { sessionId: data.sessionId },
+    });
+    return tx.sessionMessage.create({
+      data: {
+        sessionId: data.sessionId,
+        role: data.role,
+        content: data.content,
+        sequence: count + 1,
+      },
+    });
+  });
+}
+
 export async function getMessageCount(sessionId: string) {
   return prisma.sessionMessage.count({
     where: { sessionId },
