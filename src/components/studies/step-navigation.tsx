@@ -43,7 +43,10 @@ export function StepNavigation({
   const hint = canGoNext ? STEP_HINTS[activeStep] : STEP_BLOCKERS[activeStep];
 
   return (
-    <div className="sticky bottom-0 z-10 bg-background border-t py-3 relative">
+    <div
+      className="sticky z-30 -mx-4 border-t bg-background px-4 py-3 sm:-mx-[var(--page-padding-x)] sm:px-[var(--page-padding-x)]"
+      style={{ bottom: "calc(-1 * var(--page-padding-y))" }}
+    >
       {/* Top gradient fade */}
       <div className="absolute -top-6 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none" />
       <div className="flex items-center justify-between">
