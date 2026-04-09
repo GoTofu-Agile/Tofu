@@ -7,6 +7,7 @@ import { AppFrame } from "@/components/layout/app-frame";
 import { AssistantProvider } from "@/components/assistant/assistant-provider";
 import { AssistantChatLazy } from "@/components/assistant/assistant-chat-lazy";
 import { FeedbackOverlay } from "@/components/feedback/feedback-overlay";
+import { PersonaGenerationFloatingWidget } from "@/components/personas/persona-generation-floating-widget";
 
 
 export default async function DashboardLayout({
@@ -21,7 +22,7 @@ export default async function DashboardLayout({
     redirect(
       "/login?message=" +
         encodeURIComponent(
-          "Could not load your account. If you switched Supabase project, verify env vars and run database setup."
+          "We could not load your account. Please sign in again, or contact support if this keeps happening."
         )
     );
   }
@@ -64,6 +65,7 @@ export default async function DashboardLayout({
           </div>
         </AppFrame>
         <AssistantChatLazy />
+        <PersonaGenerationFloatingWidget />
         <FeedbackOverlay />
       </div>
     </AssistantProvider>

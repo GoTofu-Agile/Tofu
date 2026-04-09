@@ -7,6 +7,10 @@ import { getUserRole } from "@/lib/db/queries/organizations";
 import { generateAndSavePersonas } from "@/lib/ai/generate-personas";
 import { getPersonaTemplateById } from "@/lib/personas/templates";
 import {
+  initPersonaGenerationRun,
+  updatePersonaGenerationRun,
+} from "@/lib/server/persona-generation-tracker";
+import {
   acquireInFlightLease,
   checkRateLimit,
   releaseInFlightLease,
@@ -23,6 +27,7 @@ const requestSchema = z.object({
   sourceTypeOverride: z.enum(["PROMPT_GENERATED", "DATA_BASED", "UPLOAD_BASED"]).optional(),
   templateId: z.string().min(1).optional(),
   includeSkeptics: z.boolean().optional(),
+  clientRunId: z.string().min(1).max(80).optional(),
   /** True when the client used the “deep search” research path (Quick or Guided). */
   usedDeepResearchPipeline: z.boolean().optional(),
 });
@@ -134,6 +139,13 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   }
+  const runId = body.clientRunId ?? crypto.randomUUID();
+  initPersonaGenerationRun({
+    runId,
+    userId: authUser.id,
+    groupId: body.groupId,
+    total: body.count,
+  });
 
   // Stream generation progress as NDJSON
   const encoder = new TextEncoder();
@@ -156,6 +168,12 @@ export async function POST(request: NextRequest) {
           includeSkeptics: body.includeSkeptics ?? true,
           qualityTier: guard.tier,
           onProgress: (completed, total, personaName, personaId) => {
+            updatePersonaGenerationRun(runId, {
+              phase: "generating",
+              completed,
+              total,
+              currentName: personaName,
+            });
             const event = JSON.stringify({
               type: "progress",
               completed,
@@ -163,13 +181,26 @@ export async function POST(request: NextRequest) {
               personaName,
               personaId,
               sourceUrl: `/personas/${body.groupId}/${personaId}`,
+              runId,
             });
             controller.enqueue(encoder.encode(event + "\n"));
           },
         });
+        updatePersonaGenerationRun(runId, {
+          phase: "done",
+          generated: result.generated,
+          errors: result.errors.length,
+          message: result.errors.length
+            ? `${result.generated} generated, ${result.errors.length} failed`
+            : "Generation complete",
+          completed: result.generated,
+          total: body.count,
+          currentName: null,
+        });
 
         const doneEvent = JSON.stringify({
           type: "done",
+          runId,
           generated: result.generated,
           errors: result.errors,
           evaluationsQueued: result.evaluationsQueued,
@@ -177,8 +208,13 @@ export async function POST(request: NextRequest) {
         });
         controller.enqueue(encoder.encode(doneEvent + "\n"));
       } catch (error) {
+        updatePersonaGenerationRun(runId, {
+          phase: "error",
+          message: error instanceof Error ? error.message : "Generation failed",
+        });
         const errorEvent = JSON.stringify({
           type: "error",
+          runId,
           message:
             error instanceof Error ? error.message : "Generation failed",
         });
@@ -195,6 +231,7 @@ export async function POST(request: NextRequest) {
       "Content-Type": "application/x-ndjson",
       "Transfer-Encoding": "chunked",
       "Cache-Control": "no-cache",
+      "X-Persona-Run-Id": runId,
     },
   });
 }

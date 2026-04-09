@@ -25,17 +25,22 @@ export function SettingsForm({
 }) {
   const [name, setName] = useState(orgName);
   const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [createState, setCreateState] = useState<"idle" | "creating" | "created" | "error">("idle");
 
   async function handleSave() {
     if (!name.trim() || name === orgName) return;
     setSaving(true);
+    setSaveState("saving");
     const result = await updateWorkspaceName(orgId, name);
     setSaving(false);
     if (result.error) {
+      setSaveState("error");
       toast.error(result.error);
     } else {
+      setSaveState("saved");
       toast.success("Workspace name updated");
     }
   }
@@ -43,11 +48,14 @@ export function SettingsForm({
   async function handleCreate() {
     if (!newName.trim()) return;
     setCreating(true);
+    setCreateState("creating");
     const result = await createWorkspace(newName);
     setCreating(false);
     if (result.error) {
+      setCreateState("error");
       toast.error(result.error);
     } else {
+      setCreateState("created");
       toast.success("Workspace created");
       setNewName("");
     }
@@ -82,6 +90,15 @@ export function SettingsForm({
               Save
             </Button>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
+            {saveState === "saving"
+              ? "Saving workspace name..."
+              : saveState === "saved"
+                ? "Workspace name saved."
+                : saveState === "error"
+                  ? "Could not save changes. Please retry."
+                  : "\u00a0"}
+          </p>
         </CardContent>
       </Card>
 
@@ -115,6 +132,15 @@ export function SettingsForm({
               Create
             </Button>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
+            {createState === "creating"
+              ? "Creating workspace..."
+              : createState === "created"
+                ? "Workspace created."
+                : createState === "error"
+                  ? "Could not create workspace. Please retry."
+                  : "\u00a0"}
+          </p>
         </CardContent>
       </Card>
     </>

@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ChevronLeft, Loader2 } from "lucide-react";
+import { ArrowRight, ChevronLeft, Loader2, Minimize2 } from "lucide-react";
 import { createGroup } from "@/app/(dashboard)/personas/actions";
 import { PERSONA_TEMPLATES } from "@/lib/personas/templates";
 import { type CreationMethod } from "./step-method-picker";
@@ -93,6 +93,8 @@ const SOURCE_TYPE_MAP: Partial<Record<CreationMethod, string>> = {
   "company-url": "UPLOAD_BASED",
   // deep-search → DATA_BASED auto-set by knowledge.length
 };
+
+const PERSONA_WIDGET_STORAGE_KEY = "personaGenerationWidgetRun";
 
 function classifyPipelineBucket(label: string): "appStore" | "playStore" | "webSearch" | "browsed" | "synth" {
   const text = label.toLowerCase();
@@ -363,6 +365,9 @@ export function UnifiedCreationFlow({
   const [genTotal, setGenTotal] = useState(0);
   const [genCurrentName, setGenCurrentName] = useState("");
   const [lastGeneratedName, setLastGeneratedName] = useState("");
+  const [progressViewMode, setProgressViewMode] = useState<"expanded" | "minimized">(
+    "expanded"
+  );
   const [generationIssue, setGenerationIssue] = useState<{
     groupId: string;
     message: string;
@@ -454,6 +459,36 @@ export function UnifiedCreationFlow({
     ]
   );
 
+  function publishWidgetState(input: {
+    runId: string;
+    groupId: string;
+    phase: "starting" | "researching" | "generating" | "done" | "error";
+    completed: number;
+    total: number;
+    currentName: string | null;
+    message: string | null;
+  }) {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      PERSONA_WIDGET_STORAGE_KEY,
+      JSON.stringify({
+        ...input,
+        updatedAt: Date.now(),
+      })
+    );
+    window.dispatchEvent(new Event("persona-generation-widget-update"));
+  }
+
+  useEffect(() => {
+    if (phase !== "progress") {
+      setProgressViewMode("expanded");
+      return;
+    }
+    if (progressPhase !== "done") {
+      setProgressViewMode("expanded");
+    }
+  }, [phase, progressPhase]);
+
   // --- Method selection ---
 
   function handleMethodSelect(m: CreationMethod) {
@@ -498,6 +533,27 @@ export function UnifiedCreationFlow({
 
   async function pipelineStepSettledPause() {
     await new Promise<void>((resolve) => setTimeout(resolve, 240));
+  }
+
+  function createRunId() {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    return `run_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function startGlobalWidgetRun(groupId: string, total: number, phase: "researching" | "generating") {
+    const runId = createRunId();
+    publishWidgetState({
+      runId,
+      groupId,
+      phase,
+      completed: 0,
+      total,
+      currentName: null,
+      message: phase === "researching" ? "Researching signals" : "Preparing personas",
+    });
+    return runId;
   }
 
   function setPipelineStatus(stepId: string, status: ChatPipelineStepView["status"]) {
@@ -634,6 +690,7 @@ export function UnifiedCreationFlow({
     setProgressPhase("generating");
 
     const sourceTypeOverride = source === "templates" ? "PROMPT_GENERATED" : "DATA_BASED";
+    const runId = startGlobalWidgetRun(gId, personaCount, "researching");
 
     if (genStep) {
       setResearchCurrent(displayPlan.length);
@@ -650,12 +707,13 @@ export function UnifiedCreationFlow({
           count: personaCount,
           domainContext,
           includeSkeptics,
+          clientRunId: runId,
           sourceTypeOverride,
           usedDeepResearchPipeline: source === "deep-search",
         }),
       });
       await ensureGenerateResponseOk(response);
-      await streamGenerationProgress(response, gId, {
+      await streamGenerationProgress(response, gId, runId, {
         onGenerationUiComplete: () => {
           if (genStep) setPipelineStatus(genStep.id, "done");
         },
@@ -734,6 +792,7 @@ export function UnifiedCreationFlow({
 
       setProgressPhase("generating");
       setGenTotal(personaCount);
+      const runId = startGlobalWidgetRun(gId, personaCount, "generating");
 
       const response = await fetch("/api/personas/generate", {
         method: "POST",
@@ -743,13 +802,14 @@ export function UnifiedCreationFlow({
           count: personaCount,
           domainContext,
           includeSkeptics,
+          clientRunId: runId,
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
         }),
       });
 
       await ensureGenerateResponseOk(response);
-      await streamGenerationProgress(response, gId);
+      await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
       setStarting(false);
@@ -880,6 +940,7 @@ export function UnifiedCreationFlow({
 
       setProgressPhase("generating");
       setGenTotal(personaCount);
+      const runId = startGlobalWidgetRun(gId, personaCount, "generating");
 
       const response = await fetch("/api/personas/generate", {
         method: "POST",
@@ -889,13 +950,14 @@ export function UnifiedCreationFlow({
           count: personaCount,
           domainContext,
           includeSkeptics,
+          clientRunId: runId,
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
         }),
       });
 
       await ensureGenerateResponseOk(response);
-      await streamGenerationProgress(response, gId);
+      await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
       setStarting(false);
@@ -1015,6 +1077,7 @@ export function UnifiedCreationFlow({
     setPhase("progress");
     setProgressPhase("generating");
     setGenTotal(personaCount);
+    const runId = startGlobalWidgetRun(gId, personaCount, "generating");
 
     const sourceTypeOverride = method ? SOURCE_TYPE_MAP[method] : undefined;
 
@@ -1027,13 +1090,14 @@ export function UnifiedCreationFlow({
           count: personaCount,
           domainContext: extracted.domainContext,
           includeSkeptics,
+          clientRunId: runId,
           sourceTypeOverride,
           usedDeepResearchPipeline: false,
         }),
       });
 
       await ensureGenerateResponseOk(response);
-      await streamGenerationProgress(response, gId);
+      await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
       setStarting(false);
@@ -1108,6 +1172,7 @@ export function UnifiedCreationFlow({
     setResearchResults(totalFound);
     setProgressPhase("generating");
     setGenTotal(personaCount);
+    const runId = startGlobalWidgetRun(gId, personaCount, "researching");
 
     const sourceTypeOverride = method ? SOURCE_TYPE_MAP[method] : undefined;
     const usedDeepResearchPipeline = method === "deep-search";
@@ -1121,13 +1186,14 @@ export function UnifiedCreationFlow({
           count: personaCount,
           domainContext: extracted.domainContext,
           includeSkeptics,
+          clientRunId: runId,
           sourceTypeOverride,
           usedDeepResearchPipeline,
         }),
       });
 
       await ensureGenerateResponseOk(response);
-      await streamGenerationProgress(response, gId);
+      await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
       setStarting(false);
@@ -1137,6 +1203,7 @@ export function UnifiedCreationFlow({
   async function streamGenerationProgress(
     response: Response,
     gId: string,
+    runId: string,
     opts?: { onGenerationUiComplete?: () => void }
   ) {
     const reader = response.body?.getReader();
@@ -1153,6 +1220,15 @@ export function UnifiedCreationFlow({
         if (event.type === "progress") {
           setGenCompleted(event.completed);
           setGenCurrentName(event.personaName || "");
+          publishWidgetState({
+            runId,
+            groupId: gId,
+            phase: "generating",
+            completed: Number(event.completed ?? 0),
+            total: Number(event.total ?? genTotal),
+            currentName: event.personaName || null,
+            message: "Building personas",
+          });
           if (event.personaName) {
             setLastGeneratedName(event.personaName);
           }
@@ -1189,6 +1265,18 @@ export function UnifiedCreationFlow({
             setGenerationIssue(null);
             toast.success(`Generated ${generated} personas!`);
           }
+          publishWidgetState({
+            runId,
+            groupId: gId,
+            phase: "done",
+            completed: generated,
+            total: Number(event.generated ?? generated),
+            currentName: null,
+            message:
+              errors.length > 0
+                ? `${generated} generated, ${errors.length} failed`
+                : "Generation complete",
+          });
 
           const beforeLifetime = loadPersonaEngagement().lifetimeGenerated;
           recordPersonasGenerated(generated, promptText.trim() || undefined);
@@ -1202,6 +1290,18 @@ export function UnifiedCreationFlow({
           }, 1800);
         } else if (event.type === "error") {
           setStarting(false);
+          publishWidgetState({
+            runId,
+            groupId: gId,
+            phase: "error",
+            completed: genCompleted,
+            total: genTotal,
+            currentName: null,
+            message:
+              typeof event.message === "string" && event.message.trim().length > 0
+                ? event.message
+                : "Generation failed",
+          });
           toast.error(event.message);
         }
       } catch {
@@ -1409,6 +1509,7 @@ export function UnifiedCreationFlow({
                 setPhase("progress");
                 setProgressPhase("generating");
                 setGenTotal(personaCount);
+                const runId = startGlobalWidgetRun(gId, personaCount, "generating");
 
                 try {
                   const response = await fetch("/api/personas/generate", {
@@ -1419,6 +1520,7 @@ export function UnifiedCreationFlow({
                       count: personaCount,
                       domainContext: domainContext ?? result.domainContext,
                       includeSkeptics,
+                      clientRunId: runId,
                       sourceTypeOverride: "PROMPT_GENERATED",
                       templateId,
                       usedDeepResearchPipeline: false,
@@ -1426,7 +1528,7 @@ export function UnifiedCreationFlow({
                   });
 
                   await ensureGenerateResponseOk(response);
-                  await streamGenerationProgress(response, gId);
+                  await streamGenerationProgress(response, gId, runId);
                 } catch (error) {
                   toast.error(
                     error instanceof Error ? error.message : "Generation failed"
@@ -1593,57 +1695,89 @@ export function UnifiedCreationFlow({
           </motion.div>
         ) : null}
         {phase === "progress" ? (
-          <motion.div
-            key="progress"
-            initial={reduced ? false : { opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduced ? undefined : { opacity: 0, y: -10 }}
-            transition={{ duration: reduced ? 0 : 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-            className="space-y-5"
-          >
-          <PersonaStreamingProgress
-            phase={progressPhase}
-            genCompleted={genCompleted}
-            genTotal={genTotal}
-            currentName={genCurrentName || lastGeneratedName}
-            researchLabel={researchLabel}
-          />
-          <PersonaWorkflowCarousel
-            steps={workflowSteps}
-            done={progressPhase === "done"}
-            personaPreview={{
-              name: lastGeneratedName || genCurrentName || "Generated Persona",
-              age: "28-40",
-              role: "Primary User",
-              goals: ["Streamline workflow", "Reduce context switching"],
-              frustrations: ["Pricing confusion", "Missing integrations"],
-              behaviors: ["Mobile-first", "Frequent review reader"],
-            }}
-          />
-          {generationIssue ? (
-            <div className="rounded-lg border bg-card p-3">
-              <p className="text-sm text-foreground">{generationIssue.message}</p>
-              <div className="mt-3 flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setGenerationIssue(null);
-                    window.location.reload();
+          <>
+            {progressViewMode === "expanded" ? (
+              <motion.div
+                key="progress"
+                initial={reduced ? false : { opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduced ? undefined : { opacity: 0, y: -10 }}
+                transition={{ duration: reduced ? 0 : 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+                className="space-y-4 sm:space-y-5"
+              >
+                <div className="flex flex-col gap-2 rounded-xl border bg-card/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Persona generation is running in background.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="self-start sm:self-auto"
+                    onClick={() => setProgressViewMode("minimized")}
+                    aria-label="Minimize generation progress"
+                  >
+                    <Minimize2 className="mr-1 h-3.5 w-3.5" />
+                    Minimize
+                  </Button>
+                </div>
+                <PersonaStreamingProgress
+                  phase={progressPhase}
+                  genCompleted={genCompleted}
+                  genTotal={genTotal}
+                  currentName={genCurrentName || lastGeneratedName}
+                  researchLabel={researchLabel}
+                />
+                <PersonaWorkflowCarousel
+                  steps={workflowSteps}
+                  done={progressPhase === "done"}
+                  personaPreview={{
+                    name: lastGeneratedName || genCurrentName || "Generated Persona",
+                    age: "28-40",
+                    role: "Primary User",
+                    goals: ["Streamline workflow", "Reduce context switching"],
+                    frustrations: ["Pricing confusion", "Missing integrations"],
+                    behaviors: ["Mobile-first", "Frequent review reader"],
                   }}
-                >
-                  Retry generation
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => router.push(`/personas/${generationIssue.groupId}`)}
-                >
-                  Open persona group
-                </Button>
-              </div>
-            </div>
-          ) : null}
-          </motion.div>
+                />
+                {generationIssue ? (
+                  <div className="rounded-lg border bg-card p-3">
+                    <p className="text-sm text-foreground">{generationIssue.message}</p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setGenerationIssue(null);
+                          router.refresh();
+                        }}
+                      >
+                        Retry generation
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => router.push(`/personas/${generationIssue.groupId}`)}
+                      >
+                        Open persona group
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="progress-minimized"
+                initial={reduced ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduced ? undefined : { opacity: 0, y: -10 }}
+                transition={{ duration: reduced ? 0 : 0.2 }}
+                className="rounded-xl border border-dashed bg-card/50 p-4 text-sm text-muted-foreground"
+              >
+                Progress minimized. You can keep working while personas generate.
+              </motion.div>
+            )}
+
+          </>
         ) : null}
       </AnimatePresence>
     </div>

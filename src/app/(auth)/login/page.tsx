@@ -18,6 +18,20 @@ import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth/auth-shell";
 
+function mapLoginError(message: string): string {
+  const text = message.toLowerCase();
+  if (text.includes("invalid login credentials")) {
+    return "Email or password is incorrect. Please try again.";
+  }
+  if (text.includes("email not confirmed")) {
+    return "Please confirm your email before signing in.";
+  }
+  if (text.includes("too many")) {
+    return "Too many attempts. Please wait a minute and try again.";
+  }
+  return "Sign in failed. Please try again.";
+}
+
 function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,7 +61,7 @@ function LoginForm() {
       });
 
       if (signInError) {
-        setError(signInError.message);
+        setError(mapLoginError(signInError.message));
         return;
       }
 
@@ -82,7 +96,7 @@ function LoginForm() {
       });
 
       if (oauthError) {
-        setError(oauthError.message);
+        setError("Google sign-in is temporarily unavailable. Please try again.");
         setGoogleLoading(false);
         return;
       }
@@ -137,6 +151,7 @@ function LoginForm() {
               autoComplete="email"
               placeholder="you@company.com"
               required
+              disabled={loading || googleLoading}
             />
           </div>
           <div className="space-y-2">
@@ -148,6 +163,7 @@ function LoginForm() {
               autoComplete="current-password"
               placeholder="Enter your password"
               required
+              disabled={loading || googleLoading}
             />
           </div>
           <Button type="submit" className="w-full cursor-pointer" size="lg" disabled={loading}>

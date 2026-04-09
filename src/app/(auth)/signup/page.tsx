@@ -18,6 +18,20 @@ import {
 import { signup } from "../actions";
 import { AuthShell } from "@/components/auth/auth-shell";
 
+function mapSignupError(message: string): string {
+  const text = message.toLowerCase();
+  if (text.includes("already registered") || text.includes("already exists")) {
+    return "This email is already in use. Try signing in instead.";
+  }
+  if (text.includes("password")) {
+    return "Password must meet the minimum requirements.";
+  }
+  if (text.includes("rate limit") || text.includes("too many")) {
+    return "Too many attempts. Please wait a minute and try again.";
+  }
+  return "Could not create your account right now. Please try again.";
+}
+
 function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,7 +44,7 @@ function SignupForm() {
     try {
       const result = await signup(formData);
       if (result?.error) {
-        setError(result.error);
+        setError(mapSignupError(result.error));
       }
     } catch {
       setError("Could not create your account right now. Please try again.");
@@ -67,6 +81,7 @@ function SignupForm() {
               autoComplete="name"
               placeholder="Alex Kim"
               required
+              disabled={loading}
             />
           </div>
           <div className="space-y-2">
@@ -78,6 +93,7 @@ function SignupForm() {
               autoComplete="email"
               placeholder="you@company.com"
               required
+              disabled={loading}
             />
           </div>
           <div className="space-y-2">
@@ -90,6 +106,7 @@ function SignupForm() {
               placeholder="At least 6 characters"
               required
               minLength={6}
+              disabled={loading}
             />
             <p className="text-xs text-muted-foreground">Minimum 6 characters. Use a unique password you don’t reuse elsewhere.</p>
           </div>
