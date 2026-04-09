@@ -614,6 +614,7 @@ export function UnifiedCreationFlow({
     setResearchResults(0);
     setResearchBySource({});
     setGenTotal(personaCount);
+    const runId = startGlobalWidgetRun(gId, personaCount, "researching");
 
     let totalSources = 0;
     const bySource: Record<string, number> = {};
@@ -690,7 +691,6 @@ export function UnifiedCreationFlow({
     setProgressPhase("generating");
 
     const sourceTypeOverride = source === "templates" ? "PROMPT_GENERATED" : "DATA_BASED";
-    const runId = startGlobalWidgetRun(gId, personaCount, "researching");
 
     if (genStep) {
       setResearchCurrent(displayPlan.length);
@@ -768,6 +768,7 @@ export function UnifiedCreationFlow({
     setResearchLabel("Scraping App Store reviews…");
     setResearchResults(0);
     setResearchBySource({});
+    const runId = startGlobalWidgetRun(gId, personaCount, "researching");
 
     try {
       const scrapeRes = await fetch("/api/reviews/appstore", {
@@ -792,7 +793,15 @@ export function UnifiedCreationFlow({
 
       setProgressPhase("generating");
       setGenTotal(personaCount);
-      const runId = startGlobalWidgetRun(gId, personaCount, "generating");
+      publishWidgetState({
+        runId,
+        groupId: gId,
+        phase: "generating",
+        completed: 0,
+        total: personaCount,
+        currentName: null,
+        message: "Building personas",
+      });
 
       const response = await fetch("/api/personas/generate", {
         method: "POST",
@@ -911,6 +920,7 @@ export function UnifiedCreationFlow({
     setResearchCurrent(0);
     setResearchResults(0);
     setResearchBySource({});
+    const runId = startGlobalWidgetRun(gId, personaCount, "researching");
 
     let totalSaved = 0;
 
@@ -940,7 +950,15 @@ export function UnifiedCreationFlow({
 
       setProgressPhase("generating");
       setGenTotal(personaCount);
-      const runId = startGlobalWidgetRun(gId, personaCount, "generating");
+      publishWidgetState({
+        runId,
+        groupId: gId,
+        phase: "generating",
+        completed: 0,
+        total: personaCount,
+        currentName: null,
+        message: "Building personas",
+      });
 
       const response = await fetch("/api/personas/generate", {
         method: "POST",
@@ -1127,6 +1145,7 @@ export function UnifiedCreationFlow({
     setChatPipelineSteps(null);
     setPhase("progress");
     setProgressPhase("researching");
+    const runId = startGlobalWidgetRun(gId, personaCount, "researching");
 
     const queries = buildQueriesFromContext({
       targetUserRole: extracted.targetUserRole,
@@ -1172,8 +1191,6 @@ export function UnifiedCreationFlow({
     setResearchResults(totalFound);
     setProgressPhase("generating");
     setGenTotal(personaCount);
-    const runId = startGlobalWidgetRun(gId, personaCount, "researching");
-
     const sourceTypeOverride = method ? SOURCE_TYPE_MAP[method] : undefined;
     const usedDeepResearchPipeline = method === "deep-search";
 
