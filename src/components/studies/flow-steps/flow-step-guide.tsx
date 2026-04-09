@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Sparkles,
@@ -105,6 +105,12 @@ export function FlowStepGuide({
   const [contextCollapsed, setContextCollapsed] = useState(guide.trim().length > 0);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const reduced = useReducedMotion();
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
 
   function handleDragStart(i: number) {
     setDragIndex(i);
@@ -439,6 +445,7 @@ export function FlowStepGuide({
                 </div>
                 {(!hasObjective || selectedGroupNames.length === 0) && (
                   <button
+                    type="button"
                     onClick={onGoToSetup}
                     className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
                   >
@@ -549,12 +556,14 @@ export function FlowStepGuide({
                   >
                     <p className="text-xs text-amber-800">This will replace all questions, including your edits.</p>
                     <button
+                      type="button"
                       onClick={() => { setShowRegenConfirm(false); handleGenerate(); }}
                       className="rounded-md bg-foreground px-3 py-1 text-xs font-medium text-background hover:bg-foreground/90 transition-colors"
                     >
                       Confirm
                     </button>
                     <button
+                      type="button"
                       onClick={() => setShowRegenConfirm(false)}
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
@@ -575,6 +584,7 @@ export function FlowStepGuide({
                 )}
                 {selectedForRegen.size > 0 && (
                   <button
+                    type="button"
                     onClick={() => setSelectedForRegen(new Set())}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -661,7 +671,9 @@ export function FlowStepGuide({
                         >
                           {/* Select checkbox for regeneration */}
                           <button
+                            type="button"
                             onClick={(e) => { e.stopPropagation(); toggleSelectForRegen(i); }}
+                            aria-label={selectedForRegen.has(i) ? `Deselect question ${i + 1} for regeneration` : `Select question ${i + 1} for regeneration`}
                             className="shrink-0 text-muted-foreground/20 hover:text-muted-foreground/60 transition-colors"
                           >
                             {selectedForRegen.has(i) ? (
@@ -704,8 +716,16 @@ export function FlowStepGuide({
                               />
                             ) : (
                               <p
+                                role="button"
+                                tabIndex={0}
                                 className="text-sm cursor-text"
                                 onClick={() => setEditingIndex(q.index)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setEditingIndex(q.index);
+                                  }
+                                }}
                               >
                                 {q.text || <span className="text-muted-foreground/50 italic">Click to edit...</span>}
                               </p>
@@ -714,21 +734,27 @@ export function FlowStepGuide({
                           {/* Action icons — fan in on hover */}
                           <motion.div className="flex items-center gap-0.5 shrink-0">
                             <button
+                              type="button"
                               onClick={() => handleRegenerateSingle(i)}
                               disabled={isStreaming || !hasObjective}
                               title="Regenerate this question"
+                              aria-label={`Regenerate question ${i + 1}`}
                               className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/40 hover:!text-foreground transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <RefreshCw className="h-3.5 w-3.5" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => setEditingIndex(q.index)}
+                              aria-label={`Edit question ${i + 1}`}
                               className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/40 hover:!text-foreground transition-all"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleDeleteQuestion(q.index)}
+                              aria-label={`Delete question ${i + 1}`}
                               className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/40 hover:!text-red-500 transition-all"
                             >
                               <Trash2 className="h-3.5 w-3.5" />

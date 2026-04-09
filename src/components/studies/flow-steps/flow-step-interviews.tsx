@@ -354,12 +354,25 @@ export function FlowStepInterviews({
   const allDone = (liveCompleted >= totalCount || completedCount >= totalCount) && totalCount > 0;
   const chatEndRef = useRef<HTMLDivElement>(null);
   const prevMsgCountRef = useRef(0);
+  const selectedPersonaRef = useRef<SelectedPersona | null>(null);
   const [livePersonaName, setLivePersonaName] = useState<string | null>(null);
   const [runningPersonaId, setRunningPersonaId] = useState<string | null>(null);
   const [interviewStartTime, setInterviewStartTime] = useState<number | null>(null);
   const [displayedMessages, setDisplayedMessages] = useState<
     Array<{ id: string; role: "user" | "assistant"; content: string; isTyping?: boolean }>
   >([]);
+
+  useEffect(() => {
+    selectedPersonaRef.current = selectedPersona;
+  }, [selectedPersona]);
+
+  const queueIdle = useCallback((fn: () => void) => {
+    if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(fn);
+      return;
+    }
+    setTimeout(fn, 0);
+  }, []);
 
   // Persist completed count to sessionStorage so it survives navigation
   useEffect(() => {
@@ -412,9 +425,10 @@ export function FlowStepInterviews({
         const data = JSON.parse(e.data) as LiveStatusEventPayload;
         if (typeof data.completed === "number") setLiveCompleted(data.completed);
         setRunningPersonaId(null);
+        const currentSelection = selectedPersonaRef.current;
         if (
-          selectedPersona &&
-          data.personaId === selectedPersona.personaId &&
+          currentSelection &&
+          data.personaId === currentSelection.personaId &&
           data.sessionId
         ) {
           void selectPersonaWithSession({
@@ -506,7 +520,7 @@ export function FlowStepInterviews({
     onComplete?.();
 
     if (!reduced) {
-      requestIdleCallback(() => {
+      queueIdle(() => {
         confetti({
           particleCount: 80,
           spread: 100,
@@ -514,13 +528,13 @@ export function FlowStepInterviews({
         });
       });
     }
-  }, [onComplete, onRunningChange, reduced]);
+  }, [onComplete, onRunningChange, queueIdle, reduced]);
 
   async function handleStartBatch() {
     setLaunching(true);
 
     if (!reduced) {
-      requestIdleCallback(() => {
+      queueIdle(() => {
         confetti({
           particleCount: 30,
           spread: 60,

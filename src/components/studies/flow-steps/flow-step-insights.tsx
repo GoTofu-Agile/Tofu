@@ -95,6 +95,7 @@ interface FlowStepInsightsProps {
   avgDurationMs: number;
   reports: Report[];
   onReportGenerated?: () => void;
+  onGoToInterviews?: () => void;
 }
 
 export function FlowStepInsights({
@@ -104,6 +105,7 @@ export function FlowStepInsights({
   avgDurationMs,
   reports,
   onReportGenerated,
+  onGoToInterviews,
 }: FlowStepInsightsProps) {
   const router = useRouter();
   const [selectedOptions, setSelectedOptions] = useState<string[]>([
@@ -147,7 +149,7 @@ export function FlowStepInsights({
     );
   }
 
-  async function handleGenerate(prompt?: string) {
+  async function handleGenerate(prompt?: string): Promise<boolean> {
     const effectivePrompt = prompt || undefined;
     setStreamPhase("streaming");
     setCurrentStep("loading_transcripts");
@@ -226,12 +228,14 @@ export function FlowStepInsights({
             throw new Error(event.message as string);
         }
       });
+      return true;
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to generate insights"
       );
       setStreamPhase(reports.length > 0 ? "done" : "planning");
       setCurrentStep(null);
+      return false;
     }
   }
 
@@ -247,12 +251,14 @@ export function FlowStepInsights({
       { role: "assistant", content: `Regenerating analysis with focus on: "${userMessage}"...` },
     ]);
 
-    await handleGenerate(userMessage);
+    const didGenerate = await handleGenerate(userMessage);
     setChatLoading(false);
 
     setChatMessages((prev) => [
       ...prev.slice(0, -1),
-      { role: "assistant", content: `Analysis updated! I focused on "${userMessage}". Check the results on the left.` },
+      didGenerate
+        ? { role: "assistant", content: `Analysis updated! I focused on "${userMessage}". Check the results on the left.` }
+        : { role: "assistant", content: `I couldn't update the analysis right now. Please try again in a moment.` },
     ]);
 
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -268,11 +274,33 @@ export function FlowStepInsights({
         className="space-y-6"
       >
         {!isRegenerate && (
-          <div>
-            <h3 className="text-lg font-semibold">Insights</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Generate AI-powered insights from your {completedCount} completed interviews.
-            </p>
+          <div className="rounded-2xl border bg-card p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold">Insights are ready to generate</h3>
+                <p className="text-sm text-muted-foreground">
+                  Turn interview transcripts into themes, evidence, and actions.
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs">
+                <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{completedCount} interviews ready</span>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border bg-background px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">Completed</p>
+                <p className="text-sm font-medium">{completedCount} of {totalCount}</p>
+              </div>
+              <div className="rounded-xl border bg-background px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">Estimated time</p>
+                <p className="text-sm font-medium">~{estimatedInsightsSeconds}s</p>
+              </div>
+              <div className="rounded-xl border bg-background px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">Output</p>
+                <p className="text-sm font-medium">Summary, themes, quotes</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -297,7 +325,7 @@ export function FlowStepInsights({
 
         <div className="space-y-2">
           <label className="text-xs font-medium text-muted-foreground">Focus areas</label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 rounded-xl border bg-background/60 p-3">
             {ANALYSIS_OPTIONS.map((opt, i) => {
               const isSelected = selectedOptions.includes(opt.id);
               return (
@@ -322,7 +350,7 @@ export function FlowStepInsights({
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="rounded-xl border bg-muted/20 p-4">
           <div>
             <p className="text-xs text-muted-foreground">
               {completedCount} of {totalCount} interviews available
@@ -331,15 +359,32 @@ export function FlowStepInsights({
               About {estimatedInsightsSeconds}s. Regenerating reruns analysis and may increase usage.
             </p>
           </div>
-          <motion.div
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <Button onClick={() => handleGenerate()}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              {isRegenerate ? "Regenerate" : "Generate Insights"}
+          <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (onGoToInterviews) {
+                  onGoToInterviews();
+                  return;
+                }
+                router.back();
+              }}
+              className="w-full sm:w-auto"
+            >
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Ask first
             </Button>
-          </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="w-full sm:w-auto"
+            >
+              <Button onClick={() => handleGenerate()} className="w-full sm:w-auto">
+                <Sparkles className="mr-2 h-4 w-4" />
+                {isRegenerate ? "Regenerate" : "Generate Insights"}
+              </Button>
+            </motion.div>
+          </div>
         </div>
       </motion.div>
     );
@@ -618,7 +663,11 @@ export function FlowStepInsights({
 
   // ── No Report → Planning UI ──
   if (!report) {
-    return renderPlanningUI(false);
+    return (
+      <div className="mx-auto w-full max-w-4xl pb-2">
+        {renderPlanningUI(false)}
+      </div>
+    );
   }
 
   // ── Has Report → Dashboard + Chat ──

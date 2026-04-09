@@ -49,7 +49,7 @@ export async function GET(
       const role = msg.role === "INTERVIEWER" ? "Interviewer" : p.name;
       const escaped = msg.content.replace(/"/g, '""');
       rows.push(
-        `"${p.name}","${p.name}","${p.archetype || ""}","${p.occupation || ""}",${p.age || ""},"${role}","${escaped}","${msg.createdAt.toISOString()}"`
+        `"${session.id}","${p.name}","${p.archetype || ""}","${p.occupation || ""}",${p.age || ""},"${role}","${escaped}","${msg.createdAt.toISOString()}"`
       );
     }
   }

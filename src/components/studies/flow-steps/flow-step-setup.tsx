@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Check,
   Users,
@@ -155,16 +156,27 @@ export function FlowStepSetup({
   async function handleObjectiveBlur() {
     if (!objective.trim()) return;
     setSavingObjective(true);
-    await updateStudyDescription(studyId, objective);
-    setSavingObjective(false);
-    setSavedObjective(true);
-    setTimeout(() => setSavedObjective(false), 3000);
+    try {
+      await updateStudyDescription(studyId, objective);
+      setSavedObjective(true);
+      setTimeout(() => setSavedObjective(false), 3000);
+    } catch {
+      toast.error("Could not save objective. Please try again.");
+    } finally {
+      setSavingObjective(false);
+    }
   }
 
   async function handleTypeSelect(newType: StudyType) {
+    const previousType = studyType;
     onStudyTypeChange(newType);
-    await updateStudyType(studyId, newType);
-    router.refresh();
+    try {
+      await updateStudyType(studyId, newType);
+      router.refresh();
+    } catch {
+      onStudyTypeChange(previousType);
+      toast.error("Could not update study type. Please try again.");
+    }
   }
 
   function handleLockedClick(type: string) {
@@ -175,8 +187,13 @@ export function FlowStepSetup({
   async function handleToggleGroup(groupId: string) {
     const isSelected = selectedGroupIds.includes(groupId);
     onGroupToggle(groupId, !isSelected);
-    await toggleStudyGroup(studyId, groupId, !isSelected);
-    router.refresh();
+    try {
+      await toggleStudyGroup(studyId, groupId, !isSelected);
+      router.refresh();
+    } catch {
+      onGroupToggle(groupId, isSelected);
+      toast.error("Could not update selected persona groups. Please try again.");
+    }
   }
 
   const selectedGroups = availableGroups

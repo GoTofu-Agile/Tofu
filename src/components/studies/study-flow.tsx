@@ -141,6 +141,13 @@ export function StudyFlow({
   const [analysisReport, setAnalysisReport] = useState(initialReport);
   const [analysisReports, setAnalysisReports] = useState(initialReports);
   const [interviewsRunning, setInterviewsRunning] = useState(false);
+  const completionToastShownRef = useRef(false);
+  useEffect(() => {
+    if (interviewsRunning) {
+      completionToastShownRef.current = false;
+    }
+  }, [interviewsRunning]);
+
 
   // Sync server props to client state after router.refresh()
   useEffect(() => {
@@ -242,7 +249,10 @@ export function StudyFlow({
 
   function handleInterviewsComplete() {
     setInterviewsRunning(false);
-    toast.success("All interviews completed!");
+    if (!completionToastShownRef.current) {
+      toast.success("All interviews completed!");
+      completionToastShownRef.current = true;
+    }
     router.refresh();
   }
 
@@ -411,6 +421,7 @@ export function StudyFlow({
                 avgDurationMs={avgDurationMs}
                 reports={analysisReports}
                 onReportGenerated={handleReportGenerated}
+                onGoToInterviews={() => goToStep("interviews")}
               />
             )}
           </motion.div>
