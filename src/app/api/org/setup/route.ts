@@ -53,6 +53,12 @@ export async function POST(request: NextRequest) {
   if (!role) {
     return Response.json({ error: "Access denied" }, { status: 403 });
   }
+  if (role === "VIEWER") {
+    return Response.json(
+      { error: "Insufficient permissions to update workspace setup." },
+      { status: 403 }
+    );
+  }
 
   // Load current org data
   const org = await prisma.organization.findUnique({

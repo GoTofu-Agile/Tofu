@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ChevronDown,
@@ -95,7 +94,6 @@ export function StudyWorkspace({
   availableGroups,
   selectedGroupIds: initialSelectedGroupIds,
 }: StudyWorkspaceProps) {
-  const router = useRouter();
   const isDraft = stage === "setup";
   const isPostInterviews = stage === "analyzing" || stage === "done";
   const hasCompletedSessions = completedCount > 0;
@@ -119,15 +117,32 @@ export function StudyWorkspace({
   async function handleTitleBlur() {
     if (title === studyTitle) return;
     setSavingTitle(true);
-    await updateStudyTitle(studyId, title);
-    setSavingTitle(false);
+    try {
+      const result = await updateStudyTitle(studyId, title);
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not save study title. Please retry."
+      );
+      setTitle(studyTitle);
+    } finally {
+      setSavingTitle(false);
+    }
   }
 
   // Auto-save type
   async function handleTypeChange(newType: string) {
+    const previous = type;
     setType(newType);
-    await updateStudyType(studyId, newType as "INTERVIEW" | "SURVEY");
-    router.refresh();
+    const result = await updateStudyType(studyId, newType as "INTERVIEW" | "SURVEY");
+    if (result?.error) {
+      setType(previous);
+      toast.error(result.error);
+    }
   }
 
   // Debounced guide save
@@ -136,8 +151,20 @@ export function StudyWorkspace({
     if (guideTimeoutRef.current) clearTimeout(guideTimeoutRef.current);
     guideTimeoutRef.current = setTimeout(async () => {
       setSavingGuide(true);
-      await updateStudyGuide(studyId, value);
-      setSavingGuide(false);
+      try {
+        const result = await updateStudyGuide(studyId, value);
+        if (result?.error) {
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Could not save interview guide. Please retry."
+        );
+      } finally {
+        setSavingGuide(false);
+      }
     }, 1500);
   }
 
@@ -147,8 +174,13 @@ export function StudyWorkspace({
     setSelectedGroupIds((prev) =>
       isSelected ? prev.filter((id) => id !== groupId) : [...prev, groupId]
     );
-    await toggleStudyGroup(studyId, groupId, !isSelected);
-    router.refresh();
+    const result = await toggleStudyGroup(studyId, groupId, !isSelected);
+    if (result?.error) {
+      setSelectedGroupIds((prev) =>
+        isSelected ? [...prev, groupId] : prev.filter((id) => id !== groupId)
+      );
+      toast.error(result.error);
+    }
   }
 
   // Generate guide with AI

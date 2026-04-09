@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Copy, Check, Link2 } from "lucide-react";
+import { Copy, Check, Link2, Loader2 } from "lucide-react";
 import { createInviteLink } from "./actions";
 
 const ROLES = ["MEMBER", "ADMIN", "VIEWER"] as const;
@@ -28,6 +28,7 @@ export function InviteForm() {
     }
 
     setGeneratedLink(result.inviteUrl);
+    toast.success("Invite link created.");
   }
 
   async function handleCopy() {
@@ -40,18 +41,20 @@ export function InviteForm() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
         <Input
           type="email"
           placeholder="teammate@company.com (optional)"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="flex-1"
+          aria-label="Invitee email (optional)"
         />
         <select
           value={role}
           onChange={(e) => setRole(e.target.value as Role)}
           className="rounded-md border bg-background px-3 py-2 text-sm"
+          aria-label="Invite role"
         >
           {ROLES.map((r) => (
             <option key={r} value={r}>
@@ -59,9 +62,16 @@ export function InviteForm() {
             </option>
           ))}
         </select>
-        <Button onClick={handleGenerate} disabled={loading}>
+        <Button onClick={handleGenerate} disabled={loading} className="w-full sm:w-auto">
           <Link2 className="mr-2 h-4 w-4" />
-          {loading ? "Generating..." : "Generate Link"}
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            "Generate Link"
+          )}
         </Button>
       </div>
 

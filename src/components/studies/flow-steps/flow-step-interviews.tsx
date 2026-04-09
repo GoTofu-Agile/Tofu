@@ -543,20 +543,18 @@ export function FlowStepInterviews({
       });
     }
 
-    setTimeout(async () => {
-      setLaunching(false);
-      setIsRunning(true);
-      setInterviewStartTime(Date.now());
-      onRunningChange?.(true);
-      const result = await runBatchInterviews(studyId);
-      if (result.error) {
-        toast.error(result.error);
-        setIsRunning(false);
-        onRunningChange?.(false);
-        return;
-      }
-      toast.success(`Starting ${result.pendingCount} interviews...`);
-    }, 600);
+    const result = await runBatchInterviews(studyId);
+    setLaunching(false);
+    if (result.error) {
+      toast.error(result.error);
+      setIsRunning(false);
+      onRunningChange?.(false);
+      return;
+    }
+    setIsRunning(true);
+    setInterviewStartTime(Date.now());
+    onRunningChange?.(true);
+    toast.success(`Starting ${result.pendingCount} interviews...`);
   }
 
   async function handleSelectPersona(personaId: string) {
@@ -634,6 +632,11 @@ export function FlowStepInterviews({
             initialCompleted={liveCompleted}
             onAllDone={handleAllDone}
             onGoToInsights={onGoToInsights}
+            externalStatus={{
+              completed: liveCompleted,
+              currentPersona: livePersonaName,
+              isDone: allDone,
+            }}
           />
         ) : allDone ? (
           <motion.div

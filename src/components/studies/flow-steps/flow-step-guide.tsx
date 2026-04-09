@@ -253,7 +253,11 @@ export function FlowStepGuide({
       onGuideChange(guideText);
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = setTimeout(async () => {
-        await updateStudyGuide(studyId, guideText);
+        try {
+          await updateStudyGuide(studyId, guideText);
+        } catch {
+          toast.error("Could not save guide changes. Please retry.");
+        }
       }, 1500);
     },
     [studyId, onGuideChange]

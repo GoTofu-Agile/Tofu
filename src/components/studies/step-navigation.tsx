@@ -14,7 +14,7 @@ const STEP_HINTS: Record<string, string> = {
 };
 
 const STEP_BLOCKERS: Record<string, string> = {
-  setup: "Select at least one persona group to continue.",
+  setup: "Add a study title, choose a study type, and select at least one persona group.",
   guide: "Add at least one interview question to continue.",
   interviews: "Complete at least one interview to continue.",
 };

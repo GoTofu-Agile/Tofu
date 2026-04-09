@@ -63,7 +63,7 @@ export function SettingsForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
             <div className="flex-1 space-y-2">
               <Label htmlFor="orgName">Name</Label>
               <Input
@@ -76,6 +76,7 @@ export function SettingsForm({
             <Button
               onClick={handleSave}
               disabled={saving || !name.trim() || name === orgName}
+              className="w-full sm:w-auto"
             >
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save
@@ -94,7 +95,7 @@ export function SettingsForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
             <div className="flex-1 space-y-2">
               <Label htmlFor="newWorkspace">Workspace Name</Label>
               <Input
@@ -108,6 +109,7 @@ export function SettingsForm({
               variant="outline"
               onClick={handleCreate}
               disabled={creating || !newName.trim()}
+              className="w-full sm:w-auto"
             >
               {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create

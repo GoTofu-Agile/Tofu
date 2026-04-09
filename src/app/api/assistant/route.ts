@@ -57,6 +57,9 @@ export async function POST(request: Request) {
   if (!role) {
     return Response.json({ error: "Access denied" }, { status: 403 });
   }
+  const canWriteWorkspace =
+    role === "OWNER" || role === "ADMIN" || role === "MEMBER";
+  const canManageWorkspace = role === "OWNER" || role === "ADMIN";
 
   // Get workspace context
   const [orgContext, org] = await Promise.all([
@@ -341,15 +344,22 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
           })
         ),
         execute: async ({ studyId }) => {
+          const study = await prisma.study.findUnique({
+            where: { id: studyId },
+            select: { id: true, organizationId: true },
+          });
+          if (!study || study.organizationId !== activeOrgId) {
+            return { message: "Study not found in this workspace." };
+          }
           const { inngest } = await import("@/lib/inngest/client");
           await inngest.send({
             name: "study/run-batch",
-            data: { studyId },
+            data: { studyId: study.id },
           });
           return {
             message:
               "Batch interviews started! Go to the study page to see progress.",
-            url: `/studies/${studyId}`,
+            url: `/studies/${study.id}`,
           };
         },
       }),
@@ -417,6 +427,9 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
           })
         ),
         execute: async ({ productName, productDescription, targetAudience, industry, competitors }) => {
+          if (!canWriteWorkspace) {
+            return { message: "You do not have permission to update workspace settings." };
+          }
           await prisma.organization.update({
             where: { id: activeOrgId },
             data: {
@@ -445,6 +458,13 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
           })
         ),
         execute: async ({ groupId, count, domainContext }) => {
+          const group = await prisma.personaGroup.findUnique({
+            where: { id: groupId },
+            select: { id: true, organizationId: true },
+          });
+          if (!group || group.organizationId !== activeOrgId) {
+            return { message: "Persona group not found in this workspace." };
+          }
           const contextStr = [
             domainContext,
             orgContext?.productDescription,
@@ -453,9 +473,9 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
           ].filter(Boolean).join("\n");
           return {
             message: `Starting generation of ${count} personas`,
-            url: `/personas/${groupId}`,
-            runId: `${groupId}:${Date.now()}`,
-            groupId,
+            url: `/personas/${group.id}`,
+            runId: `${group.id}:${Date.now()}`,
+            groupId: group.id,
             count,
             domainContext: contextStr || undefined,
             sourceTypeOverride: "PROMPT_GENERATED",
@@ -474,7 +494,9 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
         ),
         execute: async ({ personaId }) => {
           const persona = await getPersona(personaId);
-          if (!persona) return { message: "Persona not found" };
+          if (!persona || persona.personaGroup.organizationId !== activeOrgId) {
+            return { message: "Persona not found in this workspace." };
+          }
           return {
             name: persona.name,
             occupation: persona.occupation,
@@ -507,6 +529,13 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
           })
         ),
         execute: async ({ studyId }) => {
+          const study = await prisma.study.findUnique({
+            where: { id: studyId },
+            select: { id: true, organizationId: true },
+          });
+          if (!study || study.organizationId !== activeOrgId) {
+            return { message: "Study not found in this workspace." };
+          }
           const report = await getAnalysisReport(studyId);
           if (!report) return { message: "No analysis report found. Run interviews first, then insights will be generated." };
           return {
@@ -515,7 +544,7 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
             themes: report.themes,
             recommendations: report.recommendations,
             sentiment: report.sentimentBreakdown,
-            url: `/studies/${studyId}`,
+            url: `/studies/${study.id}`,
             message: `Study insights: ${report.summary?.slice(0, 100)}...`,
           };
         },
@@ -531,6 +560,9 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
           })
         ),
         execute: async ({ email, memberRole }) => {
+          if (!canManageWorkspace) {
+            return { message: "Only workspace admins can invite team members." };
+          }
           const invitation = await createInvitation(activeOrgId, email, memberRole);
           const origin = request.headers.get("origin") || "http://localhost:3004";
           const inviteUrl = `${origin}/accept-invite/${invitation.token}`;

@@ -27,9 +27,14 @@ function SignupForm() {
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
-    const result = await signup(formData);
-    if (result?.error) {
-      setError(result.error);
+    try {
+      const result = await signup(formData);
+      if (result?.error) {
+        setError(result.error);
+      }
+    } catch {
+      setError("Could not create your account right now. Please try again.");
+    } finally {
       setLoading(false);
     }
   }

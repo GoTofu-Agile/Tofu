@@ -48,7 +48,7 @@ export default async function DashboardLayout({
 
   return (
     <AssistantProvider>
-      <div className="relative h-screen w-screen overflow-hidden bg-background">
+      <div className="relative h-dvh w-full max-w-full overflow-hidden bg-background">
         <AppFrame>
           <Sidebar
             user={user}

@@ -12,6 +12,11 @@ interface InterviewLiveBarProps {
   initialCompleted: number;
   onAllDone: () => void;
   onGoToInsights?: () => void;
+  externalStatus?: {
+    completed: number;
+    currentPersona: string | null;
+    isDone: boolean;
+  };
 }
 
 export function InterviewLiveBar({
@@ -20,6 +25,7 @@ export function InterviewLiveBar({
   initialCompleted,
   onAllDone,
   onGoToInsights,
+  externalStatus,
 }: InterviewLiveBarProps) {
   const reduced = useReducedMotion();
   const [completed, setCompleted] = useState(initialCompleted);
@@ -29,6 +35,14 @@ export function InterviewLiveBar({
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
+    if (!externalStatus) return;
+    setCompleted(externalStatus.completed);
+    setCurrentPersona(externalStatus.currentPersona);
+    setIsDone(externalStatus.isDone);
+  }, [externalStatus]);
+
+  useEffect(() => {
+    if (externalStatus) return;
     const es = new EventSource(`/api/studies/${studyId}/live-status`);
     eventSourceRef.current = es;
 
@@ -73,7 +87,7 @@ export function InterviewLiveBar({
     return () => {
       es.close();
     };
-  }, [studyId, onAllDone]);
+  }, [studyId, onAllDone, externalStatus]);
 
   const progress = totalCount > 0 ? (completed / totalCount) * 100 : 0;
 

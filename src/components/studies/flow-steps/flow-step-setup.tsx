@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -148,7 +147,6 @@ export function FlowStepSetup({
   orgContext,
 }: FlowStepSetupProps) {
   const reduced = useReducedMotion();
-  const router = useRouter();
   const [savingObjective, setSavingObjective] = useState(false);
   const [savedObjective, setSavedObjective] = useState(false);
   const [shakeType, setShakeType] = useState<string | null>(null);
@@ -157,11 +155,16 @@ export function FlowStepSetup({
     if (!objective.trim()) return;
     setSavingObjective(true);
     try {
-      await updateStudyDescription(studyId, objective);
+      const result = await updateStudyDescription(studyId, objective);
+      if (result?.error) throw new Error(result.error);
       setSavedObjective(true);
       setTimeout(() => setSavedObjective(false), 3000);
-    } catch {
-      toast.error("Could not save objective. Please try again.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not save objective. Please try again."
+      );
     } finally {
       setSavingObjective(false);
     }
@@ -171,11 +174,15 @@ export function FlowStepSetup({
     const previousType = studyType;
     onStudyTypeChange(newType);
     try {
-      await updateStudyType(studyId, newType);
-      router.refresh();
-    } catch {
+      const result = await updateStudyType(studyId, newType);
+      if (result?.error) throw new Error(result.error);
+    } catch (error) {
       onStudyTypeChange(previousType);
-      toast.error("Could not update study type. Please try again.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not update study type. Please try again."
+      );
     }
   }
 
@@ -188,11 +195,15 @@ export function FlowStepSetup({
     const isSelected = selectedGroupIds.includes(groupId);
     onGroupToggle(groupId, !isSelected);
     try {
-      await toggleStudyGroup(studyId, groupId, !isSelected);
-      router.refresh();
-    } catch {
+      const result = await toggleStudyGroup(studyId, groupId, !isSelected);
+      if (result?.error) throw new Error(result.error);
+    } catch (error) {
       onGroupToggle(groupId, isSelected);
-      toast.error("Could not update selected persona groups. Please try again.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not update selected persona groups. Please try again."
+      );
     }
   }
 
