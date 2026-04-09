@@ -2,9 +2,10 @@ import { streamText, type UIMessage } from "ai";
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
-import { getSession, addMessage, getMessageCount } from "@/lib/db/queries/studies";
+import { getSession, addMessageAutoSequence } from "@/lib/db/queries/studies";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { getModel } from "@/lib/ai/provider";
+import { checkRateLimit } from "@/lib/server/request-guards";
 
 export async function POST(request: NextRequest) {
   // Auth
@@ -29,6 +30,17 @@ export async function POST(request: NextRequest) {
 
   if (!sessionId || !uiMessages?.length) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
+  }
+  const rate = checkRateLimit({
+    key: `chat-session:${authUser.id}:${sessionId}`,
+    limit: 50,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    return Response.json(
+      { error: "Too many chat messages. Please wait and try again." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
+    );
   }
 
   // Load session with persona + study
@@ -69,12 +81,10 @@ export async function POST(request: NextRequest) {
   // Save the latest user message to DB
   const lastMsg = llmMessages[llmMessages.length - 1];
   if (lastMsg?.role === "user") {
-    const currentCount = await getMessageCount(sessionId);
-    await addMessage({
+    await addMessageAutoSequence({
       sessionId,
       role: "INTERVIEWER",
       content: lastMsg.content,
-      sequence: currentCount + 1,
     });
   }
 
@@ -85,12 +95,10 @@ export async function POST(request: NextRequest) {
       system: fullSystemPrompt,
       messages: llmMessages,
       async onFinish({ text }) {
-        const count = await getMessageCount(sessionId);
-        await addMessage({
+        await addMessageAutoSequence({
           sessionId,
           role: "RESPONDENT",
           content: text,
-          sequence: count + 1,
         });
       },
     });

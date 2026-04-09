@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
 import { getModel } from "@/lib/ai/provider";
 import { extractedContextSchema } from "@/lib/validation/schemas";
+import { checkRateLimit } from "@/lib/server/request-guards";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -11,10 +12,39 @@ export async function POST(request: NextRequest) {
   if (!authUser) return Response.json({ error: "Not authenticated" }, { status: 401 });
   const dbUser = await getUser(authUser.id);
   if (!dbUser) return Response.json({ error: "User not found" }, { status: 401 });
+  const rate = checkRateLimit({
+    key: `persona-extract-pdf:${authUser.id}`,
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    return Response.json(
+      { error: "Too many PDF extraction requests. Please retry shortly." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
+    );
+  }
 
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
   if (!file) return Response.json({ error: "No file provided" }, { status: 400 });
+  if (file.size <= 0) {
+    return Response.json({ error: "Uploaded file is empty" }, { status: 400 });
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return Response.json(
+      { error: "File is too large. Please upload a PDF under 10MB." },
+      { status: 413 }
+    );
+  }
+  const mime = (file.type || "").toLowerCase();
+  const looksLikePdf =
+    mime.includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
+  if (!looksLikePdf) {
+    return Response.json(
+      { error: "Invalid file type. Please upload a PDF." },
+      { status: 400 }
+    );
+  }
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);

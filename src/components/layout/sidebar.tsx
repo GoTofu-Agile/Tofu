@@ -150,8 +150,9 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
         {collapsed ? (
           <button
             onClick={() => signOut()}
-            className="flex w-full items-center justify-center rounded-lg p-2 text-muted-foreground/50 hover:text-foreground transition-colors"
+            className="flex h-9 w-full items-center justify-center rounded-lg p-2 text-muted-foreground hover:text-foreground transition-colors"
             title="Sign out"
+            aria-label="Sign out"
           >
             <LogOut className="h-4 w-4" />
           </button>
@@ -163,8 +164,9 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
             </div>
             <button
               onClick={() => signOut()}
-              className="rounded-lg p-1.5 text-muted-foreground/50 hover:text-foreground transition-colors"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
               title="Sign out"
+              aria-label="Sign out"
             >
               <LogOut className="h-3.5 w-3.5" />
             </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -89,6 +90,7 @@ export function AnalysisWorkspace({
   hasCompletedSessions,
   analysisReport,
 }: AnalysisWorkspaceProps) {
+  const router = useRouter();
   const [selectedOptions, setSelectedOptions] = useState<string[]>(["pain_points", "sentiment"]);
   const [customPrompt, setCustomPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -111,7 +113,7 @@ export function AnalysisWorkspace({
     // Poll for completion (simple timeout for now)
     setTimeout(() => {
       setGenerating(false);
-      window.location.reload();
+      router.refresh();
     }, 8000);
   }
 

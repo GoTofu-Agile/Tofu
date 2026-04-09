@@ -7,6 +7,11 @@ import { getUserRole } from "@/lib/db/queries/organizations";
 import { generateAndSavePersonas } from "@/lib/ai/generate-personas";
 import { getPersonaTemplateById } from "@/lib/personas/templates";
 import {
+  acquireInFlightLease,
+  checkRateLimit,
+  releaseInFlightLease,
+} from "@/lib/server/request-guards";
+import {
   assertPersonaGenerationAllowed,
   getPersonaGenerationGuardForGroup,
 } from "@/lib/personas/persona-generation-guard";
@@ -17,6 +22,7 @@ const requestSchema = z.object({
   domainContext: z.string().max(2000).optional(),
   sourceTypeOverride: z.enum(["PROMPT_GENERATED", "DATA_BASED", "UPLOAD_BASED"]).optional(),
   templateId: z.string().min(1).optional(),
+  includeSkeptics: z.boolean().optional(),
   /** True when the client used the “deep search” research path (Quick or Guided). */
   usedDeepResearchPipeline: z.boolean().optional(),
 });
@@ -53,6 +59,41 @@ export async function POST(request: NextRequest) {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  const rate = checkRateLimit({
+    key: `persona-generate:${authUser.id}`,
+    limit: 12,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: "Too many generation requests. Please wait a moment and retry.",
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(rate.retryAfterSeconds),
+        },
+      }
+    );
+  }
+
+  const leaseKey = `persona-generate:${authUser.id}:${body.groupId}`;
+  const leaseAcquired = acquireInFlightLease({
+    key: leaseKey,
+    ttlMs: 3 * 60_000,
+  });
+  if (!leaseAcquired) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "A generation is already in progress for this persona group. Please wait for it to finish.",
+      }),
+      { status: 409, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // Verify group exists and user has access
@@ -102,6 +143,9 @@ export async function POST(request: NextRequest) {
         const templateConfig = body.templateId
           ? getPersonaTemplateById(body.templateId)
           : undefined;
+        if (body.templateId && !templateConfig) {
+          throw new Error("Selected template was not found.");
+        }
 
         const result = await generateAndSavePersonas({
           groupId: body.groupId,
@@ -109,13 +153,16 @@ export async function POST(request: NextRequest) {
           domainContext: body.domainContext,
           sourceTypeOverride: body.sourceTypeOverride,
           templateConfig,
+          includeSkeptics: body.includeSkeptics ?? true,
           qualityTier: guard.tier,
-          onProgress: (completed, total, personaName) => {
+          onProgress: (completed, total, personaName, personaId) => {
             const event = JSON.stringify({
               type: "progress",
               completed,
               total,
               personaName,
+              personaId,
+              sourceUrl: `/personas/${body.groupId}/${personaId}`,
             });
             controller.enqueue(encoder.encode(event + "\n"));
           },
@@ -137,6 +184,7 @@ export async function POST(request: NextRequest) {
         });
         controller.enqueue(encoder.encode(errorEvent + "\n"));
       } finally {
+        releaseInFlightLease(leaseKey);
         controller.close();
       }
     },

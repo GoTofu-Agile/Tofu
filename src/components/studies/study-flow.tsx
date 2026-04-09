@@ -159,7 +159,8 @@ export function StudyFlow({
 
   // Step completion checks
   const guideQuestions = guide.split("\n").map((l) => l.trim()).filter(Boolean);
-  const isSetupComplete = studyType.length > 0 && selectedGroupIds.length > 0;
+  const isSetupComplete =
+    title.trim().length > 0 && studyType.length > 0 && selectedGroupIds.length > 0;
   const isGuideComplete = guideQuestions.length >= 1;
   const allInterviewsDone = completedCount >= totalCount && totalCount > 0;
   const hasCompletedSessions = completedCount > 0;
@@ -298,7 +299,10 @@ export function StudyFlow({
     if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
     titleTimeoutRef.current = setTimeout(async () => {
       if (newTitle.trim()) {
-        await updateStudyTitle(studyId, newTitle);
+        const result = await updateStudyTitle(studyId, newTitle);
+        if (result?.error) {
+          toast.error(result.error);
+        }
       }
     }, 1000);
   }

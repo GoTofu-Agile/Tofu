@@ -51,6 +51,12 @@ const appReviewDataSourcesInclude = {
   },
 } as const;
 
+const allDataSourcesInclude = {
+  include: {
+    domainKnowledge: true,
+  },
+} as const;
+
 export async function getPersonasForGroup(
   groupId: string,
   options?: { skip?: number; take?: number }
@@ -123,7 +129,7 @@ export async function getPersona(personaId: string) {
     where: { id: personaId },
     include: {
       personality: true,
-      dataSources: appReviewDataSourcesInclude,
+      dataSources: allDataSourcesInclude,
       evaluations: {
         orderBy: { evaluatedAt: "desc" },
         take: 1,

@@ -222,7 +222,6 @@ export function FlowStepInsights({
             setActiveReportIndex(0);
             toast.success("Analysis complete!");
             onReportGenerated?.();
-            router.refresh();
             break;
           case "error":
             throw new Error(event.message as string);

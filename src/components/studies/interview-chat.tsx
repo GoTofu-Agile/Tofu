@@ -129,7 +129,7 @@ export function InterviewChat({
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       {/* Header */}
       <div className="shrink-0 border-b px-4 py-3">
         <div className="flex items-center justify-between">

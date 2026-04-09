@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export function FlowStepAnalysis({
   hasReport,
   onReportGenerated,
 }: FlowStepAnalysisProps) {
+  const router = useRouter();
   const [selectedOptions, setSelectedOptions] = useState<string[]>(["pain_points", "sentiment"]);
   const [customPrompt, setCustomPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -52,8 +54,8 @@ export function FlowStepAnalysis({
       if (pollStartRef.current > 0 && Date.now() - pollStartRef.current > POLL_TIMEOUT) {
         setGenerating(false);
         pollStartRef.current = 0;
-        // Report may still be generating in the background — reload to check
-        window.location.reload();
+        // Report may still be generating in the background — refresh to check.
+        router.refresh();
         return;
       }
 
@@ -74,7 +76,7 @@ export function FlowStepAnalysis({
     }, POLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [generating, studyId, onReportGenerated]);
+  }, [generating, studyId, onReportGenerated, router]);
 
   async function handleGenerate() {
     setGenerating(true);

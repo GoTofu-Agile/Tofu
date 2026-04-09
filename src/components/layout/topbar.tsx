@@ -60,7 +60,7 @@ export function Topbar() {
         <button
           type="button"
           onClick={toggleSidebar}
-          className="rounded-md p-1.5 text-muted-foreground/50 hover:text-foreground transition-colors"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground transition-colors"
           title="Toggle sidebar"
           aria-label="Toggle sidebar"
         >
@@ -77,7 +77,7 @@ export function Topbar() {
         <button
           type="button"
           onClick={toggle}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-all ${
+          className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all ${
             isOpen
               ? "border-foreground bg-foreground text-background"
               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"

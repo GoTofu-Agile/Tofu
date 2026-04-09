@@ -649,6 +649,7 @@ export function UnifiedCreationFlow({
           groupId: gId,
           count: personaCount,
           domainContext,
+          includeSkeptics,
           sourceTypeOverride,
           usedDeepResearchPipeline: source === "deep-search",
         }),
@@ -741,6 +742,7 @@ export function UnifiedCreationFlow({
           groupId: gId,
           count: personaCount,
           domainContext,
+          includeSkeptics,
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
         }),
@@ -886,6 +888,7 @@ export function UnifiedCreationFlow({
           groupId: gId,
           count: personaCount,
           domainContext,
+          includeSkeptics,
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
         }),
@@ -902,6 +905,7 @@ export function UnifiedCreationFlow({
   // --- Step: Describe (AI Generate + Deep Search) ---
 
   async function handleFreetextInput(text: string) {
+    if (starting || extracting) return;
     setExtracting(true);
     setGenerationIssue(null);
     try {
@@ -925,6 +929,7 @@ export function UnifiedCreationFlow({
   }
 
   async function handleCompanyUrlContinue() {
+    if (starting || extracting) return;
     const url = companyUrl.trim();
     if (!isValidHttpUrl(url)) return;
 
@@ -955,6 +960,7 @@ export function UnifiedCreationFlow({
   }
 
   async function handleCvResumeContinue() {
+    if (starting || extracting) return;
     if (!cvResumeFile) return;
 
     setExtracting(true);
@@ -988,6 +994,7 @@ export function UnifiedCreationFlow({
   // --- Generate without research ---
 
   async function generateOnlyFromExtracted(extracted: ExtractedContext) {
+    if (starting) return;
     setStarting(true);
     setGenerationIssue(null);
 
@@ -1019,6 +1026,7 @@ export function UnifiedCreationFlow({
           groupId: gId,
           count: personaCount,
           domainContext: extracted.domainContext,
+          includeSkeptics,
           sourceTypeOverride,
           usedDeepResearchPipeline: false,
         }),
@@ -1028,12 +1036,14 @@ export function UnifiedCreationFlow({
       await streamGenerationProgress(response, gId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
+      setStarting(false);
     }
   }
 
   // --- Research + Generate (Deep Search / LinkedIn / Company URL) ---
 
   async function researchAndGenerateFromExtracted(extracted: ExtractedContext) {
+    if (starting) return;
     setStarting(true);
     setGenerationIssue(null);
 
@@ -1073,10 +1083,18 @@ export function UnifiedCreationFlow({
       setResearchLabel(plan.label);
 
       try {
+        const companyDomain =
+          method === "company-url" && isValidHttpUrl(companyUrl.trim())
+            ? new URL(companyUrl.trim()).hostname.replace(/^www\./, "")
+            : null;
+        const researchPrompt =
+          method === "company-url" && companyDomain
+            ? `${plan.query} site:${companyDomain} (customers OR users OR testimonials OR case studies)`
+            : plan.query;
         const res = await fetch("/api/research/quick", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ groupId: gId, prompt: plan.query }),
+          body: JSON.stringify({ groupId: gId, prompt: researchPrompt }),
         });
         if (res.ok) {
           const data = await res.json();
@@ -1102,6 +1120,7 @@ export function UnifiedCreationFlow({
           groupId: gId,
           count: personaCount,
           domainContext: extracted.domainContext,
+          includeSkeptics,
           sourceTypeOverride,
           usedDeepResearchPipeline,
         }),
@@ -1111,6 +1130,7 @@ export function UnifiedCreationFlow({
       await streamGenerationProgress(response, gId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
+      setStarting(false);
     }
   }
 
@@ -1124,77 +1144,88 @@ export function UnifiedCreationFlow({
 
     const decoder = new TextDecoder();
     let buffer = "";
+    const MAX_BUFFER_CHARS = 250_000;
+
+    const processEventLine = (line: string) => {
+      if (!line.trim()) return;
+      try {
+        const event = JSON.parse(line);
+        if (event.type === "progress") {
+          setGenCompleted(event.completed);
+          setGenCurrentName(event.personaName || "");
+          if (event.personaName) {
+            setLastGeneratedName(event.personaName);
+          }
+        } else if (event.type === "done") {
+          opts?.onGenerationUiComplete?.();
+          setProgressPhase("done");
+          setStarting(false);
+
+          const generated = Number(event.generated ?? 0);
+          const errors = Array.isArray(event.errors) ? event.errors : [];
+
+          if (generated <= 0) {
+            setGenerationIssue({
+              groupId: gId,
+              partial: false,
+              message:
+                errors[0] ??
+                "No personas were generated. Please retry generation or adjust your prompt.",
+            });
+            toast.error("No personas generated. Please retry.");
+            return;
+          }
+
+          if (errors.length > 0) {
+            setGenerationIssue({
+              groupId: gId,
+              partial: true,
+              message: `${generated} personas were generated, but ${errors.length} failed.`,
+            });
+            toast.warning(
+              `Generated ${generated} personas. ${errors.length} failed.`
+            );
+          } else {
+            setGenerationIssue(null);
+            toast.success(`Generated ${generated} personas!`);
+          }
+
+          const beforeLifetime = loadPersonaEngagement().lifetimeGenerated;
+          recordPersonasGenerated(generated, promptText.trim() || undefined);
+          const afterLifetime = loadPersonaEngagement().lifetimeGenerated;
+          for (const m of getNewlyReachedMilestones(beforeLifetime, afterLifetime)) {
+            toast.success(`Milestone: ${milestoneLabel(m)}`);
+          }
+
+          setTimeout(() => {
+            router.push(`/personas/${gId}?welcome=1`);
+          }, 1800);
+        } else if (event.type === "error") {
+          setStarting(false);
+          toast.error(event.message);
+        }
+      } catch {
+        // skip malformed lines
+      }
+    };
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
+      if (buffer.length > MAX_BUFFER_CHARS) {
+        throw new Error("Generation stream payload exceeded expected size.");
+      }
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 
       for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const event = JSON.parse(line);
-          if (event.type === "progress") {
-            setGenCompleted(event.completed);
-            setGenCurrentName(event.personaName || "");
-            if (event.personaName) {
-              setLastGeneratedName(event.personaName);
-            }
-          } else if (event.type === "done") {
-            opts?.onGenerationUiComplete?.();
-            setProgressPhase("done");
-            setStarting(false);
-
-            const generated = Number(event.generated ?? 0);
-            const errors = Array.isArray(event.errors) ? event.errors : [];
-
-            if (generated <= 0) {
-              setGenerationIssue({
-                groupId: gId,
-                partial: false,
-                message:
-                  errors[0] ??
-                  "No personas were generated. Please retry generation or adjust your prompt.",
-              });
-              toast.error("No personas generated. Please retry.");
-              return;
-            }
-
-            if (errors.length > 0) {
-              setGenerationIssue({
-                groupId: gId,
-                partial: true,
-                message: `${generated} personas were generated, but ${errors.length} failed.`,
-              });
-              toast.warning(
-                `Generated ${generated} personas. ${errors.length} failed.`
-              );
-            } else {
-              setGenerationIssue(null);
-              toast.success(`Generated ${generated} personas!`);
-            }
-
-            const beforeLifetime = loadPersonaEngagement().lifetimeGenerated;
-            recordPersonasGenerated(generated, promptText.trim() || undefined);
-            const afterLifetime = loadPersonaEngagement().lifetimeGenerated;
-            for (const m of getNewlyReachedMilestones(beforeLifetime, afterLifetime)) {
-              toast.success(`Milestone: ${milestoneLabel(m)}`);
-            }
-
-            setTimeout(() => {
-              router.push(`/personas/${gId}?welcome=1`);
-            }, 1800);
-          } else if (event.type === "error") {
-            setStarting(false);
-            toast.error(event.message);
-          }
-        } catch {
-          // skip
-        }
+        processEventLine(line);
       }
+    }
+    if (buffer.trim()) {
+      processEventLine(buffer);
     }
   }
 
@@ -1387,6 +1418,7 @@ export function UnifiedCreationFlow({
                       groupId: gId,
                       count: personaCount,
                       domainContext: domainContext ?? result.domainContext,
+                      includeSkeptics,
                       sourceTypeOverride: "PROMPT_GENERATED",
                       templateId,
                       usedDeepResearchPipeline: false,

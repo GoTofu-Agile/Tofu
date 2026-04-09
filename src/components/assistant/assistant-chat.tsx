@@ -705,7 +705,7 @@ export function AssistantChat() {
       <aside
         id="ask-panel"
         role="dialog"
-        aria-modal="false"
+        aria-modal="true"
         aria-labelledby="ask-panel-title"
         className={cn(
         "fixed z-50 flex flex-col transition-all duration-300 ease-out",
@@ -736,7 +736,7 @@ export function AssistantChat() {
                 startNewChat();
                 setMessages([]);
               }}
-              className="rounded-lg p-1.5 text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
               title="New chat"
               aria-label="Start new chat"
             >
@@ -748,7 +748,7 @@ export function AssistantChat() {
                 setChatView("history");
                 loadHistory();
               }}
-              className="rounded-lg p-1.5 text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
               title="Chat history"
               aria-label="Open chat history"
             >
@@ -757,7 +757,7 @@ export function AssistantChat() {
             <button
               type="button"
               onClick={close}
-              className="rounded-lg p-1.5 text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
               title="Close Ask"
               aria-label="Close Ask"
             >
@@ -867,7 +867,7 @@ export function AssistantChat() {
                           <button
                             type="button"
                             onClick={() => handleCopy(message.text)}
-                            className="rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] text-stone-700 hover:bg-stone-50"
+                            className="rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-700 hover:bg-stone-50"
                           >
                             <span className="inline-flex items-center gap-1"><Copy className="h-3 w-3" />Copy</span>
                           </button>
@@ -875,7 +875,7 @@ export function AssistantChat() {
                             type="button"
                             onClick={handleRegenerate}
                             disabled={isLoading}
-                            className="rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                            className="rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-700 hover:bg-stone-50 disabled:opacity-50"
                           >
                             Regenerate
                           </button>
@@ -883,7 +883,7 @@ export function AssistantChat() {
                             type="button"
                             onClick={handleImproveAnswer}
                             disabled={isLoading}
-                            className="rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                            className="rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-700 hover:bg-stone-50 disabled:opacity-50"
                           >
                             Improve
                           </button>
@@ -891,7 +891,7 @@ export function AssistantChat() {
                             type="button"
                             onClick={handleContinueAnswer}
                             disabled={isLoading}
-                            className="rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                            className="rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-700 hover:bg-stone-50 disabled:opacity-50"
                           >
                             Continue
                           </button>
@@ -918,7 +918,8 @@ export function AssistantChat() {
         </div>
 
         {/* Input */}
-        <div className="relative mx-4 mb-0 border-t border-stone-200/80 pt-3">
+        <div className="mx-4 mb-0 border-t border-stone-200/80 pt-3">
+          <div className="relative">
           <textarea
             ref={inputRef}
             value={inputValue}
@@ -948,7 +949,8 @@ export function AssistantChat() {
           <div className="absolute bottom-2.5 left-3 text-[11px] text-stone-400">
             {inputValue.trim().length}/2000
           </div>
-          <div className="absolute -bottom-5 left-0 text-[11px] text-stone-400">
+          </div>
+          <div className="mt-1 pb-1 text-[11px] text-stone-400">
             Press Enter to send, Shift+Enter for a new line
           </div>
         </div>

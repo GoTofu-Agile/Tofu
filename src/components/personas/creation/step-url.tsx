@@ -13,8 +13,12 @@ interface StepUrlProps {
 }
 
 function isValidHttpUrl(value: string) {
-  const t = value.trim();
-  return t.startsWith("http://") || t.startsWith("https://");
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 export function StepUrl({ url, onUrlChange, disabled, error }: StepUrlProps) {
