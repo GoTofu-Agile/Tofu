@@ -39,7 +39,7 @@ export function PersonaDetailSections({
   );
 }
 
-function PersonaDisclosure({
+export function PersonaDisclosure({
   title,
   subtitle,
   defaultOpen,

@@ -8,10 +8,12 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
 import { PersonaSquircleIcon } from "@/components/personas/persona-squircle-icon";
-import { PersonaQualityStreak } from "@/components/personas/persona-quality-streak";
 import { AuthenticityBadge } from "@/components/personas/authenticity-badge";
 import { PersonaTrustPanel } from "@/components/personas/persona-trust-panel";
-import { PersonaDetailSections } from "@/components/personas/persona-detail-sections";
+import {
+  PersonaDetailSections,
+  PersonaDisclosure,
+} from "@/components/personas/persona-detail-sections";
 import { MotionPageEnter } from "@/components/motion/page-motion";
 
 export default async function PersonaDetailPage({
@@ -103,7 +105,6 @@ export default async function PersonaDetailPage({
                   celebrate={persona.authenticityBand === "high"}
                 />
               ) : null}
-              <PersonaQualityStreak qualityScore={persona.qualityScore} />
             </div>
           </div>
         </div>
@@ -116,6 +117,7 @@ export default async function PersonaDetailPage({
       </div>
 
       <PersonaTrustPanel
+        personaId={persona.id}
         authenticityScore={persona.authenticityScore}
         authenticityBand={persona.authenticityBand}
         evalSummary={persona.evalSummary}
@@ -151,14 +153,12 @@ export default async function PersonaDetailPage({
       )}
 
       {provenanceSources.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Provenance sources
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Traceable sources used while grounding this persona.
-          </p>
-          <ul className="mt-3 space-y-2">
+        <PersonaDisclosure
+          title="Provenance sources"
+          subtitle="Traceable sources used while grounding this persona."
+          defaultOpen
+        >
+          <ul className="space-y-2">
             {provenanceSources.map((source) => (
               <li
                 key={source.id}
@@ -180,7 +180,7 @@ export default async function PersonaDetailPage({
               </li>
             ))}
           </ul>
-        </div>
+        </PersonaDisclosure>
       )}
 
       {appReviews.length > 0 && (
