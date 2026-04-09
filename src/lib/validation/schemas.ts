@@ -177,6 +177,153 @@ export const personaJudgeOutputSchema = z.object({
   extractedClaims: z.array(personaClaimJudgeSchema).default([]),
 });
 
+export type PersonaJudgeOutput = z.infer<typeof personaJudgeOutputSchema>;
+
+const JUDGE_CLAIM_TYPES = [
+  "identity",
+  "demographic",
+  "career",
+  "education",
+  "skills",
+  "location",
+  "preference",
+  "behavioral",
+  "timeline",
+  "other",
+] as const;
+
+const JUDGE_CLAIM_STATUSES = [
+  "SUPPORTED",
+  "UNSUPPORTED",
+  "UNCERTAIN",
+  "SYNTHETIC",
+] as const;
+
+function clampJudgeScore(n: number): number {
+  if (!Number.isFinite(n)) return 50;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function parseLooseScore(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return clampJudgeScore(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) return clampJudgeScore(parsed);
+  }
+  return 50;
+}
+
+function normalizeJudgeClaimType(value: unknown): (typeof JUDGE_CLAIM_TYPES)[number] {
+  if (typeof value !== "string") return "other";
+  const key = value.trim().toLowerCase();
+  const allowed = new Set(JUDGE_CLAIM_TYPES.map((t) => t.toLowerCase()));
+  if (allowed.has(key)) {
+    return JUDGE_CLAIM_TYPES.find((t) => t.toLowerCase() === key) ?? "other";
+  }
+  return "other";
+}
+
+function normalizeJudgeClaimStatus(value: unknown): (typeof JUDGE_CLAIM_STATUSES)[number] {
+  if (typeof value !== "string") return "UNCERTAIN";
+  const upper = value.trim().toUpperCase();
+  if ((JUDGE_CLAIM_STATUSES as readonly string[]).includes(upper)) {
+    return upper as (typeof JUDGE_CLAIM_STATUSES)[number];
+  }
+  const lower = value.trim().toLowerCase();
+  if (lower === "supported") return "SUPPORTED";
+  if (lower === "unsupported") return "UNSUPPORTED";
+  if (lower === "uncertain") return "UNCERTAIN";
+  if (lower === "synthetic") return "SYNTHETIC";
+  return "UNCERTAIN";
+}
+
+function normalizeEvidence(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    if (value == null || value === "") return [];
+    return [typeof value === "string" ? value : JSON.stringify(value)];
+  }
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item == null) return "";
+      if (typeof item === "number" || typeof item === "boolean") return String(item);
+      try {
+        return JSON.stringify(item);
+      } catch {
+        return String(item);
+      }
+    })
+    .filter((s) => s.length > 0)
+    .slice(0, 12);
+}
+
+/**
+ * Normalizes messy model JSON (float scores, wrong enums, non-array evidence) into the strict
+ * shape expected by persistence. Used when structured `generateObject` validation fails.
+ */
+export function parsePersonaJudgeOutputLoose(raw: unknown): PersonaJudgeOutput {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Judge output was not a JSON object");
+  }
+  const o = raw as Record<string, unknown>;
+
+  let summary =
+    typeof o.summary === "string"
+      ? o.summary.trim()
+      : "Model-assisted trust evaluation completed.";
+  if (summary.length === 0) {
+    summary = "Model-assisted trust evaluation completed.";
+  }
+  if (summary.length > 1000) {
+    summary = `${summary.slice(0, 997)}…`;
+  }
+
+  const riskFlags = Array.isArray(o.riskFlags)
+    ? o.riskFlags.map((x) => String(x)).filter((s) => s.length > 0).slice(0, 24)
+    : [];
+
+  const claimsRaw = Array.isArray(o.extractedClaims) ? o.extractedClaims : [];
+  const extractedClaims = claimsRaw
+    .filter((c) => c && typeof c === "object")
+    .map((c) => {
+      const r = c as Record<string, unknown>;
+      let claimText =
+        typeof r.claimText === "string"
+          ? r.claimText.trim()
+          : r.claimText != null
+            ? String(r.claimText).trim()
+            : "";
+      if (claimText.length < 3) {
+        claimText = "Unspecified claim";
+      }
+      if (claimText.length > 8000) {
+        claimText = `${claimText.slice(0, 7997)}…`;
+      }
+      return {
+        claimText,
+        claimType: normalizeJudgeClaimType(r.claimType),
+        status: normalizeJudgeClaimStatus(r.status),
+        confidence: parseLooseScore(r.confidence),
+        evidence: normalizeEvidence(r.evidence),
+      };
+    })
+    .slice(0, 80);
+
+  const normalized = {
+    factualityScore: parseLooseScore(o.factualityScore),
+    consistencyScore: parseLooseScore(o.consistencyScore),
+    realismScore: parseLooseScore(o.realismScore),
+    verifiabilityScore: parseLooseScore(o.verifiabilityScore),
+    summary,
+    riskFlags,
+    extractedClaims,
+  };
+
+  return personaJudgeOutputSchema.parse(normalized);
+}
+
 export const personaRetryEvaluationSchema = z.object({
   force: z.boolean().optional().default(false),
 });

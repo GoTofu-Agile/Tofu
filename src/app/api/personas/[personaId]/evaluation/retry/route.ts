@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 import { inngest } from "@/lib/inngest/client";
 import { personaRetryEvaluationSchema } from "@/lib/validation/schemas";
+import { runPersonaEvaluation } from "@/lib/personas/evaluation/pipeline";
+import { setPersonaEvaluationStatus } from "@/lib/personas/evaluation/repository";
 
 export async function POST(
   request: NextRequest,
@@ -48,6 +50,41 @@ export async function POST(
       evaluationError: Prisma.JsonNull,
     },
   });
+
+  // For explicit retries, run evaluation immediately in-process so users get a deterministic result
+  // even when background workers are unavailable in the current environment.
+  if (parsed.data.force) {
+    try {
+      await runPersonaEvaluation(persona.id);
+      const latest = await prisma.personaEvaluation.findFirst({
+        where: { personaId: persona.id },
+        orderBy: { evaluatedAt: "desc" },
+        select: {
+          trustScore: true,
+          confidenceLabel: true,
+          summary: true,
+        },
+      });
+      return Response.json({
+        ok: true,
+        evaluationStatus: "COMPLETED",
+        trustScore: latest?.trustScore ?? null,
+        confidenceLabel: latest?.confidenceLabel ?? null,
+        summary: latest?.summary ?? null,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Evaluation failed";
+      await setPersonaEvaluationStatus(persona.id, "FAILED", {
+        message,
+        at: new Date().toISOString(),
+        reason: "retry_immediate_failed",
+      });
+      return Response.json(
+        { ok: false, evaluationStatus: "FAILED", error: message },
+        { status: 500 }
+      );
+    }
+  }
 
   await inngest.send({
     name: "persona/evaluate.requested",
