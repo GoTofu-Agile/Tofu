@@ -116,9 +116,6 @@ export function StudyPersonaList({
                       </motion.span>
                     )}
                   </AnimatePresence>
-                  {isRunning && (
-                    <Loader2 className="h-3.5 w-3.5 shrink-0 text-primary animate-spin" />
-                  )}
                 </div>
                 {persona.archetype && (
                   <p className="text-xs text-muted-foreground truncate">

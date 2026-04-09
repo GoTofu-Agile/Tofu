@@ -404,17 +404,16 @@ export function StudyFlow({
             )}
           </motion.div>
         </AnimatePresence>
+        {/* Sticky Navigation */}
+        <StepNavigation
+          activeStep={activeStep}
+          canGoNext={canGoNext()}
+          canGoBack={!isFirstStep}
+          onNext={goNext}
+          onBack={goBack}
+          nextLabel={nextLabel()}
+        />
       </div>
-
-      {/* Sticky Navigation */}
-      <StepNavigation
-        activeStep={activeStep}
-        canGoNext={canGoNext()}
-        canGoBack={!isFirstStep}
-        onNext={goNext}
-        onBack={goBack}
-        nextLabel={nextLabel()}
-      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { ResultsThemes } from "@/components/studies/results-themes";
 import { ResultsQuotes } from "@/components/studies/results-quotes";
 import { ResultsRecommendations } from "@/components/studies/results-recommendations";
 import { RegenerateButton } from "@/components/studies/regenerate-button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ArrowLeft, Download, Sparkles } from "lucide-react";
 
 interface Theme {
@@ -39,6 +40,23 @@ interface SentimentBreakdown {
   neutralPercent: number;
 }
 
+function objectiveToText(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    const lines = value
+      .map((v) => (typeof v === "string" ? v : ""))
+      .filter(Boolean);
+    return lines.length > 0 ? lines.join(" • ") : null;
+  }
+  if (typeof value === "object") {
+    const raw = Object.values(value as Record<string, unknown>)
+      .filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+    return raw.length > 0 ? raw.join(" • ") : null;
+  }
+  return null;
+}
+
 export default async function StudyResultsPage({
   params,
 }: {
@@ -53,6 +71,7 @@ export default async function StudyResultsPage({
   }
 
   const { study, report, metrics } = data;
+  const objectiveText = objectiveToText(study.researchObjectives);
 
   // If no report yet, show generate prompt
   if (!report) {
@@ -70,18 +89,19 @@ export default async function StudyResultsPage({
             {study.title} — Results
           </h2>
         </div>
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <h3 className="mt-3 font-medium">No insights yet</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {metrics.totalInterviews > 0
+        <EmptyState
+          icon={Sparkles}
+          title="No insights yet"
+          description={
+            metrics.totalInterviews > 0
               ? "Generate AI-powered insights from your interview transcripts."
-              : "Complete some interviews first, then generate insights."}
-          </p>
+              : "Complete some interviews first, then generate insights."
+          }
+        >
           {metrics.totalInterviews > 0 && (
             <RegenerateButton studyId={studyId} label="Generate Insights" />
           )}
-        </div>
+        </EmptyState>
       </div>
     );
   }
@@ -96,7 +116,7 @@ export default async function StudyResultsPage({
   const themeNames = themes.map((t) => t.name);
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-6xl space-y-8">
       {/* Header */}
       <div>
         <Link
@@ -106,22 +126,20 @@ export default async function StudyResultsPage({
           <ArrowLeft className="h-3 w-3" />
           Back to Study
         </Link>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <h2 className="text-2xl font-semibold tracking-tight">
               {study.title} — Results
             </h2>
-            {study.researchObjectives && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {typeof study.researchObjectives === "string"
-                  ? study.researchObjectives
-                  : JSON.stringify(study.researchObjectives)}
+            {objectiveText && (
+              <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">
+                {objectiveText}
               </p>
             )}
           </div>
           <Link
             href={`/api/studies/${studyId}/export`}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+            className="inline-flex items-center gap-1.5 self-start rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
           >
             <Download className="h-3 w-3" />
             Export CSV

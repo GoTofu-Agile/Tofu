@@ -41,15 +41,15 @@ export function ResultsQuotes({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
           Key Quotes
         </h3>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <select
             value={themeFilter}
             onChange={(e) => setThemeFilter(e.target.value)}
-            className="rounded-md border bg-background px-2 py-1 text-xs"
+            className="min-w-[11rem] rounded-md border bg-background px-2 py-1.5 text-xs"
           >
             <option value="all">All Themes</option>
             {themes.map((t) => (
@@ -61,7 +61,7 @@ export function ResultsQuotes({
           <select
             value={personaFilter}
             onChange={(e) => setPersonaFilter(e.target.value)}
-            className="rounded-md border bg-background px-2 py-1 text-xs"
+            className="min-w-[11rem] rounded-md border bg-background px-2 py-1.5 text-xs"
           >
             <option value="all">All Personas</option>
             {personaNames.map((p) => (
@@ -72,6 +72,9 @@ export function ResultsQuotes({
           </select>
         </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Showing {filtered.length} of {quotes.length} quotes
+      </p>
 
       <div className="space-y-2">
         <AnimatePresence mode="popLayout">

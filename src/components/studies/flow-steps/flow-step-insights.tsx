@@ -12,6 +12,10 @@ import {
   ChevronDown,
   Clock,
   Send,
+  Minus,
+  Maximize2,
+  X,
+  MessageSquare,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -82,6 +86,8 @@ interface ChatMessage {
   content: string;
 }
 
+type ChatPanelMode = "open" | "minimized" | "closed";
+
 interface FlowStepInsightsProps {
   studyId: string;
   completedCount: number;
@@ -128,10 +134,12 @@ export function FlowStepInsights({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatPanelMode, setChatPanelMode] = useState<ChatPanelMode>("open");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const report = reports[activeReportIndex] ?? null;
   const estimatedInsightsSeconds = Math.max(20, Math.min(180, completedCount * 12));
+  const showChatPanel = chatPanelMode === "open";
 
   function toggleOption(id: string) {
     setSelectedOptions((prev) =>
@@ -344,18 +352,42 @@ export function FlowStepInsights({
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.15 }}
-        className="sticky top-6 rounded-2xl border bg-background overflow-hidden flex flex-col"
-        style={{ height: "calc(100vh - 4rem)" }}
+        className="fixed bottom-20 left-4 right-4 z-40 rounded-2xl border bg-background shadow-xl overflow-hidden flex flex-col h-[min(68svh,620px)] max-h-[calc(100svh-8rem)] sm:left-auto sm:right-5 sm:w-[420px]"
       >
         <div className="border-b px-4 py-3 shrink-0">
-          <p className="text-sm font-medium">Ask about your study</p>
-          <p className="text-[11px] text-muted-foreground">
-            Each question reruns analysis with a new focus
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">Ask about your study</p>
+              <p className="text-[11px] text-muted-foreground">
+                Each question reruns analysis with a new focus
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setChatPanelMode("minimized")}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                aria-label="Minimize insights chat panel"
+                title="Minimize"
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setChatPanelMode("closed")}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                aria-label="Close insights chat panel"
+                title="Close"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Chat messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {/* Chat messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
           {chatMessages.length === 0 && (
             <div className="text-center py-6">
               <motion.div
@@ -419,42 +451,90 @@ export function FlowStepInsights({
             </motion.div>
           )}
           <div ref={chatEndRef} />
-        </div>
+          </div>
 
-        {/* Sticky input */}
-        <div className="border-t px-3 py-2.5 shrink-0">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Ask about your data..."
-              className="flex-1 rounded-xl border bg-background px-3 py-2 text-xs placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-foreground/30"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && chatInput.trim()) handleChatSend();
-              }}
-              disabled={chatLoading}
-            />
-            <motion.button
-              onClick={() => handleChatSend()}
-              disabled={!chatInput.trim() || chatLoading}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="rounded-xl bg-foreground px-3 py-2 text-background disabled:opacity-40 transition-colors hover:bg-foreground/90"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </motion.button>
+          {/* Sticky input */}
+          <div className="border-t px-3 py-2.5 shrink-0">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ask about your data..."
+                className="flex-1 rounded-xl border bg-background px-3 py-2 text-xs placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-foreground/30"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && chatInput.trim()) handleChatSend();
+                }}
+                disabled={chatLoading}
+              />
+              <motion.button
+                onClick={() => handleChatSend()}
+                disabled={!chatInput.trim() || chatLoading}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="rounded-xl bg-foreground px-3 py-2 text-background disabled:opacity-40 transition-colors hover:bg-foreground/90"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </motion.button>
+            </div>
           </div>
         </div>
       </motion.div>
     );
   }
 
+  function renderChatDock() {
+    if (chatPanelMode === "open") return null;
+    if (chatPanelMode === "closed") {
+      return (
+        <button
+          type="button"
+          onClick={() => setChatPanelMode("open")}
+          className="fixed bottom-5 right-5 z-40 inline-flex h-11 items-center justify-center rounded-full border bg-background px-4 shadow-lg transition-colors hover:border-foreground/30"
+          aria-label="Open insights chat"
+        >
+          <MessageSquare className="mr-1.5 h-4 w-4" />
+          <span className="text-xs font-medium">Ask</span>
+        </button>
+      );
+    }
+
+    return (
+      <div className="fixed bottom-5 left-5 right-5 z-40 sm:left-auto sm:w-[360px]">
+        <div className="rounded-xl border bg-background shadow-lg">
+          <div className="flex items-center justify-between px-3 py-2.5">
+            <p className="text-xs font-medium">Ask about your study</p>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setChatPanelMode("open")}
+                className="inline-flex h-6 w-6 items-center justify-center rounded border text-muted-foreground hover:text-foreground"
+                aria-label="Restore insights chat panel"
+                title="Restore"
+              >
+                <Maximize2 className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setChatPanelMode("closed")}
+                className="inline-flex h-6 w-6 items-center justify-center rounded border text-muted-foreground hover:text-foreground"
+                aria-label="Close insights chat panel"
+                title="Close"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Streaming State ──
   if (streamPhase === "streaming") {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        <div className="lg:col-span-3 space-y-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
+        <div className="order-2 space-y-8 lg:order-1 lg:col-span-5">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -530,9 +610,8 @@ export function FlowStepInsights({
           </AnimatePresence>
         </div>
 
-        <div className="lg:col-span-2">
-          {renderChatPanel()}
-        </div>
+        {showChatPanel ? renderChatPanel() : null}
+        {renderChatDock()}
       </div>
     );
   }
@@ -560,9 +639,9 @@ export function FlowStepInsights({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
       {/* Left: Dashboard */}
-      <div className="lg:col-span-3 space-y-8">
+      <div className="order-2 space-y-8 lg:order-1 lg:col-span-5">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -692,9 +771,8 @@ export function FlowStepInsights({
       </div>
 
       {/* Right: Chat Panel */}
-      <div className="lg:col-span-2">
-        {renderChatPanel()}
-      </div>
+      {showChatPanel ? renderChatPanel() : null}
+      {renderChatDock()}
     </div>
   );
 }
