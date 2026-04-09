@@ -74,6 +74,8 @@ export async function GET(
           const running = await prisma.session.findFirst({
             where: { studyId, status: "RUNNING" },
             select: {
+              id: true,
+              personaId: true,
               persona: { select: { name: true } },
             },
             orderBy: { createdAt: "desc" },
@@ -82,8 +84,10 @@ export async function GET(
           const runningName = running?.persona?.name ?? null;
 
           // Emit interview-start when a new persona starts
-          if (runningName && runningName !== lastRunningPersona) {
+          if (running && runningName && runningName !== lastRunningPersona) {
             send("interview-start", {
+              sessionId: running.id,
+              personaId: running.personaId,
               personaName: runningName,
               completed,
               total: totalPersonas,
@@ -98,6 +102,8 @@ export async function GET(
               where: { studyId, status: "COMPLETED" },
               orderBy: { completedAt: "desc" },
               select: {
+                id: true,
+                personaId: true,
                 persona: { select: { name: true } },
                 messages: {
                   where: { role: "RESPONDENT" },
@@ -111,6 +117,8 @@ export async function GET(
             if (lastSession) {
               const quote = lastSession.messages[0]?.content?.slice(0, 100) ?? null;
               send("interview-complete", {
+                sessionId: lastSession.id,
+                personaId: lastSession.personaId,
                 personaName: lastSession.persona?.name,
                 completed,
                 total: totalPersonas,

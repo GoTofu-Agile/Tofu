@@ -50,6 +50,14 @@ interface SelectedPersona {
   isCompleted: boolean;
 }
 
+type LiveStatusEventPayload = {
+  personaId?: string;
+  sessionId?: string;
+  personaName?: string;
+  completed?: number;
+  quote?: string;
+};
+
 /** Waveform bars for idle/waiting state */
 function WaveformIndicator() {
   return (
@@ -382,18 +390,18 @@ export function FlowStepInterviews({
 
     es.addEventListener("interview-start", (e) => {
       try {
-        const data = JSON.parse(e.data);
+        const data = JSON.parse(e.data) as LiveStatusEventPayload;
         if (data.personaName) {
           setLivePersonaName(data.personaName);
-          const allPersonas = personasByGroup.flatMap((g) => g.personas);
-          const persona = allPersonas.find((p) => p.name === data.personaName);
-          if (persona) {
-            setRunningPersonaId(persona.id);
-            const session = personaSessionMap[persona.id];
-            if (session) {
-              handleSelectPersona(persona.id);
-            }
-          }
+        }
+        if (data.personaId && data.sessionId) {
+          setRunningPersonaId(data.personaId);
+          void selectPersonaWithSession({
+            personaId: data.personaId,
+            sessionId: data.sessionId,
+            status: "RUNNING",
+            fallbackName: data.personaName ?? null,
+          });
         }
         if (typeof data.completed === "number") setLiveCompleted(data.completed);
       } catch { /* ignore */ }
@@ -401,11 +409,20 @@ export function FlowStepInterviews({
 
     es.addEventListener("interview-complete", (e) => {
       try {
-        const data = JSON.parse(e.data);
+        const data = JSON.parse(e.data) as LiveStatusEventPayload;
         if (typeof data.completed === "number") setLiveCompleted(data.completed);
         setRunningPersonaId(null);
-        if (selectedPersona && data.personaName === selectedPersona.name) {
-          handleSelectPersona(selectedPersona.personaId);
+        if (
+          selectedPersona &&
+          data.personaId === selectedPersona.personaId &&
+          data.sessionId
+        ) {
+          void selectPersonaWithSession({
+            personaId: data.personaId,
+            sessionId: data.sessionId,
+            status: "COMPLETED",
+            fallbackName: data.personaName ?? null,
+          });
         }
       } catch { /* ignore */ }
     });
@@ -531,27 +548,39 @@ export function FlowStepInterviews({
   async function handleSelectPersona(personaId: string) {
     const session = personaSessionMap[personaId];
     if (!session) return;
+    await selectPersonaWithSession({
+      personaId,
+      sessionId: session.sessionId,
+      status: session.status === "COMPLETED" ? "COMPLETED" : "RUNNING",
+    });
+  }
 
+  async function selectPersonaWithSession(args: {
+    personaId: string;
+    sessionId: string;
+    status: "RUNNING" | "COMPLETED";
+    fallbackName?: string | null;
+  }) {
     const allPersonas = personasByGroup.flatMap((g) => g.personas);
-    const persona = allPersonas.find((p) => p.id === personaId);
+    const persona = allPersonas.find((p) => p.id === args.personaId);
     if (!persona) return;
 
     // Reset previous message count when switching persona
     prevMsgCountRef.current = 0;
 
     setSelectedPersona({
-      personaId,
-      sessionId: session.sessionId,
-      name: persona.name,
+      personaId: args.personaId,
+      sessionId: args.sessionId,
+      name: persona.name || args.fallbackName || "Persona",
       archetype: persona.archetype,
       occupation: persona.occupation,
       age: persona.age,
-      isCompleted: session.status === "COMPLETED",
+      isCompleted: args.status === "COMPLETED",
     });
 
     setLoadingMessages(true);
     try {
-      const result = await getSessionMessages(session.sessionId);
+      const result = await getSessionMessages(args.sessionId);
       setChatMessages(result.messages || []);
     } catch {
       // Silently fail
