@@ -105,20 +105,20 @@ export async function requireAuthWithOrgs() {
 }
 
 /**
- * Lightweight auth for pages — skips org fetching (layout already did it).
- * Returns authenticated user + activeOrgId from cookie.
+ * Auth helper for dashboard pages.
+ * Always resolves an org that belongs to the current authenticated user.
+ * This avoids stale `activeOrgId` cookies leaking across account switches.
  */
 export async function requireAuthWithActiveOrg() {
-  const user = await requireAuth();
-  const cookieStore = await cookies();
-  let activeOrgId = cookieStore.get("activeOrgId")?.value;
-
-  // Fallback: if no cookie, resolve from user's organizations
-  if (!activeOrgId) {
-    const organizations = await getOrganizationsForUser(user.id);
-    activeOrgId = organizations[0]?.id;
-    if (!activeOrgId) throw new Error("No active organization");
+  const { user, organizations } = await requireAuthWithOrgs();
+  if (organizations.length === 0) {
+    throw new Error("No active organization");
   }
+
+  const cookieStore = await cookies();
+  const activeOrgId =
+    organizations.find((org) => org.id === cookieStore.get("activeOrgId")?.value)?.id ??
+    organizations[0].id;
 
   return { user, activeOrgId };
 }
