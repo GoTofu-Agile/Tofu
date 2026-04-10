@@ -731,7 +731,7 @@ export function AssistantChat() {
         {/* Header */}
         <div className="flex h-12 items-center justify-between border-b border-stone-200/80 pl-3 pr-3">
           <div className="flex items-center gap-1.5">
-            <span id="ask-panel-title" className="text-sm font-semibold text-stone-900">
+            <span id="ask-panel-title" className="text-[13px] font-semibold text-stone-900">
               {panelTitle}
             </span>
           </div>
@@ -783,10 +783,10 @@ export function AssistantChat() {
         >
           {messages.length === 0 && (
             <div className="my-2 space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-3">
-              <p className="text-[14px] leading-6 text-stone-700">
+              <p className="text-[13px] leading-5 text-stone-700">
                 Ask can create personas, set up studies, run interviews, and summarize insights.
               </p>
-              <p className="text-[12px] leading-5 text-stone-500">
+              <p className="text-[11px] leading-snug text-stone-500">
                 Tip: Press <span className="font-medium text-stone-600">{"\u2318K"}</span> (Mac) or{" "}
                 <span className="font-medium text-stone-600">Ctrl+K</span> anytime to toggle Ask from anywhere
                 in the app.
@@ -800,7 +800,7 @@ export function AssistantChat() {
                       trackAssistantEvent("ask_click_suggestion", { prompt });
                       handleSend(prompt);
                     }}
-                    className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[12px] text-stone-700 hover:bg-stone-100"
+                    className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] text-stone-700 hover:bg-stone-100"
                   >
                     {prompt}
                   </button>
@@ -830,7 +830,7 @@ export function AssistantChat() {
               <div key={message.id} className="my-2.5 space-y-2">
                 {isUser && message.text ? (
                   <div className="flex justify-end">
-                    <div className="max-w-[88%] rounded-2xl bg-stone-900 px-4 py-3 text-[14px] leading-6 text-white shadow-sm">
+                    <div className="max-w-[88%] rounded-2xl bg-stone-900 px-3.5 py-2.5 text-[13px] leading-5 text-white shadow-sm">
                       <p className="whitespace-pre-wrap break-words">{message.text}</p>
                     </div>
                   </div>
@@ -854,7 +854,7 @@ export function AssistantChat() {
                     ))}
 
                     {message.text && (
-                      <div className="text-[14px] leading-6 text-stone-900">
+                      <div className="text-[13px] leading-5 text-stone-900">
                         <AssistantRichText
                           text={message.text}
                           onNavigate={(path) => router.push(path)}
@@ -939,7 +939,7 @@ export function AssistantChat() {
             onKeyDown={handleKeyDown}
             placeholder="Ask anything about personas, studies, or insights..."
             rows={1}
-            className="w-full resize-none rounded-2xl border border-stone-300 bg-white px-3 py-2.5 pb-10 text-[14px] text-stone-900 placeholder:text-stone-500 focus-visible:outline-none focus-visible:border-stone-500 transition-colors"
+            className="w-full resize-none rounded-2xl border border-stone-300 bg-white px-3 py-2.5 pb-10 text-[13px] text-stone-900 placeholder:text-stone-500 focus-visible:outline-none focus-visible:border-stone-500 transition-colors"
             style={{ minHeight: "2.75rem", maxHeight: "10rem" }}
             aria-label="Ask assistant input"
           />
@@ -973,7 +973,7 @@ export function AssistantChat() {
         <div className="absolute inset-0 z-20">
           <div className="flex flex-col h-full bg-background rounded-[1.25rem] shadow-lg ring-1 ring-stone-200 overflow-hidden">
             <div className="flex items-center justify-between pl-4 pr-2.5 pt-3 pb-1.5">
-              <span className="text-sm font-semibold text-stone-900">Chat History</span>
+              <span className="text-[13px] font-semibold text-stone-900">Chat History</span>
               <button
                 type="button"
                 onClick={() => setChatView("chat")}
@@ -1066,8 +1066,8 @@ export function AssistantChat() {
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-xl font-semibold tracking-tight text-stone-900">Persona Design</p>
-                    <p className="mt-1 text-sm text-stone-600">
+                    <p className="text-lg font-semibold tracking-tight text-stone-900">Persona Design</p>
+                    <p className="mt-1 text-[13px] text-stone-600">
                       Review and tweak your generation setup before we start.
                     </p>
                   </div>
@@ -1088,7 +1088,7 @@ export function AssistantChat() {
                 <div className="flex items-center justify-between">
                   <label
                     htmlFor="persona-design-prompt"
-                    className="text-sm font-medium text-stone-900"
+                    className="text-[13px] font-medium text-stone-900"
                   >
                     Prompt
                   </label>
@@ -1107,7 +1107,7 @@ export function AssistantChat() {
                   onChange={(e) => setPersonaDesignPrompt(e.target.value)}
                   placeholder="Describe who these personas should represent..."
                   rows={5}
-                  className="w-full resize-none rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-500 focus-visible:outline-none focus-visible:border-stone-500"
+                  className="w-full resize-none rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[13px] text-stone-900 placeholder:text-stone-500 focus-visible:outline-none focus-visible:border-stone-500"
                 />
               </div>
 
@@ -1125,7 +1125,7 @@ export function AssistantChat() {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="persona-design-count" className="text-sm font-medium text-stone-900">
+                <label htmlFor="persona-design-count" className="text-[13px] font-medium text-stone-900">
                   Number of personas
                 </label>
                 <input
@@ -1138,7 +1138,7 @@ export function AssistantChat() {
                     const value = Number(e.target.value);
                     setPersonaDesignCount(Number.isFinite(value) ? value : 1);
                   }}
-                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus-visible:outline-none focus-visible:border-stone-500"
+                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[13px] text-stone-900 focus-visible:outline-none focus-visible:border-stone-500"
                 />
                 <p className="text-xs text-stone-500">Choose between 1 and 10 personas.</p>
               </div>
@@ -1148,14 +1148,14 @@ export function AssistantChat() {
               <button
                 type="button"
                 onClick={handleCancelPersonaDesign}
-                className="inline-flex items-center justify-center rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                className="inline-flex items-center justify-center rounded-full border border-stone-300 bg-white px-4 py-2 text-[13px] font-medium text-stone-700 hover:bg-stone-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmPersonaDesign}
-                className="inline-flex items-center justify-center rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
+                className="inline-flex items-center justify-center rounded-full bg-stone-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-stone-800"
               >
                 Start creation
               </button>
@@ -1410,37 +1410,37 @@ function AssistantRichText({
   const components = useMemo<Components>(
     () => ({
       h1: ({ children }) => (
-        <h3 className="mb-2 mt-4 font-sans text-base font-semibold tracking-tight text-stone-900 first:mt-0">
+        <h3 className="mb-2 mt-4 font-sans text-[14px] font-semibold tracking-tight text-stone-900 first:mt-0">
           {children}
         </h3>
       ),
       h2: ({ children }) => (
-        <h3 className="mb-2 mt-4 font-sans text-[15px] font-semibold tracking-tight text-stone-900 first:mt-0">
+        <h3 className="mb-2 mt-4 font-sans text-[13px] font-semibold tracking-tight text-stone-900 first:mt-0">
           {children}
         </h3>
       ),
       h3: ({ children }) => (
-        <h4 className="mb-1.5 mt-3 font-sans text-[14px] font-semibold text-stone-900 first:mt-0">
+        <h4 className="mb-1.5 mt-3 font-sans text-[13px] font-semibold text-stone-900 first:mt-0">
           {children}
         </h4>
       ),
       h4: ({ children }) => (
-        <h5 className="mb-1.5 mt-3 font-sans text-[13px] font-semibold text-stone-900 first:mt-0">
+        <h5 className="mb-1.5 mt-3 font-sans text-[12px] font-semibold text-stone-900 first:mt-0">
           {children}
         </h5>
       ),
       p: ({ children }) => (
-        <p className="mb-2 font-sans text-[14px] leading-relaxed text-stone-800 last:mb-0">
+        <p className="mb-2 font-sans text-[13px] leading-snug text-stone-800 last:mb-0">
           {children}
         </p>
       ),
       ul: ({ children }) => (
-        <ul className="mb-2 ml-1 list-disc space-y-1 pl-4 font-sans text-[14px] leading-relaxed text-stone-800 marker:text-stone-400">
+        <ul className="mb-2 ml-1 list-disc space-y-1 pl-4 font-sans text-[13px] leading-snug text-stone-800 marker:text-stone-400">
           {children}
         </ul>
       ),
       ol: ({ children }) => (
-        <ol className="mb-2 ml-1 list-decimal space-y-1 pl-4 font-sans text-[14px] leading-relaxed text-stone-800 marker:text-stone-400">
+        <ol className="mb-2 ml-1 list-decimal space-y-1 pl-4 font-sans text-[13px] leading-snug text-stone-800 marker:text-stone-400">
           {children}
         </ol>
       ),
@@ -1450,7 +1450,7 @@ function AssistantRichText({
       ),
       em: ({ children }) => <em className="italic text-stone-800">{children}</em>,
       blockquote: ({ children }) => (
-        <blockquote className="my-2 border-l-2 border-stone-300 pl-3 font-sans text-[13px] italic text-stone-600">
+        <blockquote className="my-2 border-l-2 border-stone-300 pl-3 font-sans text-[12px] italic text-stone-600">
           {children}
         </blockquote>
       ),
@@ -1463,7 +1463,7 @@ function AssistantRichText({
             <button
               type="button"
               onClick={() => onNavigate(normalized.value)}
-              className="inline-flex max-w-full items-center gap-0.5 rounded px-0.5 font-sans text-[14px] font-medium text-emerald-800 underline decoration-emerald-800/40 underline-offset-2 hover:bg-emerald-50 hover:decoration-emerald-800"
+              className="inline-flex max-w-full items-center gap-0.5 rounded px-0.5 font-sans text-[13px] font-medium text-emerald-800 underline decoration-emerald-800/40 underline-offset-2 hover:bg-emerald-50 hover:decoration-emerald-800"
             >
               <span className="min-w-0 break-words text-left">{children}</span>
               <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
@@ -1476,7 +1476,7 @@ function AssistantRichText({
               href={normalized.value}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex max-w-full items-center gap-0.5 font-sans text-[14px] font-medium text-emerald-800 underline decoration-emerald-800/40 underline-offset-2 hover:bg-emerald-50"
+              className="inline-flex max-w-full items-center gap-0.5 font-sans text-[13px] font-medium text-emerald-800 underline decoration-emerald-800/40 underline-offset-2 hover:bg-emerald-50"
             >
               <span className="min-w-0 break-words text-left">{children}</span>
               <ArrowUpRight className="h-3 w-3 shrink-0 opacity-80" aria-hidden />
@@ -1499,19 +1499,19 @@ function AssistantRichText({
           );
         }
         return (
-          <code className={cn("block font-mono text-[12px] text-stone-100", className)} {...props}>
+          <code className={cn("block font-mono text-[11px] text-stone-100", className)} {...props}>
             {children}
           </code>
         );
       },
       pre: ({ children }) => (
-        <pre className="my-2 overflow-x-auto rounded-lg border border-stone-200 bg-stone-900 p-3 font-mono text-[12px] text-stone-100">
+        <pre className="my-2 overflow-x-auto rounded-lg border border-stone-200 bg-stone-900 p-3 font-mono text-[11px] text-stone-100">
           {children}
         </pre>
       ),
       table: ({ children }) => (
         <div className="my-2 overflow-x-auto rounded-lg border border-stone-200">
-          <table className="w-full min-w-[16rem] border-collapse font-sans text-[13px] text-stone-800">
+          <table className="w-full min-w-[16rem] border-collapse font-sans text-[12px] text-stone-800">
             {children}
           </table>
         </div>
@@ -1536,7 +1536,7 @@ function AssistantRichText({
         collapsed ? "max-h-40 [mask-image:linear-gradient(to_bottom,black_70%,transparent)]" : ""
       )}
     >
-      <div className="assistant-markdown min-w-0 font-sans text-[14px] leading-relaxed text-stone-800 antialiased [&>*:first-child]:mt-0">
+      <div className="assistant-markdown min-w-0 font-sans text-[13px] leading-snug text-stone-800 antialiased [&>*:first-child]:mt-0">
         <Markdown remarkPlugins={[remarkGfm]} components={components}>
           {text}
         </Markdown>
