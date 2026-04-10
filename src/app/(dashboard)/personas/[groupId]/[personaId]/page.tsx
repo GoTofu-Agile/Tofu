@@ -5,15 +5,12 @@ import { getUserRole } from "@/lib/db/queries/organizations";
 import { requireAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, ExternalLink } from "lucide-react";
-import { appStoreReviewSnippetsFromPersona } from "@/lib/personas/app-store-review-ui";
+import { ArrowLeft } from "lucide-react";
+import { PersonaSourcesPanel } from "@/components/personas/persona-sources-panel";
 import { PersonaSquircleIcon } from "@/components/personas/persona-squircle-icon";
 import { AuthenticityBadge } from "@/components/personas/authenticity-badge";
 import { PersonaTrustPanel } from "@/components/personas/persona-trust-panel";
-import {
-  PersonaDetailSections,
-  PersonaDisclosure,
-} from "@/components/personas/persona-detail-sections";
+import { PersonaDetailSections } from "@/components/personas/persona-detail-sections";
 import { MotionPageEnter } from "@/components/motion/page-motion";
 
 export default async function PersonaDetailPage({
@@ -39,11 +36,6 @@ export default async function PersonaDetailPage({
   }
 
   const traits = persona.personality;
-  const appReviews = appStoreReviewSnippetsFromPersona(persona.dataSources);
-  const provenanceSources = persona.dataSources
-    .map((entry) => entry.domainKnowledge)
-    .filter((source) => source.sourceUrl)
-    .slice(0, 3);
   const displayGender = normalizeBinaryGender(persona.gender);
   const latestEval = persona.evaluations[0];
 
@@ -152,90 +144,7 @@ export default async function PersonaDetailPage({
         </div>
       )}
 
-      {provenanceSources.length > 0 && (
-        <PersonaDisclosure
-          title="Provenance sources"
-          subtitle="Traceable sources used while grounding this persona."
-          defaultOpen
-        >
-          <ul className="space-y-2">
-            {provenanceSources.map((source) => (
-              <li
-                key={source.id}
-                className="rounded-lg border border-border/80 bg-muted/20 p-3"
-              >
-                <p className="text-sm font-medium text-foreground">{source.title}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {source.sourceDomain ?? "Unknown domain"}
-                </p>
-                <a
-                  href={source.sourceUrl as string}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  Open source
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </PersonaDisclosure>
-      )}
-
-      {appReviews.length > 0 && (
-        <>
-          <Separator />
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground">
-              App Store review voices
-            </h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Verbatim reviews from your crawl, matched to this persona. Same
-              review may appear on other personas when it fits multiple
-              profiles.
-            </p>
-            <ul className="mt-4 space-y-4">
-              {appReviews.map((r) => (
-                <li
-                  key={r.id}
-                  className="rounded-lg border border-border/80 bg-muted/20 p-4"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-foreground">
-                      {r.title}
-                    </span>
-                    {r.rating != null && (
-                      <Badge variant="secondary" className="text-[10px]">
-                        ★ {r.rating}/5
-                      </Badge>
-                    )}
-                  </div>
-                  {r.sourceUrl && (
-                    <p className="mt-1 break-all text-[11px] text-muted-foreground">
-                      {r.sourceUrl.replace(/^https?:\/\//, "")}
-                    </p>
-                  )}
-                  <blockquote className="mt-3 text-sm leading-relaxed text-foreground">
-                    &ldquo;{r.content}&rdquo;
-                  </blockquote>
-                  {r.reviewUrl && (
-                    <a
-                      href={r.reviewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                    >
-                      Open review
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
+      <PersonaSourcesPanel dataSources={persona.dataSources} />
 
       <PersonaDetailSections
         sections={[

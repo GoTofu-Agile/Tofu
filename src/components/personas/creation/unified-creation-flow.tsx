@@ -47,6 +47,15 @@ import { PersonaQuickStarters } from "@/components/personas/persona-quick-starte
 import { PersonaPromptHistory } from "@/components/personas/persona-prompt-history";
 import type { PersonaCreationContext } from "@/lib/personas/persona-creation-context";
 import { DEEP_SEARCH_UNLOCK_AT_ORG_PERSONAS } from "@/lib/personas/persona-creation-policy";
+import {
+  serpOptionsForDeepResearchExtracted,
+  serpOptionsForPromptDeepSearch,
+} from "@/lib/research/serpapi/chat-serp-options";
+import {
+  humanLabelForBreakdownKey,
+  mergeQuickResearchBreakdown,
+  sumResearchBreakdownSnippets,
+} from "@/lib/research/research-quick-breakdown";
 
 async function readGenerateApiError(response: Response): Promise<string> {
   try {
@@ -196,12 +205,76 @@ function buildWorkflowSteps(params: {
 
   const doneStatus: WorkflowStepStatus = progressPhase === "done" ? "done" : "pending";
 
-  const queryLabel = promptText.trim()
-    ? `${promptText.trim().slice(0, 56)}${promptText.trim().length > 56 ? "..." : ""}`
-    : "app user complaints frustrations";
   const topicLabel = promptText.trim()
     ? `${promptText.trim().slice(0, 32)}${promptText.trim().length > 32 ? "..." : ""}`
     : "target audience";
+
+  const researchEntries = Object.entries(researchBySource).filter(
+    ([k, v]) => v > 0 && (k.startsWith("tavily:") || k.startsWith("serp:"))
+  );
+  researchEntries.sort((a, b) => b[1] - a[1]);
+  const crawlBundle = sumResearchBreakdownSnippets(researchBySource);
+
+  const webRowsStatus: WorkflowSourceRow["status"] =
+    webSearchStatus === "active"
+      ? "loading"
+      : webSearchStatus === "done"
+        ? "done"
+        : "skipped";
+
+  const webRowsLoading =
+    progressPhase === "researching" && webSearchStatus === "active";
+
+  const webSources: WorkflowSourceRow[] =
+    researchEntries.length > 0
+      ? researchEntries.slice(0, 14).map(([key, n], i) => ({
+          id: `live-${key}-${i}`,
+          kind: "webSearch" as const,
+          label: humanLabelForBreakdownKey(key),
+          badge: `${n} snippets`,
+          status: webRowsStatus,
+        }))
+      : [
+          {
+            id: "research-pending",
+            kind: "webSearch",
+            label: webRowsLoading ? "News, web, forums & verticals" : "Web research",
+            badge: webRowsLoading ? "Running…" : "Waiting",
+            status: webRowsLoading ? "loading" : "skipped",
+          },
+        ];
+
+  const browseSources: WorkflowSourceRow[] =
+    crawlBundle > 0
+      ? [
+          {
+            id: "kb-saved",
+            kind: "browsed",
+            label: "Saved to persona knowledge base",
+            badge: `${crawlBundle} snippets`,
+            status:
+              browsingStatus === "active"
+                ? "loading"
+                : browsingStatus === "done"
+                  ? "done"
+                  : "skipped",
+          },
+        ]
+      : [
+          {
+            id: "kb-empty",
+            kind: "browsed",
+            label: "Knowledge base",
+            badge:
+              progressPhase === "researching" ? "Collecting…" : "—",
+            status:
+              browsingStatus === "active"
+                ? "loading"
+                : browsingStatus === "done"
+                  ? "done"
+                  : "skipped",
+          },
+        ];
 
   const appSources: WorkflowSourceRow[] = [
     {
@@ -220,47 +293,6 @@ function buildWorkflowSteps(params: {
       label: "Google Play — Android listing",
       badge: playCount > 0 ? `${playCount} reviews` : "Waiting",
       status: playStoreStatus === "active" ? "loading" : playStoreStatus === "done" ? "done" : "skipped",
-    },
-  ];
-
-  const webSources: WorkflowSourceRow[] = [
-    {
-      id: "web-reddit",
-      kind: "webSearch",
-      label: `reddit.com - ${topicLabel}`,
-      badge: researchResults > 0 ? `${Math.max(1, Math.floor(researchResults * 0.45))} posts` : "Searching",
-      status: webSearchStatus === "active" ? "loading" : webSearchStatus === "done" ? "done" : "skipped",
-    },
-    {
-      id: "web-general",
-      kind: "webSearch",
-      label: `Web results - ${queryLabel}`,
-      badge: researchResults > 0 ? `${researchResults} results` : "Searching",
-      status: webSearchStatus === "active" ? "loading" : webSearchStatus === "done" ? "done" : "skipped",
-    },
-  ];
-
-  const browseSources: WorkflowSourceRow[] = [
-    {
-      id: "browse-1",
-      kind: "browsed",
-      label: "reddit.com/r/app/comments/...",
-      status: browsingStatus === "active" ? "loading" : browsingStatus === "done" ? "done" : "skipped",
-      badge: browsingStatus === "done" ? "Captured" : "Browsing",
-    },
-    {
-      id: "browse-2",
-      kind: "browsed",
-      label: "trustpilot.com/review/app",
-      status: browsingStatus === "active" ? "loading" : browsingStatus === "done" ? "done" : "skipped",
-      badge: browsingStatus === "done" ? "Captured" : "Browsing",
-    },
-    {
-      id: "browse-3",
-      kind: "browsed",
-      label: "g2.com/products/app/reviews",
-      status: browsingStatus === "active" ? "loading" : browsingStatus === "done" ? "done" : "skipped",
-      badge: browsingStatus === "done" ? "Captured" : "Browsing",
     },
   ];
 
@@ -287,26 +319,34 @@ function buildWorkflowSteps(params: {
     },
     {
       id: "wf-web-search",
-      title: "Searching Reddit",
+      title: "Research",
       status: webSearchStatus,
       sources: webSources,
       findings:
-        researchResults > 0
-          ? [`Reddit and web discussions reveal concrete frustrations for ${topicLabel}.`]
-          : [],
+        researchEntries.length > 0
+          ? researchEntries
+              .slice(0, 4)
+              .map(([k, v]) => `${humanLabelForBreakdownKey(k)} · ${v} snippets`)
+          : researchResults > 0
+            ? [
+                `${researchResults} snippets saved from the last research run (see breakdown when sources finish).`,
+              ]
+            : [],
     },
     {
       id: "wf-browse",
-      title: "Reviewing source threads",
+      title: "Grounding bundle",
       status: browsingStatus,
       sources: browseSources,
       findings:
-        browsingStatus === "done" || browsingStatus === "active"
+        crawlBundle > 0
           ? [
-              "Thread-level evidence isolates recurring user blockers.",
-              "Mentions are clustered by behavior patterns and goals.",
+              `${crawlBundle} research snippets are stored on the group for persona generation.`,
+              "Snippets stay tagged by kind of source (news, forums, maps, stores, etc.).",
             ]
-          : [],
+          : browsingStatus === "active" || browsingStatus === "done"
+            ? ["Collecting crawled snippets into DomainKnowledge."]
+            : [],
     },
     {
       id: "wf-synth",
@@ -617,8 +657,7 @@ export function UnifiedCreationFlow({
     const runId = startGlobalWidgetRun(gId, personaCount, "researching");
 
     let totalSources = 0;
-    const bySource: Record<string, number> = {};
-    let tavilyPass = 0;
+    let bySource: Record<string, number> = {};
 
     const genStep = displayPlan.filter((s) => s.backend.kind === "generation").at(-1);
     const preGenSteps = displayPlan.filter((s) => s.backend.kind !== "generation");
@@ -634,23 +673,28 @@ export function UnifiedCreationFlow({
           await runVisualStep(step.backend.ms);
           setPipelineStatus(step.id, "done");
         } else if (step.backend.kind === "tavily") {
+          const serpOptions =
+            source === "deep-search" ? serpOptionsForPromptDeepSearch(text) : undefined;
           const res = await fetch("/api/research/quick", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ groupId: gId, prompt: text }),
+            body: JSON.stringify({
+              groupId: gId,
+              prompt: text,
+              ...(serpOptions ? { serpOptions } : {}),
+            }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data?.error || "Research failed");
           const added = data.totalResults || 0;
           totalSources += added;
-          tavilyPass += 1;
-          const key =
-            source === "company-urls"
-              ? "WEB"
-              : tavilyPass === 1
-                ? "FORUM"
-                : "WEB";
-          bySource[key] = (bySource[key] || 0) + added;
+          bySource = mergeQuickResearchBreakdown(bySource, {
+            tavilyBySourceType: data.tavilyBySourceType,
+            serpByEngine: data.serpByEngine,
+          });
+          setResearchBySource({ ...bySource });
+          setResearchResults(totalSources);
+          setResearchLabel(`${step.label} · +${added} snippets`);
           setPipelineStatus(step.id, "done");
         } else if (step.backend.kind === "appstore") {
           const discoverRes = await fetch("/api/research/discover-appstore-url", {
@@ -675,6 +719,8 @@ export function UnifiedCreationFlow({
             const added = scraped.totalSaved || scraped.totalFetched || 0;
             totalSources += added;
             bySource.APP_REVIEW = (bySource.APP_REVIEW || 0) + added;
+            setResearchBySource({ ...bySource });
+            setResearchResults(totalSources);
             setPipelineStatus(step.id, "done");
           }
         }
@@ -1145,6 +1191,10 @@ export function UnifiedCreationFlow({
     setChatPipelineSteps(null);
     setPhase("progress");
     setProgressPhase("researching");
+    setResearchCurrent(0);
+    setResearchResults(0);
+    setResearchBySource({});
+    setResearchLabel("");
     const runId = startGlobalWidgetRun(gId, personaCount, "researching");
 
     const queries = buildQueriesFromContext({
@@ -1159,6 +1209,7 @@ export function UnifiedCreationFlow({
 
     setResearchTotal(queries.length);
     let totalFound = 0;
+    let mergedBySource: Record<string, number> = {};
 
     for (let i = 0; i < queries.length; i++) {
       const plan = queries[i];
@@ -1174,14 +1225,28 @@ export function UnifiedCreationFlow({
           method === "company-url" && companyDomain
             ? `${plan.query} site:${companyDomain} (customers OR users OR testimonials OR case studies)`
             : plan.query;
+        const serpOptions =
+          depth === "deep" ? serpOptionsForDeepResearchExtracted(extracted) : undefined;
         const res = await fetch("/api/research/quick", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ groupId: gId, prompt: researchPrompt }),
+          body: JSON.stringify({
+            groupId: gId,
+            prompt: researchPrompt,
+            ...(serpOptions ? { serpOptions } : {}),
+          }),
         });
         if (res.ok) {
           const data = await res.json();
-          totalFound += data.totalResults || 0;
+          const added = data.totalResults || 0;
+          totalFound += added;
+          mergedBySource = mergeQuickResearchBreakdown(mergedBySource, {
+            tavilyBySourceType: data.tavilyBySourceType,
+            serpByEngine: data.serpByEngine,
+          });
+          setResearchBySource({ ...mergedBySource });
+          setResearchResults(totalFound);
+          setResearchLabel(`${plan.label} · +${added} snippets`);
         }
       } catch {
         // continue
@@ -1189,6 +1254,7 @@ export function UnifiedCreationFlow({
     }
 
     setResearchResults(totalFound);
+    setResearchBySource({ ...mergedBySource });
     setProgressPhase("generating");
     setGenTotal(personaCount);
     const sourceTypeOverride = method ? SOURCE_TYPE_MAP[method] : undefined;

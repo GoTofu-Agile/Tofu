@@ -5,6 +5,8 @@ import { getUser } from "@/lib/db/queries/users";
 import { getPersonaGroup } from "@/lib/db/queries/personas";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { quickResearch, buildAutoQueries } from "@/lib/research/tavily";
+import { serpPersonaSupplement } from "@/lib/research/serpapi/persona-supplement";
+import { serpSupplementOptionsSchema } from "@/lib/research/serpapi/serp-supplement-options";
 
 const requestSchema = z.object({
   groupId: z.string().min(1),
@@ -12,6 +14,7 @@ const requestSchema = z.object({
   role: z.string().optional(),
   industry: z.string().optional(),
   painPoints: z.string().optional(),
+  serpOptions: serpSupplementOptionsSchema.optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -54,6 +57,37 @@ export async function POST(request: NextRequest) {
     return Response.json({ totalResults: 0 });
   }
 
-  const result = await quickResearch(body.groupId, queries);
-  return Response.json(result);
+  const searchSession = crypto.randomUUID();
+
+  const [tavilyResult, serpResult] = await Promise.allSettled([
+    quickResearch(body.groupId, queries),
+    serpPersonaSupplement(body.groupId, queries, searchSession, body.serpOptions),
+  ]);
+
+  let tavilyTotal = 0;
+  let tavilyBySourceType: Record<string, number> = {};
+  if (tavilyResult.status === "fulfilled") {
+    tavilyTotal = tavilyResult.value.totalResults;
+    tavilyBySourceType = tavilyResult.value.bySourceType as Record<string, number>;
+  } else {
+    console.error("[research/quick] Tavily failed:", tavilyResult.reason);
+  }
+
+  if (serpResult.status === "rejected") {
+    console.error("[research/quick] SerpAPI supplement failed:", serpResult.reason);
+  }
+
+  const serpSaved =
+    serpResult.status === "fulfilled" ? serpResult.value.totalSaved : 0;
+  const serpByEngine =
+    serpResult.status === "fulfilled" ? serpResult.value.serpByEngine : {};
+
+  return Response.json({
+    totalResults: tavilyTotal + serpSaved,
+    tavilyResults: tavilyTotal,
+    serpResults: serpSaved,
+    tavilyBySourceType,
+    serpByEngine,
+    searchSession,
+  });
 }

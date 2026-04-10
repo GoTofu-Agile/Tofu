@@ -1,6 +1,22 @@
 import type { NextConfig } from "next";
 
+/** Hosts (no protocol) allowed to talk to the dev server — needed for Cursor/VS Code previews and port tunnels. */
+const defaultAllowedDevOrigins = [
+  "localhost:3004",
+  "127.0.0.1:3004",
+  "[::1]:3004",
+];
+const extraAllowedDevOrigins =
+  process.env.ALLOWED_DEV_ORIGINS?.split(",")
+    .map((h) => h.trim())
+    .filter(Boolean) ?? [];
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: [...defaultAllowedDevOrigins, ...extraAllowedDevOrigins],
+  // Avoid picking a parent directory when multiple package-lock.json files exist (e.g. ~/package-lock.json).
+  turbopack: {
+    root: process.cwd(),
+  },
   // Tree-shake heavy barrel packages (icons / animation) — smaller client bundles.
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
@@ -8,6 +24,13 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   async headers() {
+    // In `next dev`, Cursor/VS Code Simple Browser often loads the app inside an iframe/webview.
+    // Production CSP + X-Frame-Options: DENY + frame-ancestors 'none' breaks that embed and can
+    // block Turbopack HMR (ws://) or confuse webviews with upgrade-insecure-requests.
+    if (process.env.NODE_ENV === "development") {
+      return [];
+    }
+
     const csp = [
       "default-src 'self'",
       "base-uri 'self'",
