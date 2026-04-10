@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useAssistant } from "@/components/assistant/assistant-provider";
 import { Button } from "@/components/ui/button";
 import { InsightsProgress } from "@/components/studies/insights-progress";
 import { ResultsSummary } from "@/components/studies/results-summary";
@@ -138,6 +139,30 @@ export function FlowStepInsights({
   const [chatLoading, setChatLoading] = useState(false);
   const [chatPanelMode, setChatPanelMode] = useState<ChatPanelMode>("open");
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const { isOpen: assistantOpen } = useAssistant();
+  /** When true, closing Ask should expand this panel again (user had it open). */
+  const autoMinimizedForAssistantRef = useRef(false);
+
+  useEffect(() => {
+    if (assistantOpen && chatPanelMode === "closed") {
+      autoMinimizedForAssistantRef.current = false;
+    }
+  }, [assistantOpen, chatPanelMode]);
+
+  useEffect(() => {
+    if (assistantOpen) {
+      setChatPanelMode((prev) => {
+        if (prev === "open") {
+          autoMinimizedForAssistantRef.current = true;
+          return "minimized";
+        }
+        return prev;
+      });
+    } else if (autoMinimizedForAssistantRef.current) {
+      autoMinimizedForAssistantRef.current = false;
+      setChatPanelMode("open");
+    }
+  }, [assistantOpen]);
 
   const report = reports[activeReportIndex] ?? null;
   const estimatedInsightsSeconds = Math.max(20, Math.min(180, completedCount * 12));

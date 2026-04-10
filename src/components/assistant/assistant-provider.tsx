@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 
 type ChatView = "chat" | "history";
 
@@ -93,6 +93,19 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
     setSidebarCollapsed(false);
   }, []);
   const toggleSidebar = useCallback(() => setSidebarCollapsed((p) => !p), []);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented) return;
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "k") return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("[data-no-assistant-shortcut='true']")) return;
+      e.preventDefault();
+      toggle();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [toggle]);
 
   const startNewChat = useCallback(() => {
     setConversationId(null);

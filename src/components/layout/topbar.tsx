@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -50,6 +51,14 @@ function resolveRoute(pathname: string): { title: string; icon: typeof LayoutDas
 export function Topbar() {
   const pathname = usePathname();
   const { toggle, isOpen, toggleSidebar, sidebarCollapsed } = useAssistant();
+  const [askShortcutLabel, setAskShortcutLabel] = useState("");
+
+  useEffect(() => {
+    const mac =
+      /Mac|iPhone|iPad|iPod/.test(navigator.platform) ||
+      navigator.userAgent.includes("Mac OS");
+    setAskShortcutLabel(mac ? "\u2318K" : "Ctrl+K");
+  }, []);
 
   const route = resolveRoute(pathname);
   const Icon = route.icon;
@@ -83,13 +92,25 @@ export function Topbar() {
               ? "border-foreground bg-foreground text-background"
               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
           }`}
-          aria-label="Open Ask — your research copilot"
+          aria-label="Ask — your research copilot. Keyboard: Command K or Control K."
+          aria-keyshortcuts="Meta+K Control+K"
           aria-expanded={isOpen}
           aria-controls="ask-panel"
         >
           <Sparkles className="h-3 w-3" />
           <span className="hidden sm:inline">Ask AI</span>
           <span className="sm:hidden">Ask</span>
+          {askShortcutLabel ? (
+            <kbd
+              className={`pointer-events-none hidden sm:inline-flex h-5 select-none items-center rounded border px-1 font-mono text-[10px] font-medium tabular-nums ${
+                isOpen
+                  ? "border-white/25 bg-white/10 text-background/90"
+                  : "border-border bg-muted/40 text-muted-foreground"
+              }`}
+            >
+              {askShortcutLabel}
+            </kbd>
+          ) : null}
         </button>
       </div>
     </header>
