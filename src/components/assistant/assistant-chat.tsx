@@ -28,9 +28,14 @@ import {
   FileText,
   Compass,
   ArrowUpRight,
+  ChevronRight,
 } from "lucide-react";
 import type { UIMessage } from "ai";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 import { ASSISTANT_CONVERSATION_ID_HEADER } from "@/lib/assistant/constants";
+import { normalizeAssistantHref } from "@/lib/assistant/nav-href";
 
 interface ConversationItem {
   id: string;
@@ -708,7 +713,9 @@ export function AssistantChat() {
         aria-modal="true"
         aria-labelledby="ask-panel-title"
         className={cn(
-        "fixed z-50 flex flex-col transition-all duration-300 ease-out",
+        // Solid surface + high z-index so fixed UI under the viewport inset (e.g. insights chat at z-40)
+        // cannot show through transparent panel chrome.
+        "fixed z-[100] flex flex-col overflow-hidden bg-background shadow-2xl ring-1 ring-border/80 transition-all duration-300 ease-out",
         "inset-0 h-dvh w-screen rounded-none sm:top-2 sm:bottom-2 sm:right-0 sm:left-auto sm:h-auto sm:w-[min(23rem,100vw-0.75rem)] sm:rounded-l-2xl",
         isOpen
           ? "translate-x-0 opacity-100"
@@ -778,6 +785,11 @@ export function AssistantChat() {
             <div className="my-2 space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-3">
               <p className="text-[14px] leading-6 text-stone-700">
                 Ask can create personas, set up studies, run interviews, and summarize insights.
+              </p>
+              <p className="text-[12px] leading-5 text-stone-500">
+                Tip: Press <span className="font-medium text-stone-600">{"\u2318K"}</span> (Mac) or{" "}
+                <span className="font-medium text-stone-600">Ctrl+K</span> anytime to toggle Ask from anywhere
+                in the app.
               </p>
               <div className="flex flex-wrap gap-2">
                 {suggestedPrompts.map((prompt) => (
@@ -1373,10 +1385,12 @@ function ToolResultCard({
       <button
         onClick={() => url && onNavigate(url)}
         disabled={!url}
-        className="flex w-full items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-[13px] text-green-800 transition-colors hover:bg-green-100 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-300"
+        className="flex w-full items-start gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-left text-[13px] text-green-800 transition-colors hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-300"
       >
-        <Check className="h-3.5 w-3.5 shrink-0" />
-        <span className="flex-1 truncate">{result.message as string || label}</span>
+        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
+          {result.message as string || label}
+        </span>
       </button>
     );
   }
@@ -1393,22 +1407,127 @@ function AssistantRichText({
   onNavigate: (path: string) => void;
   collapsed?: boolean;
 }) {
-  const segments: Array<{ type: "text" | "code"; content: string }> = [];
-  const codeBlockRegex = /```([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null = codeBlockRegex.exec(text);
-
-  while (match) {
-    if (match.index > lastIndex) {
-      segments.push({ type: "text", content: text.slice(lastIndex, match.index) });
-    }
-    segments.push({ type: "code", content: match[1].trim() });
-    lastIndex = codeBlockRegex.lastIndex;
-    match = codeBlockRegex.exec(text);
-  }
-  if (lastIndex < text.length) {
-    segments.push({ type: "text", content: text.slice(lastIndex) });
-  }
+  const components = useMemo<Components>(
+    () => ({
+      h1: ({ children }) => (
+        <h3 className="mb-2 mt-4 font-sans text-base font-semibold tracking-tight text-stone-900 first:mt-0">
+          {children}
+        </h3>
+      ),
+      h2: ({ children }) => (
+        <h3 className="mb-2 mt-4 font-sans text-[15px] font-semibold tracking-tight text-stone-900 first:mt-0">
+          {children}
+        </h3>
+      ),
+      h3: ({ children }) => (
+        <h4 className="mb-1.5 mt-3 font-sans text-[14px] font-semibold text-stone-900 first:mt-0">
+          {children}
+        </h4>
+      ),
+      h4: ({ children }) => (
+        <h5 className="mb-1.5 mt-3 font-sans text-[13px] font-semibold text-stone-900 first:mt-0">
+          {children}
+        </h5>
+      ),
+      p: ({ children }) => (
+        <p className="mb-2 font-sans text-[14px] leading-relaxed text-stone-800 last:mb-0">
+          {children}
+        </p>
+      ),
+      ul: ({ children }) => (
+        <ul className="mb-2 ml-1 list-disc space-y-1 pl-4 font-sans text-[14px] leading-relaxed text-stone-800 marker:text-stone-400">
+          {children}
+        </ul>
+      ),
+      ol: ({ children }) => (
+        <ol className="mb-2 ml-1 list-decimal space-y-1 pl-4 font-sans text-[14px] leading-relaxed text-stone-800 marker:text-stone-400">
+          {children}
+        </ol>
+      ),
+      li: ({ children }) => <li className="pl-0.5">{children}</li>,
+      strong: ({ children }) => (
+        <strong className="font-semibold text-stone-900">{children}</strong>
+      ),
+      em: ({ children }) => <em className="italic text-stone-800">{children}</em>,
+      blockquote: ({ children }) => (
+        <blockquote className="my-2 border-l-2 border-stone-300 pl-3 font-sans text-[13px] italic text-stone-600">
+          {children}
+        </blockquote>
+      ),
+      hr: () => <hr className="my-3 border-stone-200" />,
+      a: ({ href, children }) => {
+        const raw = (href ?? "").trim();
+        const normalized = normalizeAssistantHref(raw);
+        if (normalized.type === "internal") {
+          return (
+            <button
+              type="button"
+              onClick={() => onNavigate(normalized.value)}
+              className="inline-flex max-w-full items-center gap-0.5 rounded px-0.5 font-sans text-[14px] font-medium text-emerald-800 underline decoration-emerald-800/40 underline-offset-2 hover:bg-emerald-50 hover:decoration-emerald-800"
+            >
+              <span className="min-w-0 break-words text-left">{children}</span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+            </button>
+          );
+        }
+        if (normalized.type === "external") {
+          return (
+            <a
+              href={normalized.value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full items-center gap-0.5 font-sans text-[14px] font-medium text-emerald-800 underline decoration-emerald-800/40 underline-offset-2 hover:bg-emerald-50"
+            >
+              <span className="min-w-0 break-words text-left">{children}</span>
+              <ArrowUpRight className="h-3 w-3 shrink-0 opacity-80" aria-hidden />
+              <span className="sr-only"> (opens in new tab)</span>
+            </a>
+          );
+        }
+        return <span className="font-sans text-stone-600">{children}</span>;
+      },
+      code: ({ className, children, ...props }) => {
+        const inline = !className;
+        if (inline) {
+          return (
+            <code
+              className="rounded bg-stone-200/80 px-1 py-0.5 font-mono text-[12px] text-stone-900"
+              {...props}
+            >
+              {children}
+            </code>
+          );
+        }
+        return (
+          <code className={cn("block font-mono text-[12px] text-stone-100", className)} {...props}>
+            {children}
+          </code>
+        );
+      },
+      pre: ({ children }) => (
+        <pre className="my-2 overflow-x-auto rounded-lg border border-stone-200 bg-stone-900 p-3 font-mono text-[12px] text-stone-100">
+          {children}
+        </pre>
+      ),
+      table: ({ children }) => (
+        <div className="my-2 overflow-x-auto rounded-lg border border-stone-200">
+          <table className="w-full min-w-[16rem] border-collapse font-sans text-[13px] text-stone-800">
+            {children}
+          </table>
+        </div>
+      ),
+      thead: ({ children }) => <thead className="bg-stone-100">{children}</thead>,
+      th: ({ children }) => (
+        <th className="border-b border-stone-200 px-2.5 py-2 text-left font-semibold text-stone-900">
+          {children}
+        </th>
+      ),
+      td: ({ children }) => (
+        <td className="border-b border-stone-100 px-2.5 py-2 align-top text-stone-800">{children}</td>
+      ),
+    }),
+    [onNavigate]
+  );
 
   return (
     <div
@@ -1417,88 +1536,12 @@ function AssistantRichText({
         collapsed ? "max-h-40 [mask-image:linear-gradient(to_bottom,black_70%,transparent)]" : ""
       )}
     >
-      <div className="space-y-2">
-        {segments.map((segment, idx) => {
-          if (segment.type === "code") {
-            return (
-              <pre
-                key={`code-${idx}`}
-                className="overflow-x-auto rounded-lg border border-stone-200 bg-stone-900 p-3 text-[12px] text-stone-100"
-              >
-                <code>{segment.content}</code>
-              </pre>
-            );
-          }
-
-          return (
-            <p key={`text-${idx}`} className="whitespace-pre-wrap break-words">
-              {renderInlineLinks(segment.content, onNavigate)}
-            </p>
-          );
-        })}
+      <div className="assistant-markdown min-w-0 font-sans text-[14px] leading-relaxed text-stone-800 antialiased [&>*:first-child]:mt-0">
+        <Markdown remarkPlugins={[remarkGfm]} components={components}>
+          {text}
+        </Markdown>
       </div>
     </div>
   );
 }
 
-function renderInlineLinks(text: string, onNavigate: (path: string) => void): React.ReactNode[] {
-  const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  const nodes: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null = regex.exec(text);
-  let key = 0;
-
-  while (match) {
-    if (match.index > lastIndex) {
-      nodes.push(
-        <span key={`t-${key++}`}>{text.slice(lastIndex, match.index)}</span>
-      );
-    }
-    const label = match[1];
-    const href = normalizeAssistantHref((match[2] ?? "").trim());
-    if (href.type === "internal") {
-      nodes.push(
-        <button
-          key={`l-${key++}`}
-          onClick={() => onNavigate(href.value)}
-          className="inline-flex items-center gap-1 rounded-md px-1 text-stone-900 underline underline-offset-2 hover:bg-stone-100"
-        >
-          {label}
-          <ArrowUpRight className="h-3 w-3" />
-        </button>
-      );
-    } else if (href.type === "external") {
-      nodes.push(
-        <a
-          key={`l-${key++}`}
-          href={href.value}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 rounded-md px-1 text-stone-900 underline underline-offset-2 hover:bg-stone-100"
-        >
-          {label}
-          <ArrowUpRight className="h-3 w-3" />
-        </a>
-      );
-    } else {
-      nodes.push(<span key={`l-${key++}`}>{match[0]}</span>);
-    }
-    lastIndex = regex.lastIndex;
-    match = regex.exec(text);
-  }
-
-  if (lastIndex < text.length) {
-    nodes.push(<span key={`t-${key++}`}>{text.slice(lastIndex)}</span>);
-  }
-  return nodes;
-}
-
-function normalizeAssistantHref(
-  href: string
-): { type: "internal" | "external" | "invalid"; value: string } {
-  if (!href) return { type: "invalid", value: href };
-  if (href.startsWith("#/")) return { type: "internal", value: href.slice(1) };
-  if (href.startsWith("/")) return { type: "internal", value: href };
-  if (/^https?:\/\//i.test(href)) return { type: "external", value: href };
-  return { type: "invalid", value: href };
-}

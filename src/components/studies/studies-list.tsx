@@ -73,18 +73,19 @@ export function StudiesList({ studies }: StudiesListProps) {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {studies.map((study, i) => {
         const totalSessions = study._count.sessions;
         const showProgress = study.status === "ACTIVE" && totalSessions > 0 && study.completedCount < totalSessions;
         const progressPct = totalSessions > 0 ? (study.completedCount / totalSessions) * 100 : 0;
+        const groupNames = study.personaGroups.map((pg) => pg.personaGroup.name).join(", ");
 
         return (
-          <MotionStaggerCard key={study.id} index={i}>
+          <MotionStaggerCard key={study.id} index={i} className="flex min-h-0">
             <Link
               href={`/studies/${study.id}`}
               className={cn(
-                "group block rounded-lg border bg-card p-5 transition-all duration-200 relative overflow-hidden",
+                "group flex min-h-0 w-full flex-1 flex-col rounded-lg border bg-card p-5 transition-all duration-200 relative overflow-hidden",
                 statusGlow[study.status] || statusGlow.DRAFT
               )}
             >
@@ -103,12 +104,15 @@ export function StudiesList({ studies }: StudiesListProps) {
                   {study.status.toLowerCase()}
                 </Badge>
               </div>
-              {study.description && (
-                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                  {study.description}
-                </p>
-              )}
-              <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
+              <p
+                className={cn(
+                  "mt-1 min-h-[2.5rem] text-sm leading-snug text-muted-foreground line-clamp-2",
+                  !study.description?.trim() && "text-muted-foreground/40"
+                )}
+              >
+                {study.description?.trim() ? study.description : "No objective yet — open the study to add one."}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <Badge variant="outline" className="text-[10px]">
                   {typeLabels[study.studyType] || study.studyType}
                 </Badge>
@@ -129,12 +133,9 @@ export function StudiesList({ studies }: StudiesListProps) {
                   </span>
                 )}
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">
-                {study.personaGroups.map((pg) => pg.personaGroup.name).join(", ")}
-              </div>
               {/* Mini progress bar for active studies */}
-              {showProgress && (
-                <div className="mt-3 h-1 rounded-full bg-muted overflow-hidden">
+              {showProgress ? (
+                <div className="mt-3 h-1 shrink-0 rounded-full bg-muted overflow-hidden">
                   <motion.div
                     className="h-full rounded-full bg-green-500"
                     initial={{ width: 0 }}
@@ -142,7 +143,12 @@ export function StudiesList({ studies }: StudiesListProps) {
                     transition={{ duration: 0.5, ease: "easeOut" }}
                   />
                 </div>
+              ) : (
+                <div className="mt-3 h-1 shrink-0" aria-hidden />
               )}
+              <div className="mt-auto pt-3 text-xs text-muted-foreground border-t border-border/50">
+                {groupNames || "No persona groups linked"}
+              </div>
             </Link>
           </MotionStaggerCard>
         );
