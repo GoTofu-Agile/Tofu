@@ -2,7 +2,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getModel } from "@/lib/ai/provider";
-import { loadOutscraperAppReviewsForGroup } from "./app-store-review-pool";
+import { loadStructuredStoreReviewsForGroup } from "./app-store-review-pool";
 
 const assignmentSchema = z.object({
   assignments: z.array(
@@ -61,14 +61,14 @@ function backfillPersonaQuotes(
 }
 
 /**
- * Maps Outscraper App Store reviews to personas (verbatim content only in DB).
- * Deletes existing APP_REVIEW PersonaDataSource links for the group, then inserts new ones.
+ * Maps App Store / Play Store review snippets to personas (verbatim content only in DB).
+ * Deletes existing store-review PersonaDataSource links for the group, then inserts new ones.
  */
 export async function assignAppStoreReviewsToPersonas(
   groupId: string
 ): Promise<{ linked: number; skippedReason?: string }> {
   const [pool, personas] = await Promise.all([
-    loadOutscraperAppReviewsForGroup(groupId),
+    loadStructuredStoreReviewsForGroup(groupId),
     prisma.persona.findMany({
       where: { personaGroupId: groupId, isActive: true },
       select: {
@@ -85,7 +85,7 @@ export async function assignAppStoreReviewsToPersonas(
   ]);
 
   if (pool.length === 0) {
-    return { linked: 0, skippedReason: "no_outscraper_reviews" };
+    return { linked: 0, skippedReason: "no_store_reviews" };
   }
   if (personas.length === 0) {
     return { linked: 0, skippedReason: "no_personas" };
@@ -102,7 +102,7 @@ export async function assignAppStoreReviewsToPersonas(
   } else {
     const reviewBlock = pool
       .map(
-        (r, idx) =>
+        (r) =>
           `[${r.id}] (${r.title}) rating=${(r.metadata as { rating?: number } | null)?.rating ?? "?"}:\n${truncate(r.content, 400)}`
       )
       .join("\n\n");
@@ -118,7 +118,7 @@ export async function assignAppStoreReviewsToPersonas(
       const { object } = await generateObject({
         model: getModel(),
         schema: assignmentSchema,
-        prompt: `You assign real App Store review snippets (by id) to synthetic user personas for UX research.
+        prompt: `You assign real App Store / Play Store review snippets (by id) to synthetic user personas for UX research.
 
 Reviews (use ONLY these ids; verbatim text lives in the database — do not invent ids):
 ${reviewBlock}
@@ -155,7 +155,10 @@ Rules:
     await tx.personaDataSource.deleteMany({
       where: {
         persona: { personaGroupId: groupId },
-        domainKnowledge: { sourceType: "APP_REVIEW" },
+        OR: [
+          { domainKnowledge: { searchQuery: { startsWith: "appstore:" } } },
+          { domainKnowledge: { searchQuery: { startsWith: "playstore:" } } },
+        ],
       },
     });
 

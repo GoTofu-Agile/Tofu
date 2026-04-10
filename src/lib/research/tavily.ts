@@ -86,13 +86,19 @@ export async function searchTavily(
 export async function quickResearch(
   groupId: string,
   queries: string[]
-): Promise<{ totalResults: number; error?: string }> {
+): Promise<{
+  totalResults: number;
+  error?: string;
+  /** Counts of DomainKnowledge rows saved per detected source type (Reddit, forum, etc.). */
+  bySourceType: Partial<Record<DataSourceType, number>>;
+}> {
   if (!process.env.TAVILY_API_KEY) {
-    return { totalResults: 0 };
+    return { totalResults: 0, bySourceType: {} };
   }
 
   const searchSession = crypto.randomUUID();
   let totalResults = 0;
+  const bySourceType: Partial<Record<DataSourceType, number>> = {};
 
   for (const query of queries.slice(0, 3)) {
     try {
@@ -107,12 +113,16 @@ export async function quickResearch(
         searchSession
       );
       totalResults += saved.length;
+      for (const row of saved) {
+        const t = row.sourceType;
+        bySourceType[t] = (bySourceType[t] ?? 0) + 1;
+      }
     } catch (error) {
       console.error(`[quickResearch] Query failed: ${query}`, error);
     }
   }
 
-  return { totalResults };
+  return { totalResults, bySourceType };
 }
 
 /**

@@ -30,7 +30,7 @@ interface PersonaCardProps {
     } | null;
   };
   groupId: string;
-  /** Verbatim Outscraper-linked App Store reviews (optional). */
+  /** Verbatim App Store / Play Store review snippets linked to the persona (optional). */
   appStoreReviews?: AppStoreReviewSnippet[];
 }
 
