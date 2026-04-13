@@ -14,9 +14,12 @@ function getSafeNextPath(formData: FormData): string | null {
 export async function login(formData: FormData) {
   const supabase = await createClient();
 
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
   const { error } = await supabase.auth.signInWithPassword({
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
+    email,
+    password,
   });
 
   if (error) {
