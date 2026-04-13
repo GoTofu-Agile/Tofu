@@ -79,7 +79,7 @@ export function AssistantChat() {
   const router = useRouter();
   const {
     isOpen,
-    close,
+    close: minimizeAskPanel,
     chatView,
     setChatView,
     conversationId,
@@ -174,12 +174,16 @@ export function AssistantChat() {
           toast.message("Persona creation canceled.");
           return;
         }
-        close();
+        if (chatView === "history") {
+          setChatView("chat");
+          return;
+        }
+        // Keep Ask open by default: minimize only via Cmd/Ctrl+K or the header control.
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, close, pendingPersonaDesign]);
+  }, [isOpen, chatView, setChatView, pendingPersonaDesign]);
 
   useEffect(() => {
     if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
@@ -764,10 +768,10 @@ export function AssistantChat() {
             </button>
             <button
               type="button"
-              onClick={close}
+              onClick={minimizeAskPanel}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
-              title="Close Ask"
-              aria-label="Close Ask"
+              title="Minimize Ask"
+              aria-label="Minimize Ask"
             >
               <X className="h-4 w-4" />
             </button>

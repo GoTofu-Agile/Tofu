@@ -11,6 +11,9 @@ import {
 
 /** When true, Ask was explicitly closed/minimized and should stay closed on next visit until reopened. */
 const ASK_PANEL_MINIMIZED_KEY = "gotofu.ask.panel.minimized";
+const ASK_PANEL_PREF_VERSION_KEY = "gotofu.ask.panel.pref.version";
+/** Bump when default-open / persistence rules change so clients re-apply once. */
+const ASK_PANEL_PREF_VERSION = "2";
 const ASK_PANEL_MINIMIZED_EVENT = "gotofu:ask-panel-minimized";
 
 function readAskPanelMinimized(): boolean {
@@ -145,6 +148,18 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
     writeAskPanelMinimized(true);
   }, []);
   const toggleSidebar = useCallback(() => setSidebarCollapsed((p) => !p), []);
+
+  useEffect(() => {
+    try {
+      const ver = window.localStorage.getItem(ASK_PANEL_PREF_VERSION_KEY);
+      if (ver === ASK_PANEL_PREF_VERSION) return;
+      window.localStorage.removeItem(ASK_PANEL_MINIMIZED_KEY);
+      window.localStorage.setItem(ASK_PANEL_PREF_VERSION_KEY, ASK_PANEL_PREF_VERSION);
+      window.dispatchEvent(new Event(ASK_PANEL_MINIMIZED_EVENT));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     if (!askPanelMinimized) return;
