@@ -24,7 +24,8 @@ const nextConfig: NextConfig = {
   },
   // Tree-shake heavy barrel packages (icons / animation) — smaller client bundles.
   experimental: {
-    optimizePackageImports: ["lucide-react", "framer-motion"],
+    // Smaller client bundles via granular imports (Next-supported packages only).
+    optimizePackageImports: ["lucide-react", "framer-motion", "react-markdown"],
   },
   poweredByHeader: false,
   compress: true,

@@ -10,6 +10,8 @@ import {
 } from "@/lib/research/tavily";
 import { buildSearchQueries, type ProductInfo } from "@/lib/research/build-queries";
 
+export const maxDuration = 180;
+
 const requestSchema = z.object({
   groupId: z.string().min(1),
   productInfo: z.object({

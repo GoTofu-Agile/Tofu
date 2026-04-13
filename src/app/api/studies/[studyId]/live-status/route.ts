@@ -4,6 +4,9 @@ import { getUser } from "@/lib/db/queries/users";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { prisma } from "@/lib/db/prisma";
 
+/** SSE while batch interviews run; keep connection alive within platform limits. */
+export const maxDuration = 300;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ studyId: string }> }

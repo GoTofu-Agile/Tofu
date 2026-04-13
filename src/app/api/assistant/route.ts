@@ -29,6 +29,9 @@ import { resolveActiveOrganizationId } from "@/lib/auth";
 import { ASSISTANT_CONVERSATION_ID_HEADER } from "@/lib/assistant/constants";
 import type { StudyType } from "@prisma/client";
 
+/** Multi-step tool calls can run long; avoid hard kills mid-stream on Vercel Pro+. */
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   // Auth
   const supabase = await createClient();
