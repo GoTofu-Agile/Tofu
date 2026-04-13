@@ -66,83 +66,81 @@ export async function POST(request: NextRequest) {
   const queries = buildSearchQueries(body.productInfo);
   const searchSession = crypto.randomUUID();
 
-  // Stream results as NDJSON
+  // Stream results as NDJSON — all queries fire in parallel; results stream as each resolves.
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      let totalResults = 0;
-
+      // Notify the client of every pending query upfront so the UI can show them all.
       for (let i = 0; i < queries.length; i++) {
-        const plan = queries[i];
-
-        // Send progress
         controller.enqueue(
           encoder.encode(
             JSON.stringify({
               type: "searching",
               current: i + 1,
               total: queries.length,
-              label: plan.label,
+              label: queries[i].label,
             }) + "\n"
           )
         );
-
-        try {
-          const results = await searchTavily(plan.query, {
-            includeDomains: plan.includeDomains,
-            maxResults: 5,
-            searchDepth: "advanced",
-          });
-
-          // Save to DB
-          const saved = await saveResearchResults(
-            body.groupId,
-            results,
-            plan.query,
-            searchSession
-          );
-
-          totalResults += saved.length;
-
-          // Send results
-          controller.enqueue(
-            encoder.encode(
-              JSON.stringify({
-                type: "results",
-                queryLabel: plan.label,
-                count: saved.length,
-                results: saved.map((r) => ({
-                  id: r.id,
-                  title: r.title,
-                  sourceType: r.sourceType,
-                  sourceDomain: r.sourceDomain,
-                  sourceUrl: r.sourceUrl,
-                  publishedAt: r.publishedAt,
-                  relevanceScore: r.relevanceScore,
-                })),
-              }) + "\n"
-            )
-          );
-        } catch (error) {
-          controller.enqueue(
-            encoder.encode(
-              JSON.stringify({
-                type: "error",
-                queryLabel: plan.label,
-                message:
-                  error instanceof Error ? error.message : "Search failed",
-              }) + "\n"
-            )
-          );
-        }
       }
 
-      // Done
+      const resultCounts: number[] = new Array(queries.length).fill(0);
+
+      await Promise.allSettled(
+        queries.map(async (plan, i) => {
+          try {
+            const results = await searchTavily(plan.query, {
+              includeDomains: plan.includeDomains,
+              maxResults: 5,
+              searchDepth: "advanced",
+            });
+
+            const saved = await saveResearchResults(
+              body.groupId,
+              results,
+              plan.query,
+              searchSession
+            );
+
+            resultCounts[i] = saved.length;
+
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({
+                  type: "results",
+                  queryLabel: plan.label,
+                  count: saved.length,
+                  results: saved.map((r) => ({
+                    id: r.id,
+                    title: r.title,
+                    sourceType: r.sourceType,
+                    sourceDomain: r.sourceDomain,
+                    sourceUrl: r.sourceUrl,
+                    publishedAt: r.publishedAt,
+                    relevanceScore: r.relevanceScore,
+                  })),
+                }) + "\n"
+              )
+            );
+          } catch (error) {
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({
+                  type: "error",
+                  queryLabel: plan.label,
+                  message: error instanceof Error ? error.message : "Search failed",
+                }) + "\n"
+              )
+            );
+          }
+        })
+      );
+
       controller.enqueue(
         encoder.encode(
           JSON.stringify({
             type: "done",
-            totalResults,
+            totalResults: resultCounts.reduce((a, b) => a + b, 0),
             searchSession,
           }) + "\n"
         )

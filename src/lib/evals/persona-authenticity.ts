@@ -1,7 +1,7 @@
 import { embed, generateObject } from "ai";
 import { z } from "zod";
 import type { PersonaOutput } from "@/lib/validation/schemas";
-import { getEmbeddingModel, getModel } from "@/lib/ai/provider";
+import { getEmbeddingModel, getEvalModel } from "@/lib/ai/provider";
 
 const evalSchema = z.object({
   eval_summary: z.string().min(10).max(600),
@@ -20,6 +20,8 @@ const evalSchema = z.object({
       "repetitive_structure",
       "low_specificity",
       "implausible_timeline",
+      "missing_contradictions",
+      "generic_behaviors",
     ])
   ),
 });
@@ -254,33 +256,78 @@ export async function scorePersonaAuthenticity(
   const corpus = recentPersonas.map((p) =>
     [p.backstory ?? "", p.dayInTheLife ?? "", p.archetype ?? ""].join("\n")
   );
-  const similarity = await computePersonaSimilarity(personaText, corpus);
+  // Build authenticity extras synchronously (no I/O)
+  const contradictions = Array.isArray((persona as Record<string, unknown>).contradictions)
+    ? ((persona as Record<string, unknown>).contradictions as string[])
+    : [];
+  const quirks = Array.isArray((persona as Record<string, unknown>).quirks)
+    ? ((persona as Record<string, unknown>).quirks as string[])
+    : [];
+  const communicationFingerprint =
+    typeof (persona as Record<string, unknown>).communicationFingerprint === "string"
+      ? ((persona as Record<string, unknown>).communicationFingerprint as string)
+      : "";
 
-  const { object: modelEval } = await generateObject({
-    model: getModel(),
-    schema: evalSchema,
-    prompt: `Evaluate this synthetic persona for authenticity quality.
-Return JSON only.
+  const authenticityExtras = [
+    contradictions.length > 0
+      ? `Contradictions: ${contradictions.join(" | ")}`
+      : "Contradictions: NONE",
+    quirks.length > 0 ? `Quirks: ${quirks.join(" | ")}` : "Quirks: NONE",
+    communicationFingerprint
+      ? `Communication fingerprint: ${communicationFingerprint}`
+      : "Communication fingerprint: NONE",
+  ].join("\n");
 
-Score dimensions (0-100):
-- specificity
-- plausibility
-- non_genericity
-- consistency
-- diversity (vs recent personas context)
+  // Corpus summary: 1-line per persona instead of full backstory (~3000 tokens → ~100 tokens)
+  const corpusSummary = recentPersonas
+    .slice(0, 10)
+    .map((p) => `- ${p.archetype ?? "?"} | ${p.backstory?.split(/[.!?]/)[0]?.slice(0, 80) ?? "?"}`)
+    .join("\n") || "No recent personas.";
 
-Penalize:
-- cliche upbringing tropes
-- repetitive structure
-- polished inspirational fluff
-- implausible life timelines
+  // Run embedding and LLM eval concurrently — neither depends on the other
+  const [similarity, { object: modelEval }] = await Promise.all([
+    computePersonaSimilarity(personaText, corpus),
+    generateObject({
+      model: getEvalModel(),
+      temperature: 0.2,
+      maxOutputTokens: 500,
+      schema: evalSchema,
+      prompt: `You are a qualitative researcher evaluating synthetic personas for realism.
 
-Recent personas context:
-${corpus.slice(0, 10).join("\n\n---\n\n") || "No recent personas."}
+SCORE DIMENSIONS (0-100 each):
+- specificity: Are details concrete and lived-in, or abstract and vague?
+- plausibility: Does the life story hang together without implausible leaps?
+- non_genericity: Are traits shown through behavior, not label-words like "friendly" or "hardworking"?
+- consistency: Do personality, backstory, behaviors, and communication style cohere?
+- diversity: How distinct is this persona from the recent corpus?
 
-Persona:
-${personaText}`,
-  });
+REWARD highly:
+- Internal contradictions that feel organic (e.g. privacy advocate who overshares on LinkedIn)
+- Behaviors expressed as actions, not adjectives
+- City-level lifestyle texture (commute realities, local culture, cost-of-living pressures)
+- Communication fingerprint with actual linguistic idiosyncrasies
+- Opinions stated in the persona's own voice, not as summarized positions
+- Memory anchors: specific past events that causally explain current behavior
+
+PENALIZE:
+- Trait labels in behaviors ("helpful", "detail-oriented") — flag as generic_behaviors
+- Missing or manufactured-feeling contradictions — flag as missing_contradictions
+- Cliche upbringing tropes — flag as cliche_language / generic_upbringing
+- Polished inspirational backstory — flag as too_polished
+- Implausible timelines — flag as implausible_timeline
+- Repetitive sentence structure — flag as repetitive_structure
+- Backstory under 180 chars — flag as low_specificity
+
+Recent personas (for diversity scoring):
+${corpusSummary}
+
+Persona to evaluate:
+${personaText}
+
+Authenticity depth signals:
+${authenticityExtras}`,
+    }),
+  ]);
 
   const modelScore = Math.round(
     (modelEval.eval_dimensions.specificity +

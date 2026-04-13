@@ -917,6 +917,7 @@ export function UnifiedCreationFlow({
     let mapData: {
       apps?: AppStoreAudienceMappedApp[];
       tavilyDisabled?: boolean;
+      serpDisabled?: boolean;
       error?: string;
     } = {};
 
@@ -944,14 +945,14 @@ export function UnifiedCreationFlow({
     }
 
     const apps = mapData.apps ?? [];
-    const tavilyOff = Boolean(mapData.tavilyDisabled);
-    setAudienceTavilyDisabled(tavilyOff);
+    const searchOff = Boolean(mapData.tavilyDisabled) || Boolean(mapData.serpDisabled);
+    setAudienceTavilyDisabled(searchOff);
     setAudienceMappedApps(apps);
     setAudienceMappingStatus("success");
 
-    if (tavilyOff) {
+    if (searchOff) {
       toast.info(
-        "App discovery needs Tavily (TAVILY_API_KEY). Use the App tab with a direct App Store URL."
+        "App discovery requires SERPAPI_API_KEY. Use the App tab with a direct App Store URL."
       );
     }
 

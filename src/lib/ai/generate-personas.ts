@@ -146,11 +146,14 @@ function buildPrompt(params: {
 
 CRITICAL RULES:
 - Psychological depth and behavioral specificity matter MORE than demographics
-- Every persona must contain at least one internal contradiction (e.g., a tech executive who distrusts apps at home, a young person with old-fashioned values)
-- Never link demographics to personality stereotypically (age doesn't determine tech-savviness, gender doesn't determine communication style)
-- The backstory must reference specific life events, not generic descriptions
-- The representative quote must reveal the persona's unique communication style and voice
-- Core values should feel genuinely held, not generic platitudes
+- NEVER use trait labels: forbidden words in behaviors/quirks/contradictions include "friendly", "hardworking", "funny", "passionate", "detail-oriented", "driven". Instead SHOW behavior: "replies to messages hours later but always writes three paragraphs" is acceptable; "friendly" is not.
+- Every persona MUST include 1-2 organic internal contradictions — these are the #1 signal of realism. Examples: "loudly advocates for work-life balance but checks Slack at midnight", "claims to hate social media but has 4 active accounts", "lectures others about frugality but impulse-buys gadgets monthly".
+- The backstory MUST include a specific city + country, at least one job/early-career detail, and one concrete trade-off (time vs money, career vs family, location vs opportunity).
+- Inject city-level lifestyle texture: local commute reality, neighborhood vibe, cost-of-living pressure, or regional cultural norm. Not "lives in a big city" — "takes the 8:12 tram from Peckham and arrives 11 minutes late to every morning stand-up".
+- Memory anchors: reference 2 past experiences and 1 recurring habit that CAUSALLY explain current behaviors — not as decoration.
+- communicationFingerprint MUST describe specific linguistic idiosyncrasies: average sentence length, punctuation habits, word choices, emoji use or deliberate avoidance, filler words, what they never say. Generic descriptions like "professional and clear" are forbidden.
+- Humans are not logically clean: introduce mild bias, one irrational preference, one inconsistency that doesn't resolve neatly.
+- Never link demographics to personality stereotypically (age doesn't determine tech-savviness, gender doesn't determine communication style).
 - FORBIDDEN CLICHES: never use "small village", "humble beginnings", "always had a passion", "from a young age", "dreamed of success"`
   );
 
@@ -255,15 +258,18 @@ CRITICAL RULES:
   layers.push(diversityInstructions.join("\n"));
 
   // Layer 4: Differentiation Directive
+  // Cap at last 5 — earlier personas are already encoded in the diversity plan
+  // and adding them all grows context linearly (800+ tokens by persona #20)
   if (previousPersonas.length > 0) {
-    const previousList = previousPersonas
+    const recent = previousPersonas.slice(-5);
+    const previousList = recent
       .map(
         (p) =>
           `- ${p.name} (${p.archetype}) | ${p.occupation} | ${p.ageBand} | profile: ${p.personalityShape}`
       )
       .join("\n");
     layers.push(
-      `PREVIOUSLY GENERATED PERSONAS IN THIS BATCH:\n${previousList}\n\nThis persona MUST differ meaningfully from all of the above in archetype wording, occupation category, personality profile shape, and life events. Do NOT repeat similar archetypes or routines.`
+      `PREVIOUSLY GENERATED PERSONAS IN THIS BATCH (last ${recent.length}):\n${previousList}\n\nThis persona MUST differ meaningfully from all of the above in archetype wording, occupation category, personality profile shape, and life events. Do NOT repeat similar archetypes or routines.`
     );
   }
 
@@ -276,6 +282,8 @@ CRITICAL RULES:
   // Layer 5: Output Quality Rules
   layers.push(
     `OUTPUT REQUIREMENTS:
+
+FIELD-LEVEL RULES:
 - archetype: A memorable 2-4 word label like "The Pragmatic Skeptic", "The Cautious Innovator", "The Empathetic Traditionalist"
 - gender: MUST be exactly "Male" or "Female" (no other values)
 - representativeQuote: A 1-2 sentence quote this persona would actually say, revealing their voice and perspective
@@ -498,6 +506,30 @@ function buildSystemPrompt(persona: PersonaOutput): string {
         ? "You keep emotions restrained and focus on facts"
         : "You express emotions when they're relevant but stay mostly composed";
 
+  const contradictionsSection =
+    persona.contradictions?.length > 0
+      ? `\nYOUR CONTRADICTIONS (lean into these naturally — do not explain them away):\n${persona.contradictions.map((c) => `- ${c}`).join("\n")}`
+      : "";
+
+  const quirksSection =
+    persona.quirks?.length > 0
+      ? `\nYOUR QUIRKS AND IRRATIONALITIES:\n${persona.quirks.map((q) => `- ${q}`).join("\n")}`
+      : "";
+
+  const opinionsSection =
+    persona.opinions?.length > 0
+      ? `\nSTRONG OPINIONS YOU HOLD:\n${persona.opinions.map((o) => `- ${o}`).join("\n")}`
+      : "";
+
+  const habitsSection =
+    persona.habits?.length > 0
+      ? `\nRECURRING HABITS (reference these when contextually natural):\n${persona.habits.map((h) => `- ${h}`).join("\n")}`
+      : "";
+
+  const commFingerprintSection = persona.communicationFingerprint
+    ? `\nHOW YOU COMMUNICATE:\n${persona.communicationFingerprint}`
+    : "";
+
   return `You are ${persona.name}, a ${persona.age}-year-old ${persona.occupation} from ${persona.location}.
 Archetype: ${persona.archetype}
 
@@ -514,6 +546,7 @@ BACKSTORY: ${persona.backstory}
 CURRENT SITUATION: ${persona.dayInTheLife}
 
 CORE VALUES: ${persona.coreValues.join(", ")}
+${contradictionsSection}${quirksSection}${opinionsSection}${habitsSection}${commFingerprintSection}
 
 FORMATIVE EXPERIENCES:
 - ${persona.formativeExperiences[0]}
@@ -543,7 +576,8 @@ INTERVIEW BEHAVIOR:
 
 CRITICAL: Be authentic to your character. Do NOT be unnecessarily positive or agreeable.
 If you wouldn't care about a feature, say so. If something frustrates you, express it in your natural style.
-If you're skeptical, be skeptical. If you don't understand something, say you don't understand.`;
+If you're skeptical, be skeptical. If you don't understand something, say you don't understand.
+Your contradictions and quirks are part of who you are — do not smooth them out.`;
 }
 
 function computeQualityScore(persona: PersonaOutput): number {
@@ -581,6 +615,12 @@ function computeQualityScore(persona: PersonaOutput): number {
     Math.abs(persona.personality.openness - 0.5) > 0.15 ||
       Math.abs(persona.personality.agreeableness - 0.5) > 0.15,
     !repeatedNarrativePenalty,
+    // Authenticity-depth fields
+    persona.contradictions?.length >= 1,
+    persona.habits?.length >= 1,
+    persona.opinions?.length >= 1,
+    persona.quirks?.length >= 2,
+    (persona.communicationFingerprint?.length ?? 0) > 30,
   ];
   score = checks.filter(Boolean).length / checks.length;
   return Math.round(score * 100) / 100;
@@ -795,7 +835,17 @@ export async function generateAndSavePersonas(
   };
 
   const inngestPersonaIds: string[] = [];
-  let pending: PendingPersona | null = null;
+  // Pending list for the pipeline: evals start while the next micro-batch generates
+  const pendingItems: PendingPersona[] = [];
+
+  const flushPending = async () => {
+    for (const p of pendingItems) {
+      try { await savePendingPersona(p); } catch (e) {
+        errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+      }
+    }
+    pendingItems.length = 0;
+  };
 
   const rawInputBase = {
     domainContext: domainContext ?? null,
@@ -1089,110 +1139,109 @@ export async function generateAndSavePersonas(
     }
     timingsMs.fastPersistMs = Date.now() - tSave;
   } else {
+    // Quality mode — generate 2 personas at a time using a diversity snapshot so
+    // both in a pair diverge from *previous* batch results.
     const personaModel = personaModelQuality;
-    for (let i = 0; i < count; i++) {
-      let persona: PersonaOutput | null = null;
-      try {
-        let lastDraft: PersonaOutput | null = null;
-        const MAX_ATTEMPTS = 3;
-        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-          const nudgeFromPreviousAttempt =
-            attempt > 0 && lastDraft
-              ? buildDifferentiationNudge(lastDraft, previousPersonas)
-              : null;
-          const prompt = buildPrompt({
-            index: i,
-            count,
-            domainContext,
-            ragContext,
-            templateConfig,
-            previousPersonas,
-            diversityPlan: diversityPlan[i],
-            additionalDifferentiation:
-              attempt > 0
-                ? `Previous draft was too generic or too similar. Regenerate with a clearly different upbringing context, life events, and wording.${nudgeFromPreviousAttempt ? `\nSpecific differentiation required: ${nudgeFromPreviousAttempt}` : ""}`
-                : undefined,
-            includeSkeptics,
-          });
-          const draft = await generatePersonaObject({
-            model: personaModel,
-            prompt,
-            label: `quality persona ${i + 1} attempt ${attempt + 1}`,
-          });
-          lastDraft = draft;
-          const tooGeneric = containsForbiddenTropes(`${draft.backstory} ${draft.dayInTheLife}`);
-          const tooSimilar = isTooSimilarToBatch(draft, previousPersonas);
-          const nudge = buildDifferentiationNudge(draft, previousPersonas);
-          if (!tooGeneric && !tooSimilar && !nudge) {
-            persona = draft;
-            break;
-          }
-          if (attempt === MAX_ATTEMPTS - 1) {
-            persona = draft;
-          }
+    const PARALLEL_SIZE = 2;
+
+    const generateWithRetry = async (
+      i: number,
+      diversitySnapshot: PreviousPersonaSummary[]
+    ): Promise<PersonaOutput> => {
+      let lastDraft: PersonaOutput | null = null;
+      const MAX_ATTEMPTS = 3;
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const nudge =
+          attempt > 0 && lastDraft
+            ? buildDifferentiationNudge(lastDraft, diversitySnapshot)
+            : null;
+        const prompt = buildPrompt({
+          index: i,
+          count,
+          domainContext,
+          ragContext,
+          templateConfig,
+          previousPersonas: diversitySnapshot,
+          diversityPlan: diversityPlan[i]!,
+          additionalDifferentiation:
+            attempt > 0
+              ? `Previous draft was too generic or too similar. Regenerate with a clearly different upbringing context, life events, and wording.${nudge ? `\nSpecific differentiation required: ${nudge}` : ""}`
+              : undefined,
+          includeSkeptics,
+        });
+        const { object: draft } = await generateObject({
+          model: personaModel,
+          schema: personaSchema,
+          prompt,
+          maxOutputTokens: 2000,
+        });
+        lastDraft = draft;
+        if (
+          !containsForbiddenTropes(`${draft.backstory} ${draft.dayInTheLife}`) &&
+          !isTooSimilarToBatch(draft, diversitySnapshot) &&
+          !buildDifferentiationNudge(draft, diversitySnapshot)
+        ) {
+          return draft;
         }
-        if (!persona) {
-          throw new Error("Unable to generate non-repetitive persona after retries");
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        errors.push(`Persona ${i + 1}: ${message}`);
-        console.error(`[generate-personas] Failed:`, error);
-        if (pending) {
-          try {
-            await savePendingPersona(pending);
-          } catch (e) {
-            errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
-          }
-          pending = null;
-        }
-        continue;
+        if (attempt === MAX_ATTEMPTS - 1) return draft;
       }
+      throw new Error("Unable to generate non-repetitive persona after retries");
+    };
 
-      onPartial?.({ index: i, name: persona.name, archetype: persona.archetype, age: persona.age });
+    for (let i = 0; i < count; i += PARALLEL_SIZE) {
+      const batchSize = Math.min(PARALLEL_SIZE, count - i);
+      // Snapshot diversity BEFORE generating so both personas in the pair see
+      // the same prior context (avoids a race where persona A's result poisons
+      // persona B's diversity check mid-flight).
+      const diversitySnapshot = previousPersonas.slice();
 
-      const corpusSnapshot = recentPersonas.map((r) => ({
-        backstory: r.backstory,
-        dayInTheLife: r.dayInTheLife,
-        archetype: r.archetype,
-      }));
-      const scorePromise = scorePersonaAuthenticity(persona, corpusSnapshot);
+      const settled = await Promise.allSettled(
+        Array.from({ length: batchSize }, (_, j) => generateWithRetry(i + j, diversitySnapshot))
+      );
 
-      if (pending) {
-        try {
-          await savePendingPersona(pending);
-        } catch (e) {
-          errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+      // Flush the PREVIOUS batch's pending saves — evals started during generation above
+      // and are almost certainly done (eval ~2-3s, generation ~8-10s per batch).
+      await flushPending();
+
+      for (const result of settled) {
+        if (result.status === "rejected") {
+          const message =
+            result.reason instanceof Error ? result.reason.message : "Unknown error";
+          errors.push(`Persona ${i + 1}: ${message}`);
+          console.error("[generate-personas] Failed:", result.reason);
+          continue;
         }
-        pending = null;
-      }
+        const persona = result.value;
 
-      previousPersonas.push(summaryFromPersona(persona));
-      recentPersonas.unshift({
-        name: persona.name,
-        backstory: persona.backstory,
-        dayInTheLife: persona.dayInTheLife,
-        archetype: persona.archetype,
-        occupation: persona.occupation,
-      });
-      if (recentPersonas.length > 20) recentPersonas.length = 20;
+        onPartial?.({ index: i, name: persona.name, archetype: persona.archetype, age: persona.age });
 
-      pending = {
-        persona,
-        scorePromise,
-        qualityScore: computeQualityScore(persona),
-        llmSystemPrompt: buildSystemPrompt(persona),
-      };
-    }
+        // Start eval immediately — runs while the next batch generates
+        const corpusSnapshot = recentPersonas.slice();
+        const scorePromise = scorePersonaAuthenticity(persona, corpusSnapshot);
 
-    if (pending) {
-      try {
-        await savePendingPersona(pending);
-      } catch (e) {
-        errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+        // Update diversity for subsequent batches
+        previousPersonas.push(summaryFromPersona(persona));
+        recentPersonas.unshift({
+          name: persona.name,
+          backstory: persona.backstory,
+          dayInTheLife: persona.dayInTheLife,
+          archetype: persona.archetype,
+          occupation: persona.occupation,
+        });
+        if (recentPersonas.length > 20) recentPersonas.length = 20;
+
+        pendingItems.push({
+          persona,
+          scorePromise,
+          qualityScore: computeQualityScore(persona),
+          llmSystemPrompt: buildSystemPrompt(persona),
+        });
       }
     }
   }
+
+  // Flush the final batch (no more generation to pipeline against)
+  await flushPending();
 
   // Batch all inngest evaluation events into a single request.
   if (inngestPersonaIds.length > 0) {

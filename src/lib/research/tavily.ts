@@ -97,29 +97,57 @@ export async function quickResearch(
   }
 
   const searchSession = crypto.randomUUID();
+
+  // Run all queries in parallel — each Tavily call takes 2-4s, so parallel saves ~8s vs sequential
+  const settled = await Promise.allSettled(
+    queries.slice(0, 3).map((query) =>
+      searchTavily(query, { maxResults: 5, searchDepth: "advanced" }).then(
+        (results) => ({ query, results })
+      )
+    )
+  );
+
+  const allRows: {
+    personaGroupId: string;
+    title: string;
+    content: string;
+    sourceType: DataSourceType;
+    sourceUrl: string;
+    sourceDomain: string;
+    publishedAt: Date | null;
+    relevanceScore: number;
+    searchQuery: string;
+    searchSession: string;
+  }[] = [];
   let totalResults = 0;
   const bySourceType: Partial<Record<DataSourceType, number>> = {};
 
-  for (const query of queries.slice(0, 3)) {
-    try {
-      const results = await searchTavily(query, {
-        maxResults: 5,
-        searchDepth: "advanced",
-      });
-      const saved = await saveResearchResults(
-        groupId,
-        results,
-        query,
-        searchSession
-      );
-      totalResults += saved.length;
-      for (const row of saved) {
-        const t = row.sourceType;
-        bySourceType[t] = (bySourceType[t] ?? 0) + 1;
-      }
-    } catch (error) {
-      console.error(`[quickResearch] Query failed: ${query}`, error);
+  for (const outcome of settled) {
+    if (outcome.status === "rejected") {
+      console.error("[quickResearch] Query failed:", outcome.reason);
+      continue;
     }
+    const { query, results } = outcome.value;
+    for (const r of results) {
+      allRows.push({
+        personaGroupId: groupId,
+        title: r.title,
+        content: r.content,
+        sourceType: r.sourceType,
+        sourceUrl: r.url,
+        sourceDomain: r.domain,
+        publishedAt: r.publishedDate ? new Date(r.publishedDate) : null,
+        relevanceScore: r.score,
+        searchQuery: query,
+        searchSession,
+      });
+      bySourceType[r.sourceType] = (bySourceType[r.sourceType] ?? 0) + 1;
+    }
+    totalResults += results.length;
+  }
+
+  if (allRows.length > 0) {
+    await prisma.domainKnowledge.createMany({ data: allRows });
   }
 
   return { totalResults, bySourceType };

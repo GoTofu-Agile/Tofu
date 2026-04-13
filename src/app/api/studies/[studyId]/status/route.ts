@@ -17,32 +17,34 @@ export async function GET(
   if (!authUser) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
-  const dbUser = await getUser(authUser.id);
-  if (!dbUser) {
-    return Response.json({ error: "User not found" }, { status: 401 });
-  }
-
-  // Lightweight query: only counts + running session name
-  const study = await prisma.study.findUnique({
-    where: { id: studyId },
-    select: {
-      organizationId: true,
-      personaGroups: {
-        select: {
-          personaGroup: {
-            select: {
-              _count: { select: { personas: { where: { isActive: true } } } },
+  // User lookup and study query are independent — run in parallel
+  const [dbUser, study] = await Promise.all([
+    getUser(authUser.id),
+    prisma.study.findUnique({
+      where: { id: studyId },
+      select: {
+        organizationId: true,
+        personaGroups: {
+          select: {
+            personaGroup: {
+              select: {
+                _count: { select: { personas: { where: { isActive: true } } } },
+              },
             },
           },
         },
-      },
-      _count: {
-        select: {
-          sessions: { where: { status: "COMPLETED" } },
+        _count: {
+          select: {
+            sessions: { where: { status: "COMPLETED" } },
+          },
         },
       },
-    },
-  });
+    }),
+  ]);
+
+  if (!dbUser) {
+    return Response.json({ error: "User not found" }, { status: 401 });
+  }
 
   if (!study) {
     return Response.json({ error: "Study not found" }, { status: 404 });

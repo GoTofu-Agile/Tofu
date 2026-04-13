@@ -4,9 +4,7 @@ import { generateText } from "ai";
 import { getModel } from "@/lib/ai/provider";
 import {
   createSession,
-  addMessage,
   completeSession,
-  getMessageCount,
 } from "@/lib/db/queries/studies";
 
 const MAX_TURNS = 6;
@@ -151,18 +149,27 @@ export const runBatchInterview = inngest.createFunction(
               MAX_TURNS,
               Math.max(MIN_TURNS, guideQuestions.length)
             );
+
+            // Collect all messages in memory; batch-insert after all turns.
+            // This replaces N individual INSERT calls with one createMany,
+            // reducing DB round-trips from 2×numTurns to 1 per session.
+            const pendingMessages: Array<{
+              sessionId: string;
+              role: "INTERVIEWER" | "RESPONDENT";
+              content: string;
+              sequence: number;
+            }> = [];
             let sequence = 0;
 
             for (let turn = 0; turn < numTurns; turn++) {
-              // Use guide questions directly — no extra LLM call for follow-ups
-              const question = remainingQuestions.shift() ||
+              const question =
+                remainingQuestions.shift() ||
                 (turn === 0
                   ? "Tell me about yourself and your work."
                   : "Is there anything else you'd like to share about your experience?");
 
-              // Save interviewer message
               sequence++;
-              await addMessage({
+              pendingMessages.push({
                 sessionId: session.id,
                 role: "INTERVIEWER",
                 content: question,
@@ -178,9 +185,8 @@ export const runBatchInterview = inngest.createFunction(
                 maxOutputTokens: 300,
               });
 
-              // Save respondent message
               sequence++;
-              await addMessage({
+              pendingMessages.push({
                 sessionId: session.id,
                 role: "RESPONDENT",
                 content: response,
@@ -189,13 +195,28 @@ export const runBatchInterview = inngest.createFunction(
               conversation.push({ role: "assistant", content: response });
             }
 
-            // Complete session
-            await completeSession(session.id);
+            // Single batch insert for all messages in this session
+            await prisma.sessionMessage.createMany({ data: pendingMessages });
+
+            // Skip per-session study count update — the outer loop does one
+            // final accurate update after all sessions in the batch complete.
+            await completeSession(session.id, { skipStudyUpdate: true });
             return 1;
           })
         )
       );
       completedCount += results.reduce((sum, r) => sum + (r ?? 0), 0);
+
+      // One study count update per batch (not per session) — accurate and cheap
+      if (completedCount > 0) {
+        const currentCompleted = await prisma.session.count({
+          where: { studyId, status: "COMPLETED" },
+        });
+        await prisma.study.update({
+          where: { id: studyId },
+          data: { completedCount: currentCompleted },
+        });
+      }
     }
 
     // Mark study as COMPLETED and trigger insights generation
