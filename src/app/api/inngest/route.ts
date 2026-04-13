@@ -3,8 +3,9 @@ import { inngest } from "@/lib/inngest/client";
 import { runBatchInterview } from "@/lib/inngest/functions/run-batch-interview";
 import { generateInsights } from "@/lib/inngest/functions/generate-insights";
 import { evaluatePersona } from "@/lib/inngest/functions/evaluate-persona";
+import { generatePersonasRequested } from "@/lib/inngest/functions/generate-personas";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [runBatchInterview, generateInsights, evaluatePersona],
+  functions: [runBatchInterview, generateInsights, evaluatePersona, generatePersonasRequested],
 });

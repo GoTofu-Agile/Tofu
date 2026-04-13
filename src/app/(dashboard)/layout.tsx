@@ -8,7 +8,7 @@ import { AssistantProvider } from "@/components/assistant/assistant-provider";
 import { AssistantChatLazy } from "@/components/assistant/assistant-chat-lazy";
 import { FeedbackOverlay } from "@/components/feedback/feedback-overlay";
 import { PersonaGenerationFloatingWidget } from "@/components/personas/persona-generation-floating-widget";
-
+import { AppQueryProvider } from "@/components/providers/app-query-provider";
 
 export default async function DashboardLayout({
   children,
@@ -49,26 +49,28 @@ export default async function DashboardLayout({
   const isAdmin = adminEmails.includes(user.email);
 
   return (
-    <AssistantProvider>
-      <div className="relative h-dvh w-full max-w-full overflow-hidden bg-background">
-        <AppFrame>
-          <Sidebar
-            user={user}
-            organizations={organizations}
-            activeOrgId={activeOrgId}
-            isAdmin={isAdmin}
-          />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <Topbar />
-            <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-[var(--page-padding-x)] sm:py-[var(--page-padding-y)]">
-              {children}
-            </main>
-          </div>
-        </AppFrame>
-        <AssistantChatLazy />
-        <PersonaGenerationFloatingWidget />
-        <FeedbackOverlay />
-      </div>
-    </AssistantProvider>
+    <AppQueryProvider>
+      <AssistantProvider>
+        <div className="relative h-dvh w-full max-w-full overflow-hidden bg-background">
+          <AppFrame>
+            <Sidebar
+              user={user}
+              organizations={organizations}
+              activeOrgId={activeOrgId}
+              isAdmin={isAdmin}
+            />
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <Topbar />
+              <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-[var(--page-padding-x)] sm:py-[var(--page-padding-y)]">
+                {children}
+              </main>
+            </div>
+          </AppFrame>
+          <AssistantChatLazy />
+          <PersonaGenerationFloatingWidget />
+          <FeedbackOverlay />
+        </div>
+      </AssistantProvider>
+    </AppQueryProvider>
   );
 }

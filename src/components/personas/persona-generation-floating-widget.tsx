@@ -11,6 +11,7 @@ import {
   getPersonaProgressBadgeLabel,
   getPersonaProgressHeadline,
 } from "@/lib/personas/progress-copy";
+import { PERSONA_WIDGET_STORAGE_KEY as WIDGET_STORAGE_KEY } from "@/lib/personas/publish-widget-run";
 
 type WidgetRun = {
   runId: string;
@@ -24,12 +25,10 @@ type WidgetRun = {
   updatedAt: number;
 };
 
-const STORAGE_KEY = "personaGenerationWidgetRun";
-
 function readRun(): WidgetRun | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(WIDGET_STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as WidgetRun;
   } catch {
@@ -40,10 +39,10 @@ function readRun(): WidgetRun | null {
 function writeRun(run: WidgetRun | null) {
   if (typeof window === "undefined") return;
   if (!run) {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(WIDGET_STORAGE_KEY);
     return;
   }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(run));
+  window.localStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(run));
 }
 
 export function PersonaGenerationFloatingWidget() {

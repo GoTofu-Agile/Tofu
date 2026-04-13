@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "Missing runId" }, { status: 400 });
   }
 
-  const run = getPersonaGenerationRun(runId);
+  const run = await getPersonaGenerationRun(runId);
   if (!run) {
     return Response.json({ error: "Run not found" }, { status: 404 });
   }
