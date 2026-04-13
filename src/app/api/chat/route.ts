@@ -2,7 +2,7 @@ import { streamText, type UIMessage } from "ai";
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
-import { getSession, addMessageAutoSequence } from "@/lib/db/queries/studies";
+import { getSessionForChat, addMessageAutoSequence } from "@/lib/db/queries/studies";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { getModel } from "@/lib/ai/provider";
 import { checkRateLimit } from "@/lib/server/request-guards";
@@ -16,17 +16,16 @@ export async function POST(request: NextRequest) {
   if (!authUser) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
-  const dbUser = await getUser(authUser.id);
+  // Parse body + resolve DB user in parallel — neither depends on the other
+  const [dbUser, body] = await Promise.all([
+    getUser(authUser.id),
+    request.json() as Promise<{ messages: UIMessage[]; sessionId: string }>,
+  ]);
   if (!dbUser) {
     return Response.json({ error: "User not found" }, { status: 401 });
   }
 
-  // Parse request — TextStreamChatTransport sends { messages, ...body }
-  const body = await request.json();
-  const { messages: uiMessages, sessionId } = body as {
-    messages: UIMessage[];
-    sessionId: string;
-  };
+  const { messages: uiMessages, sessionId } = body;
 
   if (!sessionId || !uiMessages?.length) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
@@ -43,8 +42,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Load session with persona + study
-  const session = await getSession(sessionId);
+  // Load session (messages excluded — client already has full history)
+  const session = await getSessionForChat(sessionId);
   if (!session) {
     return Response.json({ error: "Session not found" }, { status: 404 });
   }

@@ -270,6 +270,30 @@ export async function getSession(sessionId: string) {
   });
 }
 
+/**
+ * Lightweight session fetch for the chat route — skips messages entirely.
+ * The chat route receives conversation history from the client (UIMessages),
+ * so loading all DB messages on every request is pure wasted I/O.
+ */
+export async function getSessionForChat(sessionId: string) {
+  return prisma.session.findUnique({
+    where: { id: sessionId },
+    include: {
+      persona: {
+        include: { personality: true },
+      },
+      study: {
+        select: {
+          id: true,
+          studyType: true,
+          interviewGuide: true,
+          organizationId: true,
+        },
+      },
+    },
+  });
+}
+
 export async function createSession(data: {
   studyId: string;
   personaId: string;

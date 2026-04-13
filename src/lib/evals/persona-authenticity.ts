@@ -256,8 +256,7 @@ export async function scorePersonaAuthenticity(
   const corpus = recentPersonas.map((p) =>
     [p.backstory ?? "", p.dayInTheLife ?? "", p.archetype ?? ""].join("\n")
   );
-  const similarity = await computePersonaSimilarity(personaText, corpus);
-
+  // Build authenticity extras synchronously (no I/O)
   const contradictions = Array.isArray((persona as Record<string, unknown>).contradictions)
     ? ((persona as Record<string, unknown>).contradictions as string[])
     : [];
@@ -279,10 +278,19 @@ export async function scorePersonaAuthenticity(
       : "Communication fingerprint: NONE",
   ].join("\n");
 
-  const { object: modelEval } = await generateObject({
-    model: getModel(),
-    schema: evalSchema,
-    prompt: `You are a qualitative researcher evaluating synthetic personas for realism.
+  // Corpus summary: 1-line per persona instead of full backstory (~3000 tokens → ~100 tokens)
+  const corpusSummary = recentPersonas
+    .slice(0, 10)
+    .map((p) => `- ${p.archetype ?? "?"} | ${p.backstory?.split(/[.!?]/)[0]?.slice(0, 80) ?? "?"}`)
+    .join("\n") || "No recent personas.";
+
+  // Run embedding and LLM eval concurrently — neither depends on the other
+  const [similarity, { object: modelEval }] = await Promise.all([
+    computePersonaSimilarity(personaText, corpus),
+    generateObject({
+      model: getModel(),
+      schema: evalSchema,
+      prompt: `You are a qualitative researcher evaluating synthetic personas for realism.
 
 SCORE DIMENSIONS (0-100 each):
 - specificity: Are details concrete and lived-in, or abstract and vague?
@@ -308,15 +316,16 @@ PENALIZE:
 - Repetitive sentence structure — flag as repetitive_structure
 - Backstory under 180 chars — flag as low_specificity
 
-Recent personas context (for diversity scoring):
-${corpus.slice(0, 10).join("\n\n---\n\n") || "No recent personas."}
+Recent personas (for diversity scoring):
+${corpusSummary}
 
 Persona to evaluate:
 ${personaText}
 
 Authenticity depth signals:
 ${authenticityExtras}`,
-  });
+    }),
+  ]);
 
   const modelScore = Math.round(
     (modelEval.eval_dimensions.specificity +

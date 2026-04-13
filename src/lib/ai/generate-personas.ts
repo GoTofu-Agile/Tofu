@@ -258,15 +258,18 @@ CRITICAL RULES:
   layers.push(diversityInstructions.join("\n"));
 
   // Layer 4: Differentiation Directive
+  // Cap at last 5 — earlier personas are already encoded in the diversity plan
+  // and adding them all grows context linearly (800+ tokens by persona #20)
   if (previousPersonas.length > 0) {
-    const previousList = previousPersonas
+    const recent = previousPersonas.slice(-5);
+    const previousList = recent
       .map(
         (p) =>
           `- ${p.name} (${p.archetype}) | ${p.occupation} | ${p.ageBand} | profile: ${p.personalityShape}`
       )
       .join("\n");
     layers.push(
-      `PREVIOUSLY GENERATED PERSONAS IN THIS BATCH:\n${previousList}\n\nThis persona MUST differ meaningfully from all of the above in archetype wording, occupation category, personality profile shape, and life events. Do NOT repeat similar archetypes or routines.`
+      `PREVIOUSLY GENERATED PERSONAS IN THIS BATCH (last ${recent.length}):\n${previousList}\n\nThis persona MUST differ meaningfully from all of the above in archetype wording, occupation category, personality profile shape, and life events. Do NOT repeat similar archetypes or routines.`
     );
   }
 
