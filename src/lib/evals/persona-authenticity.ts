@@ -93,6 +93,24 @@ export function detectBackstoryCliches(text: string): string[] {
   return Array.from(new Set(matches));
 }
 
+/** Local-only similarity (no embedding API). Used for fast-path authenticity scoring. */
+export function computePersonaSimilarityLocal(
+  text: string,
+  corpus: string[]
+): { maxSimilarity: number; averageSimilarity: number; embedding: number[] } {
+  const embedding = fallbackEmbedding(text);
+  if (corpus.length === 0) {
+    return { maxSimilarity: 0, averageSimilarity: 0, embedding };
+  }
+  const similarities = corpus.map((candidate) =>
+    cosineSimilarity(embedding, fallbackEmbedding(candidate))
+  );
+  const maxSimilarity = Math.max(...similarities);
+  const averageSimilarity =
+    similarities.reduce((acc, n) => acc + n, 0) / similarities.length;
+  return { maxSimilarity, averageSimilarity, embedding };
+}
+
 export async function computePersonaSimilarity(text: string, corpus: string[]): Promise<{
   maxSimilarity: number;
   averageSimilarity: number;
@@ -126,6 +144,102 @@ export function mapScoreToBand(score: number): "low" | "medium" | "high" {
   return "low";
 }
 
+function personaEvalCorpusText(persona: PersonaOutput): string {
+  return [
+    persona.name,
+    persona.location,
+    persona.occupation,
+    persona.backstory,
+    persona.dayInTheLife,
+    persona.communicationSample,
+    persona.behaviors.join("\n"),
+    persona.contradictions.join("\n"),
+    persona.formativeExperiences.join("\n"),
+    persona.recurringHabit,
+    persona.habits.join("\n"),
+    persona.opinions.join("\n"),
+    persona.quirks.join("\n"),
+    persona.communicationFingerprint,
+    persona.cognitiveBiasOrIrrationalStreak,
+  ].join("\n");
+}
+
+/**
+ * Fast path: no LLM, no embedding API — rule-based score suitable for persistence and UI.
+ * Full `scorePersonaAuthenticity` remains available for quality mode.
+ */
+export async function scorePersonaAuthenticityHeuristic(
+  persona: PersonaOutput,
+  recentPersonas: Array<{
+    backstory: string | null;
+    dayInTheLife: string | null;
+    archetype: string | null;
+  }>
+): Promise<PersonaAuthenticityResult> {
+  const personaText = personaEvalCorpusText(persona);
+
+  const clicheFlags = detectBackstoryCliches(personaText);
+  const corpus = recentPersonas.map((p) =>
+    [p.backstory ?? "", p.dayInTheLife ?? "", p.archetype ?? ""].join("\n")
+  );
+  const similarity = computePersonaSimilarityLocal(personaText, corpus);
+
+  let ruleScore = 78;
+  if (similarity.maxSimilarity >= 0.92) {
+    ruleScore -= 45;
+  } else if (similarity.maxSimilarity >= 0.85) {
+    ruleScore -= 28;
+  } else if (similarity.maxSimilarity >= 0.75) {
+    ruleScore -= 12;
+  }
+  ruleScore -= clicheFlags.length * 8;
+
+  const traitWord = /\b(friendly|hardworking|funny|passionate|driven|resilient|people person|team player)\b/i;
+  if (persona.behaviors.some((b) => traitWord.test(b))) {
+    ruleScore -= 6;
+  }
+
+  let richnessBonus = 0;
+  if (persona.contradictions.length >= 1) richnessBonus += 4;
+  if (persona.behaviors.length >= 3 && persona.behaviors.every((b) => b.length >= 22)) richnessBonus += 3;
+  if (persona.communicationFingerprint.length >= 45) richnessBonus += 2;
+  if (persona.formativeExperiences[0].length >= 35 && persona.formativeExperiences[1].length >= 35) {
+    richnessBonus += 2;
+  }
+  ruleScore += richnessBonus;
+
+  ruleScore = Math.max(0, Math.min(100, ruleScore));
+
+  const dim = Math.max(35, Math.min(92, ruleScore + (personaText.length > 400 ? 4 : -4)));
+  const eval_dimensions = {
+    specificity: dim,
+    plausibility: dim,
+    non_genericity: Math.max(30, dim - clicheFlags.length * 5),
+    consistency: dim,
+    diversity: Math.max(40, dim - (similarity.maxSimilarity > 0.7 ? 12 : 0)),
+  };
+
+  const authenticity_score = ruleScore;
+  const flags = Array.from(new Set(clicheFlags));
+
+  return {
+    authenticity_score,
+    authenticity_band: mapScoreToBand(authenticity_score),
+    eval_summary:
+      "Fast-path heuristic evaluation (no judge LLM). Scores reflect length, cliché checks, and rough corpus distance.",
+    eval_dimensions,
+    flags,
+    evalRaw: {
+      heuristic: true,
+      ruleScore,
+      richnessBonus,
+      similarity,
+      tokenCount: tokenize(personaText).length,
+    },
+    backstoryEmbedding: similarity.embedding,
+  };
+}
+
 export async function scorePersonaAuthenticity(
   persona: PersonaOutput,
   recentPersonas: Array<{
@@ -134,14 +248,7 @@ export async function scorePersonaAuthenticity(
     archetype: string | null;
   }>
 ): Promise<PersonaAuthenticityResult> {
-  const personaText = [
-    persona.name,
-    persona.location,
-    persona.occupation,
-    persona.backstory,
-    persona.dayInTheLife,
-    persona.communicationSample,
-  ].join("\n");
+  const personaText = personaEvalCorpusText(persona);
 
   const clicheFlags = detectBackstoryCliches(personaText);
   const corpus = recentPersonas.map((p) =>

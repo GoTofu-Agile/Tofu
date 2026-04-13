@@ -393,6 +393,9 @@ export function UnifiedCreationFlow({
   const [depth, setDepth] = useState<"quick" | "deep">("quick");
   const [personaCount, setPersonaCount] = useState(10);
   const [includeSkeptics, setIncludeSkeptics] = useState(true);
+  /** Near-instant template assembly (no persona LLM). Otherwise uses fast parallel AI path. */
+  const [turboMode, setTurboMode] = useState(false);
+  const personaSpeedMode = turboMode ? "turbo" : "fast";
 
   // Step: Progress
   const [progressPhase, setProgressPhase] = useState<"researching" | "generating" | "done">("researching");
@@ -756,6 +759,7 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride,
           usedDeepResearchPipeline: source === "deep-search",
+          speedMode: personaSpeedMode,
         }),
       });
       await ensureGenerateResponseOk(response);
@@ -860,6 +864,7 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
+          speedMode: personaSpeedMode,
         }),
       });
 
@@ -1017,6 +1022,7 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
+          speedMode: personaSpeedMode,
         }),
       });
 
@@ -1157,6 +1163,7 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride,
           usedDeepResearchPipeline: false,
+          speedMode: personaSpeedMode,
         }),
       });
 
@@ -1272,6 +1279,7 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride,
           usedDeepResearchPipeline,
+          speedMode: personaSpeedMode,
         }),
       });
 
@@ -1314,6 +1322,12 @@ export function UnifiedCreationFlow({
           });
           if (event.personaName) {
             setLastGeneratedName(event.personaName);
+          }
+        } else if (event.type === "partial") {
+          const n = typeof event.name === "string" ? event.name : "";
+          if (n) {
+            setGenCurrentName(n);
+            setLastGeneratedName(n);
           }
         } else if (event.type === "done") {
           opts?.onGenerationUiComplete?.();
@@ -1536,6 +1550,20 @@ export function UnifiedCreationFlow({
             transition={{ duration: reduced ? 0 : 0.28, ease: [0.25, 0.1, 0.25, 1] }}
             className="space-y-6"
           >
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+            <input
+              id="turbo-personas"
+              type="checkbox"
+              checked={turboMode}
+              onChange={(e) => setTurboMode(e.target.checked)}
+              className="rounded accent-primary"
+            />
+            <label htmlFor="turbo-personas" className="cursor-pointer text-sm leading-snug">
+              Turbo mode: instant personas from built-in templates (often under two seconds). Leave off for
+              parallel AI generation with fuller backstories.
+            </label>
+          </div>
+
           {method === "templates" && (
             <StepTemplates
               personaCount={personaCount}
@@ -1607,6 +1635,7 @@ export function UnifiedCreationFlow({
                       sourceTypeOverride: "PROMPT_GENERATED",
                       templateId,
                       usedDeepResearchPipeline: false,
+                      speedMode: personaSpeedMode,
                     }),
                   });
 

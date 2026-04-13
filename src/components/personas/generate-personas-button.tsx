@@ -62,6 +62,7 @@ export function GeneratePersonasButton({
           groupId,
           count: defaultCount,
           domainContext,
+          speedMode: "fast",
         }),
       });
 
