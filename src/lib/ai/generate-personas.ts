@@ -835,7 +835,17 @@ export async function generateAndSavePersonas(
   };
 
   const inngestPersonaIds: string[] = [];
-  let pending: PendingPersona | null = null;
+  // Pending list for the pipeline: evals start while the next micro-batch generates
+  const pendingItems: PendingPersona[] = [];
+
+  const flushPending = async () => {
+    for (const p of pendingItems) {
+      try { await savePendingPersona(p); } catch (e) {
+        errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+      }
+    }
+    pendingItems.length = 0;
+  };
 
   const rawInputBase = {
     domainContext: domainContext ?? null,
@@ -1129,110 +1139,109 @@ export async function generateAndSavePersonas(
     }
     timingsMs.fastPersistMs = Date.now() - tSave;
   } else {
+    // Quality mode — generate 2 personas at a time using a diversity snapshot so
+    // both in a pair diverge from *previous* batch results.
     const personaModel = personaModelQuality;
-    for (let i = 0; i < count; i++) {
-      let persona: PersonaOutput | null = null;
-      try {
-        let lastDraft: PersonaOutput | null = null;
-        const MAX_ATTEMPTS = 3;
-        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-          const nudgeFromPreviousAttempt =
-            attempt > 0 && lastDraft
-              ? buildDifferentiationNudge(lastDraft, previousPersonas)
-              : null;
-          const prompt = buildPrompt({
-            index: i,
-            count,
-            domainContext,
-            ragContext,
-            templateConfig,
-            previousPersonas,
-            diversityPlan: diversityPlan[i],
-            additionalDifferentiation:
-              attempt > 0
-                ? `Previous draft was too generic or too similar. Regenerate with a clearly different upbringing context, life events, and wording.${nudgeFromPreviousAttempt ? `\nSpecific differentiation required: ${nudgeFromPreviousAttempt}` : ""}`
-                : undefined,
-            includeSkeptics,
-          });
-          const draft = await generatePersonaObject({
-            model: personaModel,
-            prompt,
-            label: `quality persona ${i + 1} attempt ${attempt + 1}`,
-          });
-          lastDraft = draft;
-          const tooGeneric = containsForbiddenTropes(`${draft.backstory} ${draft.dayInTheLife}`);
-          const tooSimilar = isTooSimilarToBatch(draft, previousPersonas);
-          const nudge = buildDifferentiationNudge(draft, previousPersonas);
-          if (!tooGeneric && !tooSimilar && !nudge) {
-            persona = draft;
-            break;
-          }
-          if (attempt === MAX_ATTEMPTS - 1) {
-            persona = draft;
-          }
+    const PARALLEL_SIZE = 2;
+
+    const generateWithRetry = async (
+      i: number,
+      diversitySnapshot: PreviousPersonaSummary[]
+    ): Promise<PersonaOutput> => {
+      let lastDraft: PersonaOutput | null = null;
+      const MAX_ATTEMPTS = 3;
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const nudge =
+          attempt > 0 && lastDraft
+            ? buildDifferentiationNudge(lastDraft, diversitySnapshot)
+            : null;
+        const prompt = buildPrompt({
+          index: i,
+          count,
+          domainContext,
+          ragContext,
+          templateConfig,
+          previousPersonas: diversitySnapshot,
+          diversityPlan: diversityPlan[i]!,
+          additionalDifferentiation:
+            attempt > 0
+              ? `Previous draft was too generic or too similar. Regenerate with a clearly different upbringing context, life events, and wording.${nudge ? `\nSpecific differentiation required: ${nudge}` : ""}`
+              : undefined,
+          includeSkeptics,
+        });
+        const { object: draft } = await generateObject({
+          model: personaModel,
+          schema: personaSchema,
+          prompt,
+          maxOutputTokens: 2000,
+        });
+        lastDraft = draft;
+        if (
+          !containsForbiddenTropes(`${draft.backstory} ${draft.dayInTheLife}`) &&
+          !isTooSimilarToBatch(draft, diversitySnapshot) &&
+          !buildDifferentiationNudge(draft, diversitySnapshot)
+        ) {
+          return draft;
         }
-        if (!persona) {
-          throw new Error("Unable to generate non-repetitive persona after retries");
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        errors.push(`Persona ${i + 1}: ${message}`);
-        console.error(`[generate-personas] Failed:`, error);
-        if (pending) {
-          try {
-            await savePendingPersona(pending);
-          } catch (e) {
-            errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
-          }
-          pending = null;
-        }
-        continue;
+        if (attempt === MAX_ATTEMPTS - 1) return draft;
       }
+      throw new Error("Unable to generate non-repetitive persona after retries");
+    };
 
-      onPartial?.({ index: i, name: persona.name, archetype: persona.archetype, age: persona.age });
+    for (let i = 0; i < count; i += PARALLEL_SIZE) {
+      const batchSize = Math.min(PARALLEL_SIZE, count - i);
+      // Snapshot diversity BEFORE generating so both personas in the pair see
+      // the same prior context (avoids a race where persona A's result poisons
+      // persona B's diversity check mid-flight).
+      const diversitySnapshot = previousPersonas.slice();
 
-      const corpusSnapshot = recentPersonas.map((r) => ({
-        backstory: r.backstory,
-        dayInTheLife: r.dayInTheLife,
-        archetype: r.archetype,
-      }));
-      const scorePromise = scorePersonaAuthenticity(persona, corpusSnapshot);
+      const settled = await Promise.allSettled(
+        Array.from({ length: batchSize }, (_, j) => generateWithRetry(i + j, diversitySnapshot))
+      );
 
-      if (pending) {
-        try {
-          await savePendingPersona(pending);
-        } catch (e) {
-          errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+      // Flush the PREVIOUS batch's pending saves — evals started during generation above
+      // and are almost certainly done (eval ~2-3s, generation ~8-10s per batch).
+      await flushPending();
+
+      for (const result of settled) {
+        if (result.status === "rejected") {
+          const message =
+            result.reason instanceof Error ? result.reason.message : "Unknown error";
+          errors.push(`Persona ${i + 1}: ${message}`);
+          console.error("[generate-personas] Failed:", result.reason);
+          continue;
         }
-        pending = null;
-      }
+        const persona = result.value;
 
-      previousPersonas.push(summaryFromPersona(persona));
-      recentPersonas.unshift({
-        name: persona.name,
-        backstory: persona.backstory,
-        dayInTheLife: persona.dayInTheLife,
-        archetype: persona.archetype,
-        occupation: persona.occupation,
-      });
-      if (recentPersonas.length > 20) recentPersonas.length = 20;
+        onPartial?.({ index: i, name: persona.name, archetype: persona.archetype, age: persona.age });
 
-      pending = {
-        persona,
-        scorePromise,
-        qualityScore: computeQualityScore(persona),
-        llmSystemPrompt: buildSystemPrompt(persona),
-      };
-    }
+        // Start eval immediately — runs while the next batch generates
+        const corpusSnapshot = recentPersonas.slice();
+        const scorePromise = scorePersonaAuthenticity(persona, corpusSnapshot);
 
-    if (pending) {
-      try {
-        await savePendingPersona(pending);
-      } catch (e) {
-        errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+        // Update diversity for subsequent batches
+        previousPersonas.push(summaryFromPersona(persona));
+        recentPersonas.unshift({
+          name: persona.name,
+          backstory: persona.backstory,
+          dayInTheLife: persona.dayInTheLife,
+          archetype: persona.archetype,
+          occupation: persona.occupation,
+        });
+        if (recentPersonas.length > 20) recentPersonas.length = 20;
+
+        pendingItems.push({
+          persona,
+          scorePromise,
+          qualityScore: computeQualityScore(persona),
+          llmSystemPrompt: buildSystemPrompt(persona),
+        });
       }
     }
   }
+
+  // Flush the final batch (no more generation to pipeline against)
+  await flushPending();
 
   // Batch all inngest evaluation events into a single request.
   if (inngestPersonaIds.length > 0) {

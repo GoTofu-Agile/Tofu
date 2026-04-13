@@ -1,7 +1,7 @@
 import { embed, generateObject } from "ai";
 import { z } from "zod";
 import type { PersonaOutput } from "@/lib/validation/schemas";
-import { getEmbeddingModel, getModel } from "@/lib/ai/provider";
+import { getEmbeddingModel, getEvalModel } from "@/lib/ai/provider";
 
 const evalSchema = z.object({
   eval_summary: z.string().min(10).max(600),
@@ -288,7 +288,9 @@ export async function scorePersonaAuthenticity(
   const [similarity, { object: modelEval }] = await Promise.all([
     computePersonaSimilarity(personaText, corpus),
     generateObject({
-      model: getModel(),
+      model: getEvalModel(),
+      temperature: 0.2,
+      maxOutputTokens: 500,
       schema: evalSchema,
       prompt: `You are a qualitative researcher evaluating synthetic personas for realism.
 

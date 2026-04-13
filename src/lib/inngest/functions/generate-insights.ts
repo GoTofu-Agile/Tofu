@@ -101,6 +101,8 @@ export const generateInsights = inngest.createFunction(
     const insights = await step.run("analyze", async () => {
       const { object } = await generateObject({
         model: getModel(),
+        temperature: 0.4,
+        maxOutputTokens: 3000,
         schema: dynamicSchema,
         prompt: `You are an expert user researcher analyzing interview transcripts from a study titled "${study.title}".
 
