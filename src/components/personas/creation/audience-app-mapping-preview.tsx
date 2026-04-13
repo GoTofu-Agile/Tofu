@@ -45,7 +45,7 @@ export function AudienceAppMappingPreview({
     return (
       <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
         {tavilyDisabled
-          ? "Automatic app discovery is off (no Tavily key). Paste an App Store URL under the App tab instead."
+          ? "Automatic app discovery is off (no SERPAPI_API_KEY). Paste an App Store URL under the App tab instead."
           : "No confident App Store matches for this audience. Try different wording or use the App tab with a direct URL."}
       </div>
     );
