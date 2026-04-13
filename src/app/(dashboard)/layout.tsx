@@ -18,7 +18,8 @@ export default async function DashboardLayout({
   let authData;
   try {
     authData = await requireAuthWithOrgs();
-  } catch {
+  } catch (error) {
+    console.error("[dashboard] requireAuthWithOrgs failed:", error);
     redirect(
       "/login?message=" +
         encodeURIComponent(
