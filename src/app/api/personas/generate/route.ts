@@ -19,6 +19,7 @@ import {
   assertPersonaGenerationAllowed,
   getPersonaGenerationGuardForGroup,
 } from "@/lib/personas/persona-generation-guard";
+import type { PersonaGenerationSpeedMode } from "@/lib/ai/generate-personas";
 
 const requestSchema = z.object({
   groupId: z.string().min(1),
@@ -30,6 +31,12 @@ const requestSchema = z.object({
   clientRunId: z.string().min(1).max(80).optional(),
   /** True when the client used the “deep search” research path (Quick or Guided). */
   usedDeepResearchPipeline: z.boolean().optional(),
+  /**
+   * quality: slowest, full prompts + LLM authenticity judge.
+   * fast: default — parallel LLM + compact prompts + heuristic scores.
+   * turbo: template assembly, no persona LLM (near-instant).
+   */
+  speedMode: z.enum(["quality", "fast", "turbo"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -154,6 +161,8 @@ export async function POST(request: NextRequest) {
           throw new Error("Selected template was not found.");
         }
 
+        const speedMode: PersonaGenerationSpeedMode = body.speedMode ?? "fast";
+
         const result = await generateAndSavePersonas({
           groupId: body.groupId,
           count: body.count,
@@ -162,6 +171,18 @@ export async function POST(request: NextRequest) {
           templateConfig,
           includeSkeptics: body.includeSkeptics ?? true,
           qualityTier: guard.tier,
+          speedMode,
+          onPartial: ({ index, name, archetype, age }) => {
+            const event = JSON.stringify({
+              type: "partial",
+              runId,
+              index,
+              name,
+              archetype,
+              age,
+            });
+            controller.enqueue(encoder.encode(event + "\n"));
+          },
           onProgress: (completed, total, personaName, personaId) => {
             updatePersonaGenerationRun(runId, {
               phase: "generating",

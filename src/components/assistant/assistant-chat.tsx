@@ -278,6 +278,7 @@ export function AssistantChat() {
             count,
             domainContext,
             sourceTypeOverride,
+            speedMode: "fast",
           }),
         });
 
