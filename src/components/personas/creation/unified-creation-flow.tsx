@@ -56,6 +56,7 @@ import {
   mergeQuickResearchBreakdown,
   sumResearchBreakdownSnippets,
 } from "@/lib/research/research-quick-breakdown";
+import { PERSONA_WIDGET_STORAGE_KEY } from "@/lib/personas/publish-widget-run";
 
 async function readGenerateApiError(response: Response): Promise<string> {
   try {
@@ -102,8 +103,6 @@ const SOURCE_TYPE_MAP: Partial<Record<CreationMethod, string>> = {
   "company-url": "UPLOAD_BASED",
   // deep-search → DATA_BASED auto-set by knowledge.length
 };
-
-const PERSONA_WIDGET_STORAGE_KEY = "personaGenerationWidgetRun";
 
 function classifyPipelineBucket(label: string): "appStore" | "playStore" | "webSearch" | "browsed" | "synth" {
   const text = label.toLowerCase();
@@ -418,6 +417,16 @@ export function UnifiedCreationFlow({
   } | null>(null);
   const [starting, setStarting] = useState(false);
   const [chatPipelineSteps, setChatPipelineSteps] = useState<ChatPipelineStepView[] | null>(null);
+
+  /** Inngest queued job (202): stop blocking the page; widget polls status. */
+  function finishIfQueuedAsyncGeneration(response: Response): boolean {
+    if (response.status !== 202) return false;
+    toast.success(
+      "Personas are generating in the background. Track progress in the widget."
+    );
+    setStarting(false);
+    return true;
+  }
 
   // Chat entry → describe step
   const [promptText, setPromptText] = useState(
@@ -865,10 +874,12 @@ export function UnifiedCreationFlow({
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
           speedMode: personaSpeedMode,
+          async: true,
         }),
       });
 
       await ensureGenerateResponseOk(response);
+      if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -1024,10 +1035,12 @@ export function UnifiedCreationFlow({
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
           speedMode: personaSpeedMode,
+          async: true,
         }),
       });
 
       await ensureGenerateResponseOk(response);
+      if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -1165,10 +1178,12 @@ export function UnifiedCreationFlow({
           sourceTypeOverride,
           usedDeepResearchPipeline: false,
           speedMode: personaSpeedMode,
+          async: true,
         }),
       });
 
       await ensureGenerateResponseOk(response);
+      if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -1281,10 +1296,12 @@ export function UnifiedCreationFlow({
           sourceTypeOverride,
           usedDeepResearchPipeline,
           speedMode: personaSpeedMode,
+          async: true,
         }),
       });
 
       await ensureGenerateResponseOk(response);
+      if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -1637,10 +1654,12 @@ export function UnifiedCreationFlow({
                       templateId,
                       usedDeepResearchPipeline: false,
                       speedMode: personaSpeedMode,
+                      async: true,
                     }),
                   });
 
                   await ensureGenerateResponseOk(response);
+                  if (finishIfQueuedAsyncGeneration(response)) return;
                   await streamGenerationProgress(response, gId, runId);
                 } catch (error) {
                   toast.error(

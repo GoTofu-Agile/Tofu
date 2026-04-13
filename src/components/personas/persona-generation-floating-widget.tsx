@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -68,44 +69,45 @@ export function PersonaGenerationFloatingWidget() {
 
   const runId = run?.runId;
   const runPhase = run?.phase;
+  const pollEnabled =
+    !!runId && runPhase !== "done" && runPhase !== "error";
+
+  const { data: polled } = useQuery({
+    queryKey: ["persona-generation-status", runId],
+    enabled: pollEnabled,
+    staleTime: 0,
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/personas/generation-status?runId=${encodeURIComponent(runId!)}`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) throw new Error("generation-status failed");
+      return (await res.json()) as WidgetRun;
+    },
+    refetchInterval: (q) => {
+      const p = q.state.data?.phase;
+      if (p === "done" || p === "error") return false;
+      return 2500;
+    },
+  });
 
   useEffect(() => {
-    if (!runId || runPhase === "done" || runPhase === "error") return;
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const res = await fetch(
-          `/api/personas/generation-status?runId=${encodeURIComponent(runId)}`,
-          { cache: "no-store" }
-        );
-        if (!res.ok) return;
-        const data = (await res.json()) as WidgetRun;
-        if (cancelled) return;
-        setRun((prev) => {
-          if (!prev) return prev;
-          const merged: WidgetRun = {
-            ...prev,
-            phase: data.phase,
-            completed: data.completed,
-            total: data.total,
-            currentName: data.currentName,
-            message: data.message,
-            updatedAt: Date.now(),
-          };
-          writeRun(merged);
-          return merged;
-        });
-      } catch {
-        // ignore transient polling errors
-      }
-    };
-    const id = window.setInterval(poll, 2500);
-    void poll();
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, [runId, runPhase]);
+    if (!polled || !runId) return;
+    setRun((prev) => {
+      if (!prev || prev.runId !== runId) return prev;
+      const merged: WidgetRun = {
+        ...prev,
+        phase: polled.phase,
+        completed: polled.completed,
+        total: polled.total,
+        currentName: polled.currentName,
+        message: polled.message,
+        updatedAt: Date.now(),
+      };
+      writeRun(merged);
+      return merged;
+    });
+  }, [polled, runId]);
 
   const progressPercent = useMemo(() => {
     if (!run) return 0;
