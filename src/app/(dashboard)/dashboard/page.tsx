@@ -26,38 +26,46 @@ function getGreeting() {
 export default async function DashboardPage() {
   const { user, activeOrgId } = await requireAuthWithActiveOrg();
 
-  const activeOrg = await prisma.organization.findUnique({
-    where: { id: activeOrgId },
-    select: { name: true, isPersonal: true },
-  });
-  const orgDisplayName = activeOrg?.isPersonal ? "Personal" : (activeOrg?.name ?? "Workspace");
+  const [
+    activeOrg,
+    orgContext,
+    personaGroupCount,
+    studyCount,
+    personaCount,
+    completedStudyCount,
+    recentStudies,
+    recentGroups,
+  ] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: activeOrgId },
+      select: { name: true, isPersonal: true },
+    }),
+    getOrgProductContext(activeOrgId),
+    prisma.personaGroup.count({ where: { organizationId: activeOrgId } }),
+    prisma.study.count({ where: { organizationId: activeOrgId } }),
+    prisma.persona.count({
+      where: {
+        personaGroup: { organizationId: activeOrgId },
+      },
+    }),
+    prisma.study.count({
+      where: { organizationId: activeOrgId, status: "COMPLETED" },
+    }),
+    prisma.study.findMany({
+      where: { organizationId: activeOrgId },
+      orderBy: { createdAt: "desc" },
+      take: 4,
+      include: { _count: { select: { sessions: true } } },
+    }),
+    prisma.personaGroup.findMany({
+      where: { organizationId: activeOrgId },
+      orderBy: { createdAt: "desc" },
+      take: 4,
+      include: { _count: { select: { personas: true } } },
+    }),
+  ]);
 
-  const [orgContext, personaGroupCount, studyCount, personaCount, completedStudyCount, recentStudies, recentGroups] =
-    await Promise.all([
-      getOrgProductContext(activeOrgId),
-      prisma.personaGroup.count({ where: { organizationId: activeOrgId } }),
-      prisma.study.count({ where: { organizationId: activeOrgId } }),
-      prisma.persona.count({
-        where: {
-          personaGroup: { organizationId: activeOrgId },
-        },
-      }),
-      prisma.study.count({
-        where: { organizationId: activeOrgId, status: "COMPLETED" },
-      }),
-      prisma.study.findMany({
-        where: { organizationId: activeOrgId },
-        orderBy: { createdAt: "desc" },
-        take: 4,
-        include: { _count: { select: { sessions: true } } },
-      }),
-      prisma.personaGroup.findMany({
-        where: { organizationId: activeOrgId },
-        orderBy: { createdAt: "desc" },
-        take: 4,
-        include: { _count: { select: { personas: true } } },
-      }),
-    ]);
+  const orgDisplayName = activeOrg?.isPersonal ? "Personal" : (activeOrg?.name ?? "Workspace");
 
   const steps = [
     {

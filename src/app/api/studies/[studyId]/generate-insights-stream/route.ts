@@ -12,6 +12,8 @@ import {
 import { prisma } from "@/lib/db/prisma";
 import { createNDJSONStream, streamDelay } from "@/lib/streaming/ndjson";
 
+export const maxDuration = 300;
+
 const requestSchema = z.object({
   analysisTypes: z.array(z.string()).optional(),
   customPrompt: z.string().optional(),

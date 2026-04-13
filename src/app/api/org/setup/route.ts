@@ -7,6 +7,8 @@ import { getUserRole } from "@/lib/db/queries/organizations";
 import { getModel } from "@/lib/ai/provider";
 import { prisma } from "@/lib/db/prisma";
 
+export const maxDuration = 120;
+
 const extractSchema = z.object({
   productName: z.string().nullable(),
   productDescription: z.string().nullable(),

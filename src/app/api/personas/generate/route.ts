@@ -21,6 +21,9 @@ import {
 } from "@/lib/personas/persona-generation-guard";
 import type { PersonaGenerationSpeedMode } from "@/lib/ai/generate-personas";
 
+/** Vercel / serverless max wall time for streaming generation (plan may cap lower). */
+export const maxDuration = 300;
+
 const requestSchema = z.object({
   groupId: z.string().min(1),
   count: z.number().int().min(1).max(100),

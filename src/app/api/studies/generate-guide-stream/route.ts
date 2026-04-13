@@ -8,6 +8,8 @@ import { getStudy, updateStudy } from "@/lib/db/queries/studies";
 import { getOrgProductContext, getUserRole } from "@/lib/db/queries/organizations";
 import { createNDJSONStream, streamDelay } from "@/lib/streaming/ndjson";
 
+export const maxDuration = 120;
+
 const requestSchema = z.object({
   title: z.string().default("Untitled Study"),
   description: z.string().optional(),

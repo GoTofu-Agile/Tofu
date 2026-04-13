@@ -7,6 +7,8 @@ import { getUserRole } from "@/lib/db/queries/organizations";
 import { getModel } from "@/lib/ai/provider";
 import { checkRateLimit } from "@/lib/server/request-guards";
 
+export const maxDuration = 120;
+
 export async function POST(request: NextRequest) {
   // Auth
   const supabase = await createClient();
