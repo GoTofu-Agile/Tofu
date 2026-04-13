@@ -295,67 +295,45 @@ export async function serpPersonaSupplement(
     );
   };
 
-  // --- Core chain (always) ---
-  await tryCall("google_news", async () => {
-    const json = await serpGet({
-      engine: "google_news",
-      q: primary,
-      hl,
-      gl,
-    });
-    const rows = resultsFromGoogleNewsJson(json);
-    return persistRows(rows, {
-      sourceType: "NEWS",
-      searchQuery: `serp:google_news:${primary.slice(0, 120)}`,
-      serpEngine: "google_news",
-      slice: 6,
-    });
-  });
-
-  await tryCall("google", async () => {
-    const json = await serpGet({
-      engine: "google",
-      q: primary,
-      hl,
-      gl,
-      num: 10,
-    });
-    const rows = organicFromGoogleJson(json).map((r) => ({ ...r, dedupeKey: undefined }));
-    return persistRows(rows, {
-      sourceType: "MANUAL",
-      searchQuery: `serp:google:${primary.slice(0, 120)}`,
-      serpEngine: "google",
-      slice: 6,
-    });
-  });
-
-  await tryCall("google_site_reddit", async () => {
-    const q = `site:reddit.com ${primary}`.slice(0, 400);
-    const json = await serpGet({
-      engine: "google",
-      q,
-      hl,
-      gl,
-      num: 8,
-    });
-    const rows = organicFromGoogleJson(json);
-    return persistRows(rows, {
-      sourceType: "REDDIT",
-      searchQuery: `serp:google_reddit:${primary.slice(0, 100)}`,
-      serpEngine: "google_site_reddit",
-      slice: 5,
-    });
-  });
-
-  if (baseQueries.length > 1 && callsUsed < maxCalls) {
-    const second = baseQueries[1]!;
-    await tryCall("google_news", async () => {
-      const json = await serpGet({
-        engine: "google_news",
-        q: second,
-        hl,
-        gl,
+  // --- Core chain (always) — fire all independent queries in parallel ---
+  const coreTasks: Array<() => Promise<void>> = [
+    () => tryCall("google_news", async () => {
+      const json = await serpGet({ engine: "google_news", q: primary, hl, gl });
+      const rows = resultsFromGoogleNewsJson(json);
+      return persistRows(rows, {
+        sourceType: "NEWS",
+        searchQuery: `serp:google_news:${primary.slice(0, 120)}`,
+        serpEngine: "google_news",
+        slice: 6,
       });
+    }),
+    () => tryCall("google", async () => {
+      const json = await serpGet({ engine: "google", q: primary, hl, gl, num: 10 });
+      const rows = organicFromGoogleJson(json).map((r) => ({ ...r, dedupeKey: undefined }));
+      return persistRows(rows, {
+        sourceType: "MANUAL",
+        searchQuery: `serp:google:${primary.slice(0, 120)}`,
+        serpEngine: "google",
+        slice: 6,
+      });
+    }),
+    () => tryCall("google_site_reddit", async () => {
+      const q = `site:reddit.com ${primary}`.slice(0, 400);
+      const json = await serpGet({ engine: "google", q, hl, gl, num: 8 });
+      const rows = organicFromGoogleJson(json);
+      return persistRows(rows, {
+        sourceType: "REDDIT",
+        searchQuery: `serp:google_reddit:${primary.slice(0, 100)}`,
+        serpEngine: "google_site_reddit",
+        slice: 5,
+      });
+    }),
+  ];
+
+  if (baseQueries.length > 1) {
+    const second = baseQueries[1]!;
+    coreTasks.push(() => tryCall("google_news", async () => {
+      const json = await serpGet({ engine: "google_news", q: second, hl, gl });
       const rows = resultsFromGoogleNewsJson(json);
       return persistRows(rows, {
         sourceType: "NEWS",
@@ -363,8 +341,11 @@ export async function serpPersonaSupplement(
         serpEngine: "google_news",
         slice: 4,
       });
-    });
+    }));
   }
+
+  // Cap total calls: slice to what the budget allows before firing
+  await Promise.allSettled(coreTasks.slice(0, maxCalls).map((fn) => fn()));
 
   // --- Extended modes (optional) ---
   const localArea = serpOptions?.localArea?.trim();
