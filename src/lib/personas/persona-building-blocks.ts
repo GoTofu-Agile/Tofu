@@ -191,6 +191,42 @@ const BEHAVIOR_FRAGMENTS = [
   "documents decisions for the team wiki",
 ] as const;
 
+const CONTRADICTION_FRAGMENTS = [
+  "Tells friends they are unplugging on weekends but still checks work chat on Sunday nights out of habit",
+  "Presents as low-drama at work yet keeps a mental ledger of small slights for months",
+  "Claims to hate meetings but gets restless when left off an invite list",
+  "Says money is not everything while pricing every decision against lost hourly rate",
+  "Describes themselves as patient but sends follow-up pings the moment a deadline looms",
+] as const;
+
+const HABIT_FRAGMENTS = [
+  "Rewrites the same email three times before sending, then sends the second draft anyway",
+  "Always arrives seven minutes early and pretends to read notifications until the room fills",
+  "Labels pantry containers at home but lets desktop downloads pile into chaos",
+  "Ends the day by writing tomorrow's top three on a sticky note that migrates for a week",
+] as const;
+
+const OPINION_FRAGMENTS = [
+  "Thinks most 'AI features' are demos that die the first week of real use",
+  "Believes loyalty programs are a tax on people bad at math",
+  "Insists that if onboarding needs a PDF, the product already failed",
+  "Feels public roadmaps are mostly theater unless dates hurt someone",
+] as const;
+
+const QUIRK_FRAGMENTS = [
+  "Uses the same mug until it chips, then acts personally betrayed",
+  "Mute-by-default on video calls but types long asides in chat",
+  "Apologizes to inanimate objects when bumping them",
+  "Refuses to delete old tabs; calls it 'ambient context'",
+] as const;
+
+const BIAS_FRAGMENTS = [
+  "Over-trusts handwritten notes and distrusts anything that only exists in the cloud",
+  "Will pay more for a vendor that answers the phone on the second ring",
+  "Holds an irrational grudge against brands that changed a logo they liked",
+  "Defaults to the tool their cousin recommended once, even when specs disagree",
+] as const;
+
 type TraitPreset = Pick<
   PersonaOutput["personality"],
   | "openness"
@@ -389,12 +425,43 @@ export function assembleTurboPersona(params: AssembleTurboPersonaParams): Person
   const behaviors = [
     pick(BEHAVIOR_FRAGMENTS, seed, 43),
     pick(BEHAVIOR_FRAGMENTS, seed, 47),
+    pick(BEHAVIOR_FRAGMENTS, seed, 48),
   ];
+
+  const c1 = pick(CONTRADICTION_FRAGMENTS, seed, 49);
+  const c2 = pick(CONTRADICTION_FRAGMENTS, seed, 51);
+  const uniqueContradictions = c1 === c2 ? [c1] : [c1, c2];
+
+  const habits = [
+    pick(HABIT_FRAGMENTS, seed, 55),
+    pick(HABIT_FRAGMENTS, seed, 57),
+  ];
+  const opinions = [
+    pick(OPINION_FRAGMENTS, seed, 59),
+    pick(OPINION_FRAGMENTS, seed, 61),
+  ];
+  const quirks = [
+    pick(QUIRK_FRAGMENTS, seed, 63),
+    pick(QUIRK_FRAGMENTS, seed, 65),
+    pick(QUIRK_FRAGMENTS, seed, 67),
+  ];
+
+  const formativeExperiences: [string, string] = [
+    `In ${location}, at twenty-six, they took the blame for a botched handoff to protect a junior—then spent a year proving they would not do it twice.`,
+    `A ${lifePath} stretch meant sleeping on a cousin's couch for six weeks; they still overpack snacks whenever travel is mentioned.`,
+  ];
+
+  const recurringHabit = pick(HABIT_FRAGMENTS, seed, 69);
+
+  const communicationFingerprint =
+    "Sentences run medium-long with occasional short stubs for emphasis; uses commas heavily; almost never uses emoji; hedges with 'I mean' when uncertain; reads aloud tricky messages once before sending.";
+
+  const cognitiveBiasOrIrrationalStreak = pick(BIAS_FRAGMENTS, seed, 71);
 
   const domainLine = domainContext    ? ` Their decisions are shaped by this product context: ${domainContext.slice(0, 280)}${domainContext.length > 280 ? "…" : ""}`
     : "";
 
-  const backstory = `${firstName} ${lastName} grew up in a ${upbringing} setting with ${socioeconomic} pressures. Early work meant taking responsibility quickly: a first role in customer-facing operations taught them how promises translate into late nights. A ${lifePath} moment forced a reset in priorities and tightened their standards for what counts as “done.”${domainLine} They still negotiate trade-offs between credibility and speed, and they distrust one-size-fits-all narratives about users like them.`;
+  const backstory = `${firstName} ${lastName} grew up in a ${upbringing} setting with ${socioeconomic} pressures. Early work meant taking responsibility quickly: a first role in customer-facing operations taught them how promises translate into late nights. A ${lifePath} moment forced a reset in priorities and tightened their standards for what counts as “done.”${domainLine} They still negotiate trade-offs between credibility and speed, and they distrust one-size-fits-all narratives about users like them. Those inner tensions show up in small weekly habits more than in what they say in meetings.`;
 
   const dayInTheLife = `Morning starts with triage: messages, a short commute or home desk setup, then the real work of coordinating people who do not share the same urgency. Midday is meetings or site checks, depending on the week, and the afternoon is where plans either survive contact with reality or get rewritten.
 
@@ -402,9 +469,9 @@ Evening is quieter: they replay one decision from the day and note what they wou
 
   const bio = `${name} is a ${ageClamped}-year-old ${occupation} based in ${location}. ${archetype.split(" ").slice(1).join(" ")} — practical, specific, and allergic to buzzwords.`;
 
-  const representativeQuote = `I do not need the perfect tool; I need the one my team will actually use without a week of training.`;
+  const representativeQuote = `I don't need the perfect tool—I need one my team will actually use without a week of training.`;
 
-  const communicationSample = `If it saves me real time, I will adopt it. If it is another dashboard that answers someone else’s question—not mine—I will keep my spreadsheet.`;
+  const communicationSample = `If it saves real time, I'll adopt it. If it's another dashboard for someone else's question—not mine—I'll keep the spreadsheet, honestly.`;
 
   return {
     name,
@@ -424,6 +491,16 @@ Evening is quieter: they replay one decision from the day and note what they wou
     dayInTheLife,
     coreValues,
     communicationSample,
+    formativeExperiences,
+    recurringHabit,
+    contradictions: uniqueContradictions,
+    habits,
+    opinions,
+    quirks,
+    communicationFingerprint,
+    cognitiveBiasOrIrrationalStreak,
+    authenticitySelfScore: 62 + (seed % 12),
+    relatabilityScore: 64 + (seed % 14),
     personality: { ...preset },
   };
 }

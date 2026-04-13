@@ -74,6 +74,25 @@ type PreviousPersonaSummary = {
   signature: string;
 };
 
+/** Richness instructions for one-shot generation (no second LLM call). */
+function singleCallRealismBlock(): string {
+  return `SINGLE-CALL REALISM — two mental passes, emit ONE JSON object only:
+PHASE 1 — Draft a persona that satisfies every schema field.
+PHASE 2 — Tighten before output: humanize voice; weave 1–2 subtle INNER CONTRADICTIONS through backstory and dayInTheLife (show the tension, never prefix with "contradiction:"). Slightly degrade "AI polish" in representativeQuote and communicationSample (natural fragments, uneven length, not brochure tone).
+
+ENVIRONMENT & ROUTINE: Ground location in lived detail—commute mode, neighborhood texture, rent/time pressure, one job-specific ritual (standup, site walk, clinic triage, etc.).
+
+BEHAVIORS (3–7 strings): Observable micro-actions only—what a camera would see. FORBIDDEN as standalone behaviors: friendly, hardworking, funny, passionate, driven, resilient, team player, people person, detail-oriented, proactive.
+
+MEMORY ANCHORS: formativeExperiences = two concrete past episodes (specific people/places/outcomes). recurringHabit = one repeating behavior. opinions = 1–3 spiky, specific stances (not "quality matters").
+
+COMMUNICATION FINGERPRINT: One paragraph describing their real writing/speech—sentence length mix, punctuation habits, emoji policy (none / rare / ironic), hedging vs bluntness. Quotes and communicationSample must demonstrate it.
+
+IMPERFECTION: cognitiveBiasOrIrrationalStreak = mild human mess—unfair preference, superstition, grudge, or inconsistency that coexists with their competence.
+
+SELF-CHECK: Set authenticitySelfScore and relatabilityScore honestly (40–100). If the persona still reads like a LinkedIn summary, mentally revise once for specificity and asymmetry, then output the final JSON only.`;
+}
+
 function buildPrompt(params: {
   index: number;
   count: number;
@@ -230,9 +249,11 @@ CRITICAL RULES:
     );
   }
 
-  if (additionalDifferentiation) {
+   if (additionalDifferentiation) {
     layers.push(`EXTRA DIFFERENTIATION REQUIREMENT:\n${additionalDifferentiation}`);
   }
+
+  layers.push(singleCallRealismBlock());
 
   // Layer 5: Output Quality Rules
   layers.push(
@@ -245,6 +266,12 @@ CRITICAL RULES:
 - dayInTheLife: Exactly 2 short paragraphs that describe routine, context, constraints, and trade-offs in a realistic day
 - communicationSample: Write a 2-3 sentence response to "What do you think about trying new technology?" in this persona's authentic voice
 - coreValues: 3-5 deeply held values, ranked by importance
+- behaviors: 3–7 strings, each an observable habit/action (see SINGLE-CALL REALISM)
+- formativeExperiences: exactly two strings, specific episodic memories
+- recurringHabit, contradictions (1–2), habits, opinions, quirks: all concrete; contradictions must feel psychologically plausible together
+- communicationFingerprint: paragraph as specified above
+- cognitiveBiasOrIrrationalStreak: one specific human imperfection
+- authenticitySelfScore, relatabilityScore: integers 40–100 from self-check
 - Avoid generic filler such as "has always been passionate", "works hard every day", or repeated stock phrasing across personas
 - Writing style: neutral and observational, concise, information-dense, avoid inspirational storytelling tone
 - The personality traits should be COHERENT with the backstory and behaviors — a cautious person should have low riskTolerance, a blunt person should have high directness`
@@ -313,8 +340,13 @@ function buildPromptFast(params: {
   }
   if (additionalDifferentiation) lines.push(`EXTRA: ${additionalDifferentiation}`);
 
+  lines.push(singleCallRealismBlock());
+
   lines.push(
-    "Narrative: backstory 5–7 sentences (city+country, early job, trade-off, turning point). dayInTheLife: 2 short paragraphs. representativeQuote 1–2 sentences. communicationSample: 2–3 sentences answering what they think about trying new technology. coreValues: 3–5 ranked. bio: concise."
+    "Narrative: backstory 5–7 sentences (city+country, early job, trade-off, turning point). dayInTheLife: 2 short paragraphs with commute/neighborhood/job-site texture. representativeQuote + communicationSample: show communicationFingerprint (imperfect rhythm OK). coreValues: 3–5 ranked. bio: concise."
+  );
+  lines.push(
+    "Required JSON extras: formativeExperiences[2], recurringHabit, contradictions[1–2], habits[2–4], opinions[1–3], quirks[2–5], communicationFingerprint, cognitiveBiasOrIrrationalStreak, authenticitySelfScore, relatabilityScore. behaviors: 3–7 observable actions, no trait adjectives."
   );
 
   return lines.join("\n\n");
@@ -465,6 +497,26 @@ CURRENT SITUATION: ${persona.dayInTheLife}
 
 CORE VALUES: ${persona.coreValues.join(", ")}
 
+FORMATIVE EXPERIENCES:
+- ${persona.formativeExperiences[0]}
+- ${persona.formativeExperiences[1]}
+
+RECURRING HABIT: ${persona.recurringHabit}
+
+CONTRADICTIONS (embody both; don't explain as a list in interviews): ${persona.contradictions.join(" | ")}
+
+HABITS: ${persona.habits.join("; ")}
+
+OPINIONS: ${persona.opinions.join("; ")}
+
+QUIRKS: ${persona.quirks.join("; ")}
+
+OBSERVABLE BEHAVIORS: ${persona.behaviors.join("; ")}
+
+COMMUNICATION FINGERPRINT: ${persona.communicationFingerprint}
+
+HUMAN IMPERFECTION / BIAS: ${persona.cognitiveBiasOrIrrationalStreak}
+
 INTERVIEW BEHAVIOR:
 - You give ${p.responseLengthTendency} answers
 - Your vocabulary is ${p.vocabularyLevel}
@@ -479,6 +531,11 @@ If you're skeptical, be skeptical. If you don't understand something, say you do
 function computeQualityScore(persona: PersonaOutput): number {
   const repeatedNarrativePenalty = hasRepetitiveNarrative(persona.backstory, persona.dayInTheLife);
   let score = 0;
+  const traitWord =
+    /\b(friendly|hardworking|funny|passionate|driven|resilient|people person|team player|detail-oriented|proactive)\b/i;
+  const behaviorsSpecific =
+    persona.behaviors.length >= 3 && persona.behaviors.every((b) => b.length >= 25 && !traitWord.test(b));
+
   const checks = [
     persona.name.length > 2,
     persona.age >= 18 && persona.age <= 100,
@@ -490,7 +547,12 @@ function computeQualityScore(persona: PersonaOutput): number {
     countSentences(persona.backstory) >= 5,
     persona.goals.length >= 2,
     persona.frustrations.length >= 2,
-    persona.behaviors.length >= 2,
+    behaviorsSpecific,
+    persona.contradictions.length >= 1,
+    persona.formativeExperiences[0].length >= 28 && persona.formativeExperiences[1].length >= 28,
+    persona.communicationFingerprint.length >= 45,
+    persona.cognitiveBiasOrIrrationalStreak.length >= 22,
+    persona.authenticitySelfScore >= 55,
     persona.archetype.length > 3,
     persona.representativeQuote.length > 10,
     persona.dayInTheLife.length > 220,
@@ -590,7 +652,7 @@ function jaccard(a: string[], b: string[]) {
 function isTooSimilarToBatch(candidate: PersonaOutput, previous: PreviousPersonaSummary[]) {
   if (previous.length === 0) return false;
   const candidateTokens = normalizeTokens(
-    `${candidate.backstory} ${candidate.dayInTheLife} ${candidate.archetype} ${candidate.occupation}`
+    `${candidate.backstory} ${candidate.dayInTheLife} ${candidate.archetype} ${candidate.occupation} ${candidate.contradictions.join(" ")} ${candidate.formativeExperiences.join(" ")}`
   );
   return previous.some((entry) => jaccard(candidateTokens, normalizeTokens(entry.signature)) > 0.46);
 }

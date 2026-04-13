@@ -23,7 +23,8 @@ export const personaSchema = z.object({
   backstory: z.string().min(200),
   goals: z.array(z.string()),
   frustrations: z.array(z.string()),
-  behaviors: z.array(z.string()),
+  /** Observable micro-behaviors only — no trait adjectives like "friendly" or "hardworking". */
+  behaviors: z.array(z.string().min(25)).min(3).max(7),
 
   // Rich persona fields
   archetype: z.string(), // e.g. "The Pragmatic Skeptic"
@@ -33,6 +34,28 @@ export const personaSchema = z.object({
   dayInTheLife: z.string().min(160), // narrative scenario
   coreValues: z.array(z.string()), // ranked list of values
   communicationSample: z.string(), // example response showing voice
+
+  /** Two concrete past episodes that shaped how they think (not generic "always wanted to"). */
+  formativeExperiences: z.tuple([
+    z.string().min(28).max(450),
+    z.string().min(28).max(450),
+  ]),
+  /** Something they do repeatedly (ritual, tic, routine). */
+  recurringHabit: z.string().min(18).max(320),
+  /** 1–2 subtle inner contradictions (both should feel true). */
+  contradictions: z.array(z.string().min(22).max(300)).min(1).max(2),
+  habits: z.array(z.string().min(15).max(240)).min(2).max(4),
+  /** Strong stances — specific, debatable, not platitudes. */
+  opinions: z.array(z.string().min(20).max(360)).min(1).max(3),
+  quirks: z.array(z.string().min(14).max(220)).min(2).max(5),
+  /** How they actually write/speak: rhythm, punctuation, emoji policy, sentence length mix. */
+  communicationFingerprint: z.string().min(45).max(650),
+  /** Mild bias, irrational preference, or inconsistency humans have. */
+  cognitiveBiasOrIrrationalStreak: z.string().min(22).max(360),
+  /** Model self-check: 40–100; lower if output still feels like a corporate summary. */
+  authenticitySelfScore: z.number().int().min(40).max(100),
+  /** How recognizable / relatable the behavior patterns feel (model-estimated). */
+  relatabilityScore: z.number().int().min(40).max(100),
 
   personality: z.object({
     // Big Five

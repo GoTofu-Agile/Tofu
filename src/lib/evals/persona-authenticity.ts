@@ -144,6 +144,26 @@ export function mapScoreToBand(score: number): "low" | "medium" | "high" {
   return "low";
 }
 
+function personaEvalCorpusText(persona: PersonaOutput): string {
+  return [
+    persona.name,
+    persona.location,
+    persona.occupation,
+    persona.backstory,
+    persona.dayInTheLife,
+    persona.communicationSample,
+    persona.behaviors.join("\n"),
+    persona.contradictions.join("\n"),
+    persona.formativeExperiences.join("\n"),
+    persona.recurringHabit,
+    persona.habits.join("\n"),
+    persona.opinions.join("\n"),
+    persona.quirks.join("\n"),
+    persona.communicationFingerprint,
+    persona.cognitiveBiasOrIrrationalStreak,
+  ].join("\n");
+}
+
 /**
  * Fast path: no LLM, no embedding API — rule-based score suitable for persistence and UI.
  * Full `scorePersonaAuthenticity` remains available for quality mode.
@@ -156,14 +176,7 @@ export async function scorePersonaAuthenticityHeuristic(
     archetype: string | null;
   }>
 ): Promise<PersonaAuthenticityResult> {
-  const personaText = [
-    persona.name,
-    persona.location,
-    persona.occupation,
-    persona.backstory,
-    persona.dayInTheLife,
-    persona.communicationSample,
-  ].join("\n");
+  const personaText = personaEvalCorpusText(persona);
 
   const clicheFlags = detectBackstoryCliches(personaText);
   const corpus = recentPersonas.map((p) =>
@@ -180,6 +193,21 @@ export async function scorePersonaAuthenticityHeuristic(
     ruleScore -= 12;
   }
   ruleScore -= clicheFlags.length * 8;
+
+  const traitWord = /\b(friendly|hardworking|funny|passionate|driven|resilient|people person|team player)\b/i;
+  if (persona.behaviors.some((b) => traitWord.test(b))) {
+    ruleScore -= 6;
+  }
+
+  let richnessBonus = 0;
+  if (persona.contradictions.length >= 1) richnessBonus += 4;
+  if (persona.behaviors.length >= 3 && persona.behaviors.every((b) => b.length >= 28)) richnessBonus += 3;
+  if (persona.communicationFingerprint.length >= 55) richnessBonus += 2;
+  if (persona.formativeExperiences[0].length >= 40 && persona.formativeExperiences[1].length >= 40) {
+    richnessBonus += 2;
+  }
+  ruleScore += richnessBonus;
+
   ruleScore = Math.max(0, Math.min(100, ruleScore));
 
   const dim = Math.max(35, Math.min(92, ruleScore + (personaText.length > 400 ? 4 : -4)));
@@ -204,6 +232,7 @@ export async function scorePersonaAuthenticityHeuristic(
     evalRaw: {
       heuristic: true,
       ruleScore,
+      richnessBonus,
       similarity,
       tokenCount: tokenize(personaText).length,
     },
@@ -219,14 +248,7 @@ export async function scorePersonaAuthenticity(
     archetype: string | null;
   }>
 ): Promise<PersonaAuthenticityResult> {
-  const personaText = [
-    persona.name,
-    persona.location,
-    persona.occupation,
-    persona.backstory,
-    persona.dayInTheLife,
-    persona.communicationSample,
-  ].join("\n");
+  const personaText = personaEvalCorpusText(persona);
 
   const clicheFlags = detectBackstoryCliches(personaText);
   const corpus = recentPersonas.map((p) =>
