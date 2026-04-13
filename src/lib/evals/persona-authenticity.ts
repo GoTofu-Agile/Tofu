@@ -201,9 +201,9 @@ export async function scorePersonaAuthenticityHeuristic(
 
   let richnessBonus = 0;
   if (persona.contradictions.length >= 1) richnessBonus += 4;
-  if (persona.behaviors.length >= 3 && persona.behaviors.every((b) => b.length >= 28)) richnessBonus += 3;
-  if (persona.communicationFingerprint.length >= 55) richnessBonus += 2;
-  if (persona.formativeExperiences[0].length >= 40 && persona.formativeExperiences[1].length >= 40) {
+  if (persona.behaviors.length >= 3 && persona.behaviors.every((b) => b.length >= 22)) richnessBonus += 3;
+  if (persona.communicationFingerprint.length >= 45) richnessBonus += 2;
+  if (persona.formativeExperiences[0].length >= 35 && persona.formativeExperiences[1].length >= 35) {
     richnessBonus += 2;
   }
   ruleScore += richnessBonus;

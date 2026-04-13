@@ -93,6 +93,24 @@ IMPERFECTION: cognitiveBiasOrIrrationalStreak = mild human mess—unfair prefere
 SELF-CHECK: Set authenticitySelfScore and relatabilityScore honestly (40–100). If the persona still reads like a LinkedIn summary, mentally revise once for specificity and asymmetry, then output the final JSON only.`;
 }
 
+async function generatePersonaObject(params: {
+  model: ReturnType<typeof getPersonaGenerationModel>;
+  prompt: string;
+  label: string;
+}): Promise<PersonaOutput> {
+  try {
+    const { object } = await generateObject({
+      model: params.model,
+      schema: personaSchema,
+      prompt: params.prompt,
+    });
+    return object;
+  } catch (error) {
+    console.error(`[generate-personas] structured generation failed [${params.label}]:`, error);
+    throw error;
+  }
+}
+
 function buildPrompt(params: {
   index: number;
   count: number;
@@ -534,7 +552,7 @@ function computeQualityScore(persona: PersonaOutput): number {
   const traitWord =
     /\b(friendly|hardworking|funny|passionate|driven|resilient|people person|team player|detail-oriented|proactive)\b/i;
   const behaviorsSpecific =
-    persona.behaviors.length >= 3 && persona.behaviors.every((b) => b.length >= 25 && !traitWord.test(b));
+    persona.behaviors.length >= 3 && persona.behaviors.every((b) => b.length >= 18 && !traitWord.test(b));
 
   const checks = [
     persona.name.length > 2,
@@ -549,10 +567,10 @@ function computeQualityScore(persona: PersonaOutput): number {
     persona.frustrations.length >= 2,
     behaviorsSpecific,
     persona.contradictions.length >= 1,
-    persona.formativeExperiences[0].length >= 28 && persona.formativeExperiences[1].length >= 28,
-    persona.communicationFingerprint.length >= 45,
-    persona.cognitiveBiasOrIrrationalStreak.length >= 22,
-    persona.authenticitySelfScore >= 55,
+    persona.formativeExperiences[0].length >= 20 && persona.formativeExperiences[1].length >= 20,
+    persona.communicationFingerprint.length >= 35,
+    persona.cognitiveBiasOrIrrationalStreak.length >= 18,
+    persona.authenticitySelfScore >= 50,
     persona.archetype.length > 3,
     persona.representativeQuote.length > 10,
     persona.dayInTheLife.length > 220,
@@ -973,7 +991,7 @@ export async function generateAndSavePersonas(
           try {
             let persona: PersonaOutput | null = null;
             let lastDraft: PersonaOutput | null = null;
-            const MAX_ATTEMPTS = 2;
+            const MAX_ATTEMPTS = 3;
             for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
               const nudgeFromPreviousAttempt =
                 attempt > 0 && lastDraft
@@ -993,10 +1011,10 @@ export async function generateAndSavePersonas(
                     : undefined,
                 includeSkeptics,
               });
-              const { object: draft } = await generateObject({
+              const draft = await generatePersonaObject({
                 model: personaModelFast,
-                schema: personaSchema,
                 prompt,
+                label: `fast slot ${i + 1} attempt ${attempt + 1}`,
               });
               lastDraft = draft;
               const tooGeneric = containsForbiddenTropes(`${draft.backstory} ${draft.dayInTheLife}`);
@@ -1096,10 +1114,10 @@ export async function generateAndSavePersonas(
                 : undefined,
             includeSkeptics,
           });
-          const { object: draft } = await generateObject({
+          const draft = await generatePersonaObject({
             model: personaModel,
-            schema: personaSchema,
             prompt,
+            label: `quality persona ${i + 1} attempt ${attempt + 1}`,
           });
           lastDraft = draft;
           const tooGeneric = containsForbiddenTropes(`${draft.backstory} ${draft.dayInTheLife}`);
