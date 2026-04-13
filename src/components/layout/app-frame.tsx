@@ -9,6 +9,12 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <div
+      // Inset transitions (top/left/bottom/right) force layout reflow on every
+      // animation frame. `will-change: top, left, bottom, right` promotes this
+      // element to its own compositor layer so the browser can rasterise it
+      // independently, reducing paint work during the assistant-open animation.
+      // Long-term: replace inset animation with a GPU-composited transform approach.
+      style={{ willChange: isOpen ? "top, left, bottom, right" : "auto" }}
       className={cn(
         "absolute flex overflow-hidden bg-background transition-all duration-[var(--duration-normal)] ease-[cubic-bezier(0.25,0.1,0.25,1)]",
         isOpen

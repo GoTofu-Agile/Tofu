@@ -20,6 +20,8 @@ const evalSchema = z.object({
       "repetitive_structure",
       "low_specificity",
       "implausible_timeline",
+      "missing_contradictions",
+      "generic_behaviors",
     ])
   ),
 });
@@ -256,30 +258,64 @@ export async function scorePersonaAuthenticity(
   );
   const similarity = await computePersonaSimilarity(personaText, corpus);
 
+  const contradictions = Array.isArray((persona as Record<string, unknown>).contradictions)
+    ? ((persona as Record<string, unknown>).contradictions as string[])
+    : [];
+  const quirks = Array.isArray((persona as Record<string, unknown>).quirks)
+    ? ((persona as Record<string, unknown>).quirks as string[])
+    : [];
+  const communicationFingerprint =
+    typeof (persona as Record<string, unknown>).communicationFingerprint === "string"
+      ? ((persona as Record<string, unknown>).communicationFingerprint as string)
+      : "";
+
+  const authenticityExtras = [
+    contradictions.length > 0
+      ? `Contradictions: ${contradictions.join(" | ")}`
+      : "Contradictions: NONE",
+    quirks.length > 0 ? `Quirks: ${quirks.join(" | ")}` : "Quirks: NONE",
+    communicationFingerprint
+      ? `Communication fingerprint: ${communicationFingerprint}`
+      : "Communication fingerprint: NONE",
+  ].join("\n");
+
   const { object: modelEval } = await generateObject({
     model: getModel(),
     schema: evalSchema,
-    prompt: `Evaluate this synthetic persona for authenticity quality.
-Return JSON only.
+    prompt: `You are a qualitative researcher evaluating synthetic personas for realism.
 
-Score dimensions (0-100):
-- specificity
-- plausibility
-- non_genericity
-- consistency
-- diversity (vs recent personas context)
+SCORE DIMENSIONS (0-100 each):
+- specificity: Are details concrete and lived-in, or abstract and vague?
+- plausibility: Does the life story hang together without implausible leaps?
+- non_genericity: Are traits shown through behavior, not label-words like "friendly" or "hardworking"?
+- consistency: Do personality, backstory, behaviors, and communication style cohere?
+- diversity: How distinct is this persona from the recent corpus?
 
-Penalize:
-- cliche upbringing tropes
-- repetitive structure
-- polished inspirational fluff
-- implausible life timelines
+REWARD highly:
+- Internal contradictions that feel organic (e.g. privacy advocate who overshares on LinkedIn)
+- Behaviors expressed as actions, not adjectives
+- City-level lifestyle texture (commute realities, local culture, cost-of-living pressures)
+- Communication fingerprint with actual linguistic idiosyncrasies
+- Opinions stated in the persona's own voice, not as summarized positions
+- Memory anchors: specific past events that causally explain current behavior
 
-Recent personas context:
+PENALIZE:
+- Trait labels in behaviors ("helpful", "detail-oriented") — flag as generic_behaviors
+- Missing or manufactured-feeling contradictions — flag as missing_contradictions
+- Cliche upbringing tropes — flag as cliche_language / generic_upbringing
+- Polished inspirational backstory — flag as too_polished
+- Implausible timelines — flag as implausible_timeline
+- Repetitive sentence structure — flag as repetitive_structure
+- Backstory under 180 chars — flag as low_specificity
+
+Recent personas context (for diversity scoring):
 ${corpus.slice(0, 10).join("\n\n---\n\n") || "No recent personas."}
 
-Persona:
-${personaText}`,
+Persona to evaluate:
+${personaText}
+
+Authenticity depth signals:
+${authenticityExtras}`,
   });
 
   const modelScore = Math.round(
