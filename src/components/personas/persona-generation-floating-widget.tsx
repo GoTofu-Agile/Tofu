@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import {
   getPersonaProgressBadgeLabel,
   getPersonaProgressHeadline,
 } from "@/lib/personas/progress-copy";
+import { PERSONA_WIDGET_STORAGE_KEY as WIDGET_STORAGE_KEY } from "@/lib/personas/publish-widget-run";
 
 type WidgetRun = {
   runId: string;
@@ -24,12 +26,10 @@ type WidgetRun = {
   updatedAt: number;
 };
 
-const STORAGE_KEY = "personaGenerationWidgetRun";
-
 function readRun(): WidgetRun | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(WIDGET_STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as WidgetRun;
   } catch {
@@ -40,10 +40,10 @@ function readRun(): WidgetRun | null {
 function writeRun(run: WidgetRun | null) {
   if (typeof window === "undefined") return;
   if (!run) {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(WIDGET_STORAGE_KEY);
     return;
   }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(run));
+  window.localStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(run));
 }
 
 export function PersonaGenerationFloatingWidget() {
@@ -69,44 +69,45 @@ export function PersonaGenerationFloatingWidget() {
 
   const runId = run?.runId;
   const runPhase = run?.phase;
+  const pollEnabled =
+    !!runId && runPhase !== "done" && runPhase !== "error";
+
+  const { data: polled } = useQuery({
+    queryKey: ["persona-generation-status", runId],
+    enabled: pollEnabled,
+    staleTime: 0,
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/personas/generation-status?runId=${encodeURIComponent(runId!)}`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) throw new Error("generation-status failed");
+      return (await res.json()) as WidgetRun;
+    },
+    refetchInterval: (q) => {
+      const p = q.state.data?.phase;
+      if (p === "done" || p === "error") return false;
+      return 2500;
+    },
+  });
 
   useEffect(() => {
-    if (!runId || runPhase === "done" || runPhase === "error") return;
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const res = await fetch(
-          `/api/personas/generation-status?runId=${encodeURIComponent(runId)}`,
-          { cache: "no-store" }
-        );
-        if (!res.ok) return;
-        const data = (await res.json()) as WidgetRun;
-        if (cancelled) return;
-        setRun((prev) => {
-          if (!prev) return prev;
-          const merged: WidgetRun = {
-            ...prev,
-            phase: data.phase,
-            completed: data.completed,
-            total: data.total,
-            currentName: data.currentName,
-            message: data.message,
-            updatedAt: Date.now(),
-          };
-          writeRun(merged);
-          return merged;
-        });
-      } catch {
-        // ignore transient polling errors
-      }
-    };
-    const id = window.setInterval(poll, 2500);
-    void poll();
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, [runId, runPhase]);
+    if (!polled || !runId) return;
+    setRun((prev) => {
+      if (!prev || prev.runId !== runId) return prev;
+      const merged: WidgetRun = {
+        ...prev,
+        phase: polled.phase,
+        completed: polled.completed,
+        total: polled.total,
+        currentName: polled.currentName,
+        message: polled.message,
+        updatedAt: Date.now(),
+      };
+      writeRun(merged);
+      return merged;
+    });
+  }, [polled, runId]);
 
   const progressPercent = useMemo(() => {
     if (!run) return 0;

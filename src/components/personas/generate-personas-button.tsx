@@ -8,12 +8,18 @@ import { toast } from "sonner";
 import { Sparkles, Loader2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getPersonaProgressBadgeLabel } from "@/lib/personas/progress-copy";
+import { publishPersonaGenerationWidgetRun } from "@/lib/personas/publish-widget-run";
 
 interface GeneratePersonasButtonProps {
   groupId: string;
   defaultCount?: number;
   domainContext?: string;
   autoStart?: boolean;
+  /**
+   * When true (default), POST with `async: true`, queue Inngest, and drive progress via the floating widget.
+   * Set false to consume the NDJSON stream inline (legacy).
+   */
+  useBackgroundJob?: boolean;
 }
 
 interface ProgressEvent {
@@ -41,6 +47,7 @@ export function GeneratePersonasButton({
   defaultCount = 5,
   domainContext,
   autoStart = false,
+  useBackgroundJob = true,
 }: GeneratePersonasButtonProps) {
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<{
@@ -55,6 +62,16 @@ export function GeneratePersonasButton({
     setProgress({ completed: 0, total: defaultCount, currentName: "" });
 
     try {
+      const runId = crypto.randomUUID();
+      if (useBackgroundJob) {
+        publishPersonaGenerationWidgetRun({
+          runId,
+          groupId,
+          total: defaultCount,
+          phase: "generating",
+        });
+      }
+
       const response = await fetch("/api/personas/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,12 +80,18 @@ export function GeneratePersonasButton({
           count: defaultCount,
           domainContext,
           speedMode: "fast",
+          ...(useBackgroundJob ? { async: true, clientRunId: runId } : {}),
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Generation failed");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error((errorData as { error?: string }).error || "Generation failed");
+      }
+
+      if (useBackgroundJob && response.status === 202) {
+        toast.success("Personas are generating in the background. Track progress in the widget.");
+        return;
       }
 
       const reader = response.body?.getReader();
@@ -134,7 +157,7 @@ export function GeneratePersonasButton({
       setGenerating(false);
       setProgress(null);
     }
-  }, [generating, groupId, defaultCount, domainContext]);
+  }, [generating, groupId, defaultCount, domainContext, useBackgroundJob]);
 
   useEffect(() => {
     if (autoStart) {
