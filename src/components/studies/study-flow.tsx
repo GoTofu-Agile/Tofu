@@ -164,7 +164,10 @@ export function StudyFlow({
   }, [initialReport, initialReports]);
 
   // Step completion checks
-  const guideQuestions = guide.split("\n").map((l) => l.trim()).filter(Boolean);
+  const guideQuestions = useMemo(
+    () => guide.split("\n").map((l) => l.trim()).filter(Boolean),
+    [guide]
+  );
   const isSetupComplete =
     title.trim().length > 0 && studyType.length > 0 && selectedGroupIds.length > 0;
   const isGuideComplete = guideQuestions.length >= 1;
@@ -340,18 +343,28 @@ export function StudyFlow({
 
   // Title save with debounce
   const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  function handleTitleChange(newTitle: string) {
-    setTitle(newTitle);
-    if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
-    titleTimeoutRef.current = setTimeout(async () => {
-      if (newTitle.trim()) {
-        const result = await updateStudyTitle(studyId, newTitle);
-        if (result?.error) {
-          toast.error(result.error);
+
+  useEffect(() => {
+    return () => {
+      if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+    };
+  }, []);
+
+  const handleTitleChange = useCallback(
+    (newTitle: string) => {
+      setTitle(newTitle);
+      if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+      titleTimeoutRef.current = setTimeout(async () => {
+        if (newTitle.trim()) {
+          const result = await updateStudyTitle(studyId, newTitle);
+          if (result?.error) {
+            toast.error(result.error);
+          }
         }
-      }
-    }, 1000);
-  }
+      }, 1000);
+    },
+    [studyId]
+  );
 
   return (
     <div className="space-y-6">

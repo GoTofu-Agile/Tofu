@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ClipboardList, Plus, MessageSquare, CheckCircle2, Clock } from "lucide-react";
@@ -36,6 +37,94 @@ interface StudiesListProps {
   studies: Study[];
 }
 
+const StudyCard = memo(function StudyCard({
+  study,
+  index,
+  reduced,
+}: {
+  study: Study;
+  index: number;
+  reduced: boolean;
+}) {
+  const totalSessions = study._count.sessions;
+  const showProgress =
+    study.status === "ACTIVE" && totalSessions > 0 && study.completedCount < totalSessions;
+  const progressPct = totalSessions > 0 ? (study.completedCount / totalSessions) * 100 : 0;
+  const groupNames = study.personaGroups.map((pg) => pg.personaGroup.name).join(", ");
+
+  return (
+    <MotionStaggerCard key={study.id} index={index} className="flex min-h-0">
+      <Link
+        href={`/studies/${study.id}`}
+        className={cn(
+          "group flex min-h-0 w-full flex-1 flex-col rounded-lg border bg-card p-5 transition-all duration-200 relative overflow-hidden",
+          statusGlow[study.status] || statusGlow.DRAFT
+        )}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-medium group-hover:underline line-clamp-1">{study.title}</h3>
+          <Badge
+            variant="secondary"
+            className={cn(
+              "shrink-0 text-xs",
+              statusColors[study.status],
+              study.status === "ACTIVE" && !reduced && "animate-pulse"
+            )}
+          >
+            {study.status.toLowerCase()}
+          </Badge>
+        </div>
+        <p
+          className={cn(
+            "mt-1 min-h-[2.5rem] text-sm leading-snug text-muted-foreground line-clamp-2",
+            !study.description?.trim() && "text-muted-foreground/40"
+          )}
+        >
+          {study.description?.trim()
+            ? study.description
+            : "No objective yet — open the study to add one."}
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <Badge variant="outline" className="text-xs">
+            {typeLabels[study.studyType] || study.studyType}
+          </Badge>
+          <span className="flex items-center gap-1">
+            <MessageSquare className="h-3 w-3" />
+            {totalSessions} sessions
+          </span>
+          {study.completedCount > 0 && (
+            <span className="flex items-center gap-1 text-green-600">
+              <CheckCircle2 className="h-3 w-3" />
+              {study.completedCount} done
+            </span>
+          )}
+          {study.status === "ACTIVE" && study.completedCount === 0 && (
+            <span className="flex items-center gap-1 text-amber-600">
+              <Clock className="h-3 w-3" />
+              running
+            </span>
+          )}
+        </div>
+        {showProgress ? (
+          <div className="mt-3 h-1 shrink-0 rounded-full bg-muted overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-green-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPct}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+          </div>
+        ) : (
+          <div className="mt-3 h-1 shrink-0" aria-hidden />
+        )}
+        <div className="mt-auto pt-3 text-xs text-muted-foreground border-t border-border/50">
+          {groupNames || "No persona groups linked"}
+        </div>
+      </Link>
+    </MotionStaggerCard>
+  );
+});
+
 export function StudiesList({ studies }: StudiesListProps) {
   const reduced = useReducedMotion();
 
@@ -61,85 +150,9 @@ export function StudiesList({ studies }: StudiesListProps) {
 
   return (
     <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {studies.map((study, i) => {
-        const totalSessions = study._count.sessions;
-        const showProgress = study.status === "ACTIVE" && totalSessions > 0 && study.completedCount < totalSessions;
-        const progressPct = totalSessions > 0 ? (study.completedCount / totalSessions) * 100 : 0;
-        const groupNames = study.personaGroups.map((pg) => pg.personaGroup.name).join(", ");
-
-        return (
-          <MotionStaggerCard key={study.id} index={i} className="flex min-h-0">
-            <Link
-              href={`/studies/${study.id}`}
-              className={cn(
-                "group flex min-h-0 w-full flex-1 flex-col rounded-lg border bg-card p-5 transition-all duration-200 relative overflow-hidden",
-                statusGlow[study.status] || statusGlow.DRAFT
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-medium group-hover:underline line-clamp-1">
-                  {study.title}
-                </h3>
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    "shrink-0 text-xs",
-                    statusColors[study.status],
-                    study.status === "ACTIVE" && !reduced && "animate-pulse"
-                  )}
-                >
-                  {study.status.toLowerCase()}
-                </Badge>
-              </div>
-              <p
-                className={cn(
-                  "mt-1 min-h-[2.5rem] text-sm leading-snug text-muted-foreground line-clamp-2",
-                  !study.description?.trim() && "text-muted-foreground/40"
-                )}
-              >
-                {study.description?.trim() ? study.description : "No objective yet — open the study to add one."}
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <Badge variant="outline" className="text-xs">
-                  {typeLabels[study.studyType] || study.studyType}
-                </Badge>
-                <span className="flex items-center gap-1">
-                  <MessageSquare className="h-3 w-3" />
-                  {totalSessions} sessions
-                </span>
-                {study.completedCount > 0 && (
-                  <span className="flex items-center gap-1 text-green-600">
-                    <CheckCircle2 className="h-3 w-3" />
-                    {study.completedCount} done
-                  </span>
-                )}
-                {study.status === "ACTIVE" && study.completedCount === 0 && (
-                  <span className="flex items-center gap-1 text-amber-600">
-                    <Clock className="h-3 w-3" />
-                    running
-                  </span>
-                )}
-              </div>
-              {/* Mini progress bar for active studies */}
-              {showProgress ? (
-                <div className="mt-3 h-1 shrink-0 rounded-full bg-muted overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full bg-green-500"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progressPct}%` }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                  />
-                </div>
-              ) : (
-                <div className="mt-3 h-1 shrink-0" aria-hidden />
-              )}
-              <div className="mt-auto pt-3 text-xs text-muted-foreground border-t border-border/50">
-                {groupNames || "No persona groups linked"}
-              </div>
-            </Link>
-          </MotionStaggerCard>
-        );
-      })}
+      {studies.map((study, i) => (
+        <StudyCard key={study.id} study={study} index={i} reduced={reduced} />
+      ))}
     </div>
   );
 }

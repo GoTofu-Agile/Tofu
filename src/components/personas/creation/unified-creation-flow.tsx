@@ -204,14 +204,19 @@ function buildWorkflowSteps(params: {
 
   const doneStatus: WorkflowStepStatus = progressPhase === "done" ? "done" : "pending";
 
-  const topicLabel = promptText.trim()
-    ? `${promptText.trim().slice(0, 32)}${promptText.trim().length > 32 ? "..." : ""}`
-    : "target audience";
+  const topicLabel = useMemo(() => {
+    const trimmed = promptText.trim();
+    if (!trimmed) return "target audience";
+    return trimmed.length > 32 ? `${trimmed.slice(0, 32)}...` : trimmed;
+  }, [promptText]);
 
-  const researchEntries = Object.entries(researchBySource).filter(
-    ([k, v]) => v > 0 && (k.startsWith("tavily:") || k.startsWith("serp:"))
-  );
-  researchEntries.sort((a, b) => b[1] - a[1]);
+  const researchEntries = useMemo(() => {
+    const entries = Object.entries(researchBySource).filter(
+      ([k, v]) => v > 0 && (k.startsWith("tavily:") || k.startsWith("serp:"))
+    );
+    entries.sort((a, b) => b[1] - a[1]);
+    return entries;
+  }, [researchBySource]);
   const crawlBundle = sumResearchBreakdownSnippets(researchBySource);
 
   const webRowsStatus: WorkflowSourceRow["status"] =

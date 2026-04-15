@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Download, Play, MessageSquare, X, Loader2, Maximize2, Send, CheckCircle2, Mic } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -259,10 +259,17 @@ function TypewriterMessage({ content, onComplete }: { content: string; onComplet
 }
 
 /** Progress mini-timeline showing question progress */
-function QuestionTimeline({ answered, total }: { answered: number; total: number }) {
+const QuestionTimeline = memo(function QuestionTimeline({
+  answered,
+  total,
+}: {
+  answered: number;
+  total: number;
+}) {
+  const slots = useMemo(() => Array.from({ length: total }, (_, i) => i), [total]);
   return (
     <div className="flex items-center gap-1 px-1">
-      {Array.from({ length: total }).map((_, i) => (
+      {slots.map((i) => (
         <motion.div
           key={i}
           className={cn(
@@ -283,7 +290,7 @@ function QuestionTimeline({ answered, total }: { answered: number; total: number
       </span>
     </div>
   );
-}
+});
 
 /** Elapsed time counter */
 function ElapsedTimer({ startedAt }: { startedAt: number }) {
@@ -462,6 +469,7 @@ export function FlowStepInterviews({
 
   // Poll for new messages while a persona's interview is running
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollInFlightRef = useRef(false);
   useEffect(() => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -471,12 +479,15 @@ export function FlowStepInterviews({
     if (!selectedPersona || !isRunning || selectedPersona.isCompleted) return;
 
     pollingRef.current = setInterval(async () => {
+      if (pollInFlightRef.current) return; // skip if previous request still pending
+      pollInFlightRef.current = true;
       try {
         const result = await getSessionMessages(selectedPersona.sessionId);
         if (result.messages && result.messages.length > 0) {
           setChatMessages(result.messages);
         }
       } catch { /* ignore polling errors */ }
+      finally { pollInFlightRef.current = false; }
     }, 3000);
 
     return () => {

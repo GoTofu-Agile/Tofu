@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -46,11 +46,19 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
     document.cookie = `activeOrgId=${activeOrgId}; path=/; max-age=31536000`;
   }, [activeOrgId]);
 
-  function isActive(href: string) {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    if (href === "/settings") return pathname === "/settings";
-    return pathname.startsWith(href);
-  }
+  const isActive = useCallback(
+    (href: string) => {
+      if (href === "/dashboard") return pathname === "/dashboard";
+      if (href === "/settings") return pathname === "/settings";
+      return pathname.startsWith(href);
+    },
+    [pathname]
+  );
+
+  const handleAskClick = useCallback(() => {
+    setChatView("chat");
+    open();
+  }, [setChatView, open]);
 
   const collapsed = sidebarCollapsed;
 
@@ -111,10 +119,7 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
         {collapsed ? (
           <button
             type="button"
-            onClick={() => {
-              setChatView("chat");
-              open();
-            }}
+            onClick={handleAskClick}
             title={"Ask AI — \u2318K or Ctrl+K"}
             aria-label="Open Ask AI"
             className={cn(
@@ -129,10 +134,7 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
         ) : (
           <button
             type="button"
-            onClick={() => {
-              setChatView("chat");
-              open();
-            }}
+            onClick={handleAskClick}
             className={cn(
               "mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               isOpen

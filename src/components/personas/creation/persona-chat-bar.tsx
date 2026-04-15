@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
@@ -86,6 +86,7 @@ export function PersonaChatBar({
   const [improving, setImproving] = useState(false);
   const [focused, setFocused] = useState(false);
   const [improveFlash, setImproveFlash] = useState(false);
+  const improveFlashTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (value.trim().length > 0) return;
@@ -101,25 +102,32 @@ export function PersonaChatBar({
     }
   }, [deepSearchLocked, dataSource.id]);
 
-  function clampCount(n: number) {
-    return Math.min(personaMax, Math.max(1, Math.round(n)));
-  }
+  useEffect(() => {
+    return () => {
+      if (improveFlashTimeoutRef.current) window.clearTimeout(improveFlashTimeoutRef.current);
+    };
+  }, []);
 
-  function applyCustomFromDraft() {
+  const clampCount = useCallback(
+    (n: number) => Math.min(personaMax, Math.max(1, Math.round(n))),
+    [personaMax]
+  );
+
+  const applyCustomFromDraft = useCallback(() => {
     const n = Number.parseInt(customDraft, 10);
     if (!Number.isNaN(n) && n >= 1) {
       onPersonaCountChange(clampCount(n));
     }
     setCustomDraft("");
-  }
+  }, [customDraft, onPersonaCountChange, clampCount]);
 
-  function handleSubmit() {
+  const handleSubmit = useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed || loading) return;
     onSubmit(trimmed, dataSource.id);
-  }
+  }, [value, loading, onSubmit, dataSource.id]);
 
-  async function handleImprovePrompt() {
+  const handleImprovePrompt = useCallback(async () => {
     const trimmed = value.trim();
     if (trimmed.length < 3 || loading || improving) return;
     setImproving(true);
@@ -137,14 +145,15 @@ export function PersonaChatBar({
         onChange(data.improved.trim());
         toast.success("Brief refined");
         setImproveFlash(true);
-        window.setTimeout(() => setImproveFlash(false), 900);
+        if (improveFlashTimeoutRef.current) window.clearTimeout(improveFlashTimeoutRef.current);
+        improveFlashTimeoutRef.current = window.setTimeout(() => setImproveFlash(false), 900);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not improve brief");
     } finally {
       setImproving(false);
     }
-  }
+  }, [value, loading, improving, onChange]);
 
   const DataSourceIcon = dataSource.icon;
   const placeholder =
@@ -224,7 +233,7 @@ export function PersonaChatBar({
       <div className="flex flex-wrap items-center gap-2 self-end">
         <MotionGhostTextButton
           disabled={loading || improving || value.trim().length < 3}
-          onClick={() => void handleImprovePrompt()}
+          onClick={handleImprovePrompt}
         >
           {improving ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />

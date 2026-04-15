@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   MessageSquare,
   ClipboardList,
@@ -63,6 +63,10 @@ export function SetupPreviewCard({
   const isEnough = guidelines ? totalPersonas >= guidelines.min : false;
   const isTooMany = guidelines ? totalPersonas > guidelines.max : false;
   const hasCompany = orgContext?.productName || orgContext?.productDescription;
+  const filteredQuestions = useMemo(
+    () => questions?.filter((q) => q.text.trim()) ?? [],
+    [questions]
+  );
 
   return (
     <motion.div
@@ -244,7 +248,7 @@ export function SetupPreviewCard({
       </AnimatePresence>
 
       {/* Questions dropdown */}
-      {questions && questions.filter(q => q.text.trim()).length > 0 && (
+      {filteredQuestions.length > 0 && (
         <>
           <div className="h-px bg-border" />
           <div>
@@ -254,7 +258,7 @@ export function SetupPreviewCard({
               className="flex items-center justify-between w-full text-left"
             >
               <span className="text-[11px] font-medium text-muted-foreground">
-                {questions.filter(q => q.text.trim()).length} interview questions
+                {filteredQuestions.length} interview questions
               </span>
               <motion.div
                 animate={{ rotate: questionsOpen ? 180 : 0 }}
@@ -273,7 +277,7 @@ export function SetupPreviewCard({
                   className="overflow-hidden"
                 >
                   <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
-                    {questions.filter(q => q.text.trim()).map((q, i) => (
+                    {filteredQuestions.map((q, i) => (
                       <motion.p
                         key={q.index}
                         initial={reduced ? false : { opacity: 0, x: -4 }}

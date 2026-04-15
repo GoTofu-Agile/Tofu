@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Users, FlaskConical, Settings, Sparkles } from "lucide-react";
@@ -59,6 +60,11 @@ export function FeatureCards() {
   const { open, setChatView } = useAssistant();
   const reduced = useReducedMotion();
 
+  const handleOpenChat = useCallback(() => {
+    setChatView("chat");
+    open();
+  }, [setChatView, open]);
+
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       {featureCards.map((card, i) => {
@@ -83,10 +89,7 @@ export function FeatureCards() {
             >
               <button
                 type="button"
-                onClick={() => {
-                  setChatView("chat");
-                  open();
-                }}
+                onClick={handleOpenChat}
                 className="group h-full w-full rounded-2xl bg-card p-5 text-left shadow-sm transition-all hover:shadow-md"
               >
                 <div className={`inline-flex rounded-xl p-2.5 ${card.color}`}>
