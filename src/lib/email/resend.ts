@@ -1,7 +1,5 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function sendPersonaGenCompleteEmail({
   to,
   userName,
@@ -15,6 +13,7 @@ export async function sendPersonaGenCompleteEmail({
   generated: number;
   groupId: string;
 }) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const displayName = userName ?? to.split("@")[0];
   const personaWord = generated === 1 ? "persona" : "personas";
   const groupUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.gotofu.io"}/personas/${groupId}`;
