@@ -1837,15 +1837,15 @@ export function UnifiedCreationFlow({
                 transition={{ duration: reduced ? 0 : 0.3, ease: [0.25, 0.1, 0.25, 1] }}
                 className="space-y-4 sm:space-y-5"
               >
-                <div className="flex flex-col gap-2 rounded-xl border bg-card/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center justify-between gap-3 rounded-xl border bg-card/70 px-4 py-3">
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Persona generation is running in background.
+                    Running in background — you can navigate away.
                   </p>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="self-start sm:self-auto"
+                    className="shrink-0"
                     onClick={() => setProgressViewMode("minimized")}
                     aria-label="Minimize generation progress"
                   >
@@ -1903,9 +1903,10 @@ export function UnifiedCreationFlow({
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduced ? undefined : { opacity: 0, y: -10 }}
                 transition={{ duration: reduced ? 0 : 0.2 }}
-                className="rounded-xl border border-dashed bg-card/50 p-4 text-sm text-muted-foreground"
+                className="flex items-center gap-2.5 rounded-xl border bg-card/70 px-4 py-3 text-sm text-muted-foreground"
               >
-                Progress minimized. You can keep working while personas generate.
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" aria-hidden />
+                Personas generating in background — check the widget in the corner.
               </motion.div>
             )}
 
