@@ -173,7 +173,7 @@ export function PersonaGenerationFloatingWidget({ notifyEnabled = false }: { not
           </p>
         </div>
         <div className="flex items-center gap-1">
-          <Link href={run.phase === "done" ? `/personas/${run.groupId}?welcome=1` : `/personas/${run.groupId}`}>
+          <Link href={run.phase === "done" ? `/personas/${run.groupId}?welcome=1` : `/personas/${run.groupId}?runId=${run.runId}`}>
             <Button type="button" variant="outline" size="sm" aria-label="Open generation page">
               <Maximize2 className="mr-1 h-3.5 w-3.5" />
               Open

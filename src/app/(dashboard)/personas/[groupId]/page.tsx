@@ -14,13 +14,14 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ArrowLeft, Users } from "lucide-react";
 import { SOURCE_LABELS } from "@/lib/constants/source-labels";
 import { PersonaGroupActions } from "@/components/personas/persona-group-actions";
+import { PersonaGroupGenerationStatus } from "@/components/personas/persona-group-generation-status";
 
 export default async function PersonaGroupDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ groupId: string }>;
-  searchParams: Promise<{ count?: string; domainContext?: string; welcome?: string }>;
+  searchParams: Promise<{ count?: string; domainContext?: string; welcome?: string; runId?: string }>;
 }) {
   const { groupId } = await params;
   const query = await searchParams;
@@ -89,7 +90,9 @@ export default async function PersonaGroupDetailPage({
         </div>
       </div>
 
-      {personas.length === 0 ? (
+      {query.runId ? (
+        <PersonaGroupGenerationStatus runId={query.runId} groupId={groupId} />
+      ) : personas.length === 0 ? (
         <GeneratePersonasButton
           groupId={groupId}
           defaultCount={count}
