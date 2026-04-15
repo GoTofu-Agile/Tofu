@@ -4,14 +4,21 @@ import { getOrgProductContext } from "@/lib/db/queries/organizations";
 import { SettingsForm } from "./settings-form";
 import { OrgSetupChat } from "@/components/org/org-setup-chat";
 import { PageHeader } from "@/components/ui/page-header";
+import { NotificationSettings } from "@/components/settings/notification-settings";
 
 export default async function SettingsPage() {
-  const { activeOrgId } = await requireAuthWithActiveOrg();
-  const activeOrg = await prisma.organization.findUnique({
-    where: { id: activeOrgId },
-    select: { name: true, isPersonal: true },
-  });
-  const productContext = await getOrgProductContext(activeOrgId);
+  const { user, activeOrgId } = await requireAuthWithActiveOrg();
+  const [activeOrg, productContext, dbUser] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: activeOrgId },
+      select: { name: true, isPersonal: true },
+    }),
+    getOrgProductContext(activeOrgId),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { notifyPersonaGenComplete: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -20,6 +27,10 @@ export default async function SettingsPage() {
       <SettingsForm
         orgId={activeOrgId}
         orgName={activeOrg?.name ?? "Workspace"}
+      />
+
+      <NotificationSettings
+        notifyPersonaGenComplete={dbUser?.notifyPersonaGenComplete ?? true}
       />
 
       <div className="space-y-3">
