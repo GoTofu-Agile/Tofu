@@ -8,6 +8,7 @@ import {
   createOrganization,
   getOrganizationsForUser,
 } from "@/lib/db/queries/organizations";
+import { prisma } from "@/lib/db/prisma";
 
 export async function updateWorkspaceName(orgId: string, name: string) {
   const user = await requireAuth();
@@ -25,6 +26,23 @@ export async function updateWorkspaceName(orgId: string, name: string) {
   revalidatePath("/settings");
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+export async function updateNotificationPrefs({
+  notifyPersonaGenComplete,
+}: {
+  notifyPersonaGenComplete: boolean;
+}) {
+  const user = await requireAuth();
+  try {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { notifyPersonaGenComplete },
+    });
+    return { success: true, error: null };
+  } catch {
+    return { success: false, error: "Could not save preferences. Please retry." };
+  }
 }
 
 export async function createWorkspace(name: string) {

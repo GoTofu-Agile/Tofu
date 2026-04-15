@@ -5,9 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Loader2, Maximize2, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, Maximize2, Sparkles, X } from "lucide-react";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { cn } from "@/lib/utils";
+import { useAssistant } from "@/components/assistant/assistant-provider";
 import {
   getPersonaProgressBadgeLabel,
   getPersonaProgressHeadline,
@@ -46,8 +47,9 @@ function writeRun(run: WidgetRun | null) {
   window.localStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(run));
 }
 
-export function PersonaGenerationFloatingWidget() {
+export function PersonaGenerationFloatingWidget({ notifyEnabled = false }: { notifyEnabled?: boolean }) {
   const reduced = useReducedMotion();
+  const { isOpen: panelOpen } = useAssistant();
   const [run, setRun] = useState<WidgetRun | null>(() => {
     const initial = readRun();
     return initial && !initial.dismissed ? initial : null;
@@ -128,7 +130,13 @@ export function PersonaGenerationFloatingWidget() {
       initial={reduced ? false : { opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: reduced ? 0 : 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-      className="fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-50 w-[min(24rem,calc(100vw-1.5rem))] rounded-2xl border bg-card/95 p-3.5 shadow-xl backdrop-blur-md sm:right-4"
+      className={cn(
+        // When the Ask-panel is open on desktop, shift the widget left so it isn't covered by
+        // the panel (which sits at right-0, w-[23rem], z-[100]). On mobile the panel is full-screen
+        // so we keep the widget tucked to the right and let it live behind it.
+        "fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-50 w-[min(24rem,calc(100vw-1.5rem))] rounded-2xl border bg-card/95 p-3.5 shadow-xl backdrop-blur-md transition-[right] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+        panelOpen ? "right-3 sm:right-[24rem]" : "right-3 sm:right-4"
+      )}
       role="status"
       aria-live="polite"
       aria-label="Persona generation progress"
@@ -165,7 +173,7 @@ export function PersonaGenerationFloatingWidget() {
           </p>
         </div>
         <div className="flex items-center gap-1">
-          <Link href={`/personas/${run.groupId}?welcome=1`}>
+          <Link href={run.phase === "done" ? `/personas/${run.groupId}?welcome=1` : `/personas/${run.groupId}?runId=${run.runId}`}>
             <Button type="button" variant="outline" size="sm" aria-label="Open generation page">
               <Maximize2 className="mr-1 h-3.5 w-3.5" />
               Open
@@ -215,6 +223,12 @@ export function PersonaGenerationFloatingWidget() {
       </div>
       {run.message ? (
         <p className="mt-1 text-[11px] text-muted-foreground">{run.message}</p>
+      ) : null}
+      {notifyEnabled && run.phase !== "done" && run.phase !== "error" ? (
+        <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground/70">
+          <Mail className="h-3 w-3 shrink-0" aria-hidden />
+          We&apos;ll email you when it&apos;s done.
+        </p>
       ) : null}
     </motion.div>
   );

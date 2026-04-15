@@ -784,7 +784,7 @@ export function AssistantChat() {
           aria-live="polite"
           aria-relevant="additions text"
           aria-busy={isLoading}
-          className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-3 pb-32 space-y-3"
+          className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-3 pb-6 space-y-3"
         >
           {messages.length === 0 && (
             <div className="my-2 space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-3">

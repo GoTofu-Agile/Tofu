@@ -14,6 +14,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useAssistant } from "@/components/assistant/assistant-provider";
+import { cn } from "@/lib/utils";
 
 const routes: Record<string, { title: string; icon: typeof LayoutDashboard }> = {
   "/dashboard": { title: "Home", icon: LayoutDashboard },
@@ -87,11 +88,12 @@ export function Topbar() {
         <button
           type="button"
           onClick={toggle}
-          className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all ${
+          className={cn(
+            "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
             isOpen
               ? "border-foreground bg-foreground text-background"
-              : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-          }`}
+              : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+          )}
           aria-label="Ask — your research copilot. Keyboard: Command K or Control K."
           aria-keyshortcuts="Meta+K Control+K"
           aria-expanded={isOpen}
@@ -102,11 +104,12 @@ export function Topbar() {
           <span className="sm:hidden">Ask</span>
           {askShortcutLabel ? (
             <kbd
-              className={`pointer-events-none hidden sm:inline-flex h-5 select-none items-center rounded border px-1 font-mono text-[10px] font-medium tabular-nums ${
+              className={cn(
+                "pointer-events-none hidden h-5 select-none items-center rounded border px-1 font-mono text-[10px] font-medium tabular-nums sm:inline-flex",
                 isOpen
                   ? "border-white/25 bg-white/10 text-background/90"
                   : "border-border bg-muted/40 text-muted-foreground"
-              }`}
+              )}
             >
               {askShortcutLabel}
             </kbd>

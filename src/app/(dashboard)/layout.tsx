@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireAuthWithOrgs } from "@/lib/auth";
+import { prisma } from "@/lib/db/prisma";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { AppFrame } from "@/components/layout/app-frame";
@@ -48,6 +49,11 @@ export default async function DashboardLayout({
     .map((e) => e.trim());
   const isAdmin = adminEmails.includes(user.email);
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { notifyPersonaGenComplete: true },
+  });
+
   return (
     <AppQueryProvider>
       <AssistantProvider>
@@ -67,7 +73,7 @@ export default async function DashboardLayout({
             </div>
           </AppFrame>
           <AssistantChatLazy />
-          <PersonaGenerationFloatingWidget />
+          <PersonaGenerationFloatingWidget notifyEnabled={dbUser?.notifyPersonaGenComplete ?? false} />
           <FeedbackOverlay />
         </div>
       </AssistantProvider>

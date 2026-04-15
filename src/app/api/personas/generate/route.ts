@@ -23,6 +23,7 @@ import {
   getPersonaGenerationGuardForGroup,
 } from "@/lib/personas/persona-generation-guard";
 import type { PersonaGenerationSpeedMode } from "@/lib/ai/generate-personas";
+import { sendPersonaGenCompleteEmail } from "@/lib/email/resend";
 
 /** Vercel / serverless max wall time for streaming generation (plan may cap lower). */
 export const maxDuration = 300;
@@ -282,6 +283,17 @@ export async function POST(request: NextRequest) {
           authenticity: result.authenticity,
         });
         controller.enqueue(encoder.encode(doneEvent + "\n"));
+
+        // Send email notification if user opted in and there's something to report
+        if (dbUser.notifyPersonaGenComplete && result.generated > 0) {
+          sendPersonaGenCompleteEmail({
+            to: dbUser.email,
+            userName: dbUser.name,
+            groupName: group.name,
+            generated: result.generated,
+            groupId: body.groupId,
+          }).catch(() => {/* non-fatal */});
+        }
       } catch (error) {
         updatePersonaGenerationRun(runId, {
           phase: "error",
