@@ -79,7 +79,7 @@ export function Topbar() {
         </button>
         <div className="flex items-center gap-2 ml-1">
           <Icon className="h-4 w-4 text-muted-foreground/60" />
-          <span className="text-[13px] font-medium text-muted-foreground">
+          <span className="text-sm font-medium text-muted-foreground">
             {route.title}
           </span>
         </div>
@@ -89,7 +89,7 @@ export function Topbar() {
           type="button"
           onClick={toggle}
           className={cn(
-            "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
+            "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
             isOpen
               ? "border-foreground bg-foreground text-background"
               : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
@@ -105,7 +105,7 @@ export function Topbar() {
           {askShortcutLabel ? (
             <kbd
               className={cn(
-                "pointer-events-none hidden h-5 select-none items-center rounded border px-1 font-mono text-[10px] font-medium tabular-nums sm:inline-flex",
+                "pointer-events-none hidden h-5 select-none items-center rounded border px-1 font-mono text-[10px] font-medium tabular-nums sm:inline-flex", // intentional: kbd element needs sub-xs size
                 isOpen
                   ? "border-white/25 bg-white/10 text-background/90"
                   : "border-border bg-muted/40 text-muted-foreground"

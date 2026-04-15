@@ -92,7 +92,7 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
       {/* Navigation */}
       <nav className={cn("flex-1 overflow-y-auto pb-4", collapsed ? "px-1.5" : "px-2")}>
         {!collapsed && (
-          <p className="px-3 pb-2 pt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+          <p className="px-3 pb-2 pt-3 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
             Product
           </p>
         )}
@@ -134,7 +134,7 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
               open();
             }}
             className={cn(
-              "mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               isOpen
                 ? "bg-foreground/5 font-semibold text-foreground shadow-[var(--shadow-soft)]"
                 : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
@@ -148,7 +148,7 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
         {collapsed ? (
           <div className="my-3 mx-2 border-t border-border" />
         ) : (
-          <p className="mt-6 mb-1 px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+          <p className="mt-6 mb-1 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
             Account
           </p>
         )}
@@ -197,8 +197,8 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
         ) : (
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium truncate">{user.name || "User"}</p>
-              <p className="text-[11px] text-muted-foreground/70 truncate">{user.email}</p>
+              <p className="text-sm font-medium truncate">{user.name || "User"}</p>
+              <p className="text-xs text-muted-foreground/70 truncate">{user.email}</p>
             </div>
             <button
               onClick={() => signOut()}
@@ -249,7 +249,7 @@ function NavItem({
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         active
           ? "bg-foreground/5 font-semibold text-foreground shadow-[var(--shadow-soft)]"
           : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"

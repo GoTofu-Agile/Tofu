@@ -79,12 +79,12 @@ export function PersonaGroupsList({ items }: { items: PersonaGroupListItem[] }) 
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {items.map((group, i) => (
         <MotionStaggerCard key={group.id} index={i}>
           <Link
             href={`/personas/${group.id}`}
-            className="group flex h-full flex-col rounded-lg border bg-card p-5 transition-colors hover:border-foreground/20"
+            className="group flex h-full flex-col rounded-lg border bg-card p-5 transition-all duration-200 hover:border-foreground/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -96,7 +96,7 @@ export function PersonaGroupsList({ items }: { items: PersonaGroupListItem[] }) 
               {group.sourceType !== "PROMPT_GENERATED" ? (
                 <Badge
                   variant="secondary"
-                  className={`shrink-0 text-[10px] ${SOURCE_LABELS[group.sourceType].className}`}
+                  className={`shrink-0 text-xs ${SOURCE_LABELS[group.sourceType].className}`}
                 >
                   {SOURCE_LABELS[group.sourceType].label}
                 </Badge>

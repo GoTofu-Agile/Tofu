@@ -49,7 +49,7 @@ export function StudySessionList({
               <p className="text-sm font-medium">{session.persona.name}</p>
               <Badge
                 variant="secondary"
-                className={`text-[10px] ${statusColors[session.status]}`}
+                className={`text-xs ${statusColors[session.status]}`}
               >
                 {session.status.toLowerCase()}
               </Badge>

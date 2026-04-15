@@ -51,7 +51,7 @@ export function DashboardFlowCard({
               }}
               className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground/60 hover:text-foreground"
             >
-              <span className="text-[11px] font-semibold">?</span>
+              <span className="text-xs font-semibold">?</span>
             </TooltipTrigger>
             <TooltipContent>{tooltip}</TooltipContent>
           </Tooltip>

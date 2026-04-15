@@ -54,7 +54,7 @@ export function OrgSwitcher({ organizations, activeOrgId, collapsed }: OrgSwitch
         </div>
         {!collapsed && (
           <>
-            <span className="text-[13px] font-medium truncate flex-1">{displayName}</span>
+            <span className="text-sm font-medium truncate flex-1">{displayName}</span>
             <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
           </>
         )}

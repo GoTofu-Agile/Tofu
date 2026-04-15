@@ -22,13 +22,13 @@ export function PageHeader({
         className
       )}
     >
-      <div className="min-w-0 space-y-1">
+      <div className="min-w-0 space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{title}</h1>
         {description != null && description !== false ? (
           typeof description === "string" ? (
-            <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">{description}</p>
+            <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">{description}</p>
           ) : (
-            <div className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground [&_p+p]:mt-2">
+            <div className="max-w-2xl text-base leading-relaxed text-muted-foreground [&_p+p]:mt-2">
               {description}
             </div>
           )

@@ -9,13 +9,7 @@ import { safeInitial, useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { pageEnterTransition } from "@/lib/motion/motion-system";
-
-const statusColors: Record<string, string> = {
-  DRAFT: "bg-muted text-muted-foreground",
-  ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  COMPLETED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  ARCHIVED: "bg-muted text-muted-foreground",
-};
+import { studyStatusColors as statusColors } from "@/lib/constants/study-status-colors";
 
 type RecentStudy = {
   id: string;
@@ -72,7 +66,7 @@ export function DashboardRecentStudiesBlock({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className="text-xs text-muted-foreground">{study.sessions} sessions</span>
-              <Badge variant="secondary" className={`text-[10px] ${statusColors[study.status]}`}>
+              <Badge variant="secondary" className={`text-xs ${statusColors[study.status]}`}>
                 {study.status.toLowerCase()}
               </Badge>
             </div>

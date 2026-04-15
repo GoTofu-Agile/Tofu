@@ -111,7 +111,7 @@ export default async function DashboardPage() {
         <h1 className="ds-page-title mt-1 max-w-3xl">
           {getGreeting()}, {user.name?.split(" ")[0] || "there"}
         </h1>
-        <p className="ds-page-description mt-2 max-w-2xl text-[15px] leading-relaxed">
+        <p className="ds-page-description mt-2 max-w-2xl text-base leading-relaxed">
           {isFirstTime ? (
             <>
               <span className="font-medium text-foreground">GoTofu runs AI interviews with synthetic personas</span>

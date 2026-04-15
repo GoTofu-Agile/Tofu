@@ -11,20 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { pageEnterTransition } from "@/lib/motion/motion-system";
-
-const statusColors: Record<string, string> = {
-  DRAFT: "bg-muted text-muted-foreground",
-  ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  COMPLETED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  ARCHIVED: "bg-muted text-muted-foreground",
-};
-
-const statusGlow: Record<string, string> = {
-  ACTIVE: "hover:border-green-300 hover:shadow-[0_0_12px_rgba(34,197,94,0.1)]",
-  COMPLETED: "hover:border-blue-300 hover:shadow-[0_0_12px_rgba(59,130,246,0.1)]",
-  DRAFT: "hover:border-foreground/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]",
-  ARCHIVED: "hover:border-foreground/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]",
-};
+import { studyStatusColors as statusColors, studyStatusGlow as statusGlow } from "@/lib/constants/study-status-colors";
 
 const typeLabels: Record<string, string> = {
   INTERVIEW: "Interview",
@@ -73,7 +60,7 @@ export function StudiesList({ studies }: StudiesListProps) {
   }
 
   return (
-    <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {studies.map((study, i) => {
         const totalSessions = study._count.sessions;
         const showProgress = study.status === "ACTIVE" && totalSessions > 0 && study.completedCount < totalSessions;
@@ -96,7 +83,7 @@ export function StudiesList({ studies }: StudiesListProps) {
                 <Badge
                   variant="secondary"
                   className={cn(
-                    "shrink-0 text-[10px]",
+                    "shrink-0 text-xs",
                     statusColors[study.status],
                     study.status === "ACTIVE" && !reduced && "animate-pulse"
                   )}
@@ -113,7 +100,7 @@ export function StudiesList({ studies }: StudiesListProps) {
                 {study.description?.trim() ? study.description : "No objective yet — open the study to add one."}
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {typeLabels[study.studyType] || study.studyType}
                 </Badge>
                 <span className="flex items-center gap-1">
