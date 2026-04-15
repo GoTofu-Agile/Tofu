@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Loader2, Maximize2, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, Maximize2, Sparkles, X } from "lucide-react";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { cn } from "@/lib/utils";
 import { useAssistant } from "@/components/assistant/assistant-provider";
@@ -47,7 +47,7 @@ function writeRun(run: WidgetRun | null) {
   window.localStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(run));
 }
 
-export function PersonaGenerationFloatingWidget() {
+export function PersonaGenerationFloatingWidget({ notifyEnabled = false }: { notifyEnabled?: boolean }) {
   const reduced = useReducedMotion();
   const { isOpen: panelOpen } = useAssistant();
   const [run, setRun] = useState<WidgetRun | null>(() => {
@@ -223,6 +223,12 @@ export function PersonaGenerationFloatingWidget() {
       </div>
       {run.message ? (
         <p className="mt-1 text-[11px] text-muted-foreground">{run.message}</p>
+      ) : null}
+      {notifyEnabled && run.phase !== "done" && run.phase !== "error" ? (
+        <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground/70">
+          <Mail className="h-3 w-3 shrink-0" aria-hidden />
+          We&apos;ll email you when it&apos;s done.
+        </p>
       ) : null}
     </motion.div>
   );
