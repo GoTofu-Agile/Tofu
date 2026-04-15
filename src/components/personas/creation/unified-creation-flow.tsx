@@ -322,15 +322,11 @@ function buildWorkflowSteps(params: {
       status: webSearchStatus,
       sources: webSources,
       findings:
-        researchEntries.length > 0
-          ? researchEntries
-              .slice(0, 4)
-              .map(([k, v]) => `${humanLabelForBreakdownKey(k)} · ${v} snippets`)
-          : researchResults > 0
-            ? [
-                `${researchResults} snippets saved from the last research run (see breakdown when sources finish).`,
-              ]
-            : [],
+        researchResults > 0 && researchEntries.length === 0
+          ? [
+              `${researchResults} snippets saved from the last research run.`,
+            ]
+          : [],
     },
     {
       id: "wf-browse",

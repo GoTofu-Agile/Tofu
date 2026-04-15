@@ -126,8 +126,6 @@ export function PersonaStreamingProgress({
                     )
                   ) : s.id === "generate" && phase === "done" ? (
                     stepCopy.generate
-                  ) : s.id === "quality" && phase === "generating" ? (
-                    <PulsingDots label={stepCopy.quality} />
                   ) : s.id === "quality" && phase === "done" ? (
                     stepCopy.quality
                   ) : (
