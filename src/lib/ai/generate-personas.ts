@@ -1109,34 +1109,48 @@ export async function generateAndSavePersonas(
       dayInTheLife: row.dayInTheLife,
       archetype: row.archetype,
     }));
-    for (const { persona } of ordered) {
-      try {
-        const authenticityEval = await scorePersonaAuthenticityHeuristic(persona, dbCorpusForScoring);
-        await persistPersona(
+
+    // Run all evals in parallel, then persist all in parallel.
+    const evalResults = await Promise.allSettled(
+      ordered.map(({ persona }) =>
+        scorePersonaAuthenticityHeuristic(persona, dbCorpusForScoring).then((eval_) => ({
           persona,
-          authenticityEval,
-          computeQualityScore(persona),
-          buildSystemPrompt(persona)
-        );
-        previousPersonas.push(summaryFromPersona(persona));
-        dbCorpusForScoring.unshift({
-          backstory: persona.backstory,
-          dayInTheLife: persona.dayInTheLife,
-          archetype: persona.archetype,
-        });
-        if (dbCorpusForScoring.length > 20) dbCorpusForScoring.length = 20;
-        recentPersonas.unshift({
-          name: persona.name,
-          backstory: persona.backstory,
-          dayInTheLife: persona.dayInTheLife,
-          archetype: persona.archetype,
-          occupation: persona.occupation,
-        });
-        if (recentPersonas.length > 20) recentPersonas.length = 20;
-      } catch (e) {
-        errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
-      }
-    }
+          eval_,
+          qualityScore: computeQualityScore(persona),
+          systemPrompt: buildSystemPrompt(persona),
+        }))
+      )
+    );
+
+    await Promise.allSettled(
+      evalResults.map(async (result) => {
+        if (result.status === "rejected") {
+          errors.push(`Eval error: ${result.reason instanceof Error ? result.reason.message : "unknown"}`);
+          return;
+        }
+        const { persona, eval_, qualityScore, systemPrompt } = result.value;
+        try {
+          await persistPersona(persona, eval_, qualityScore, systemPrompt);
+          previousPersonas.push(summaryFromPersona(persona));
+          dbCorpusForScoring.unshift({
+            backstory: persona.backstory,
+            dayInTheLife: persona.dayInTheLife,
+            archetype: persona.archetype,
+          });
+          if (dbCorpusForScoring.length > 20) dbCorpusForScoring.length = 20;
+          recentPersonas.unshift({
+            name: persona.name,
+            backstory: persona.backstory,
+            dayInTheLife: persona.dayInTheLife,
+            archetype: persona.archetype,
+            occupation: persona.occupation,
+          });
+          if (recentPersonas.length > 20) recentPersonas.length = 20;
+        } catch (e) {
+          errors.push(`Save error: ${e instanceof Error ? e.message : "unknown"}`);
+        }
+      })
+    );
     timingsMs.fastPersistMs = Date.now() - tSave;
   } else {
     // Quality mode — generate 2 personas at a time using a diversity snapshot so

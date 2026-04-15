@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db/prisma";
-import { Prisma } from "@prisma/client";
 import type { PersonaGenerationStatus } from "@/lib/server/persona-generation-types";
 
 /** JSON key on PersonaGroup.metadata (must match SQL below). */
@@ -85,26 +84,25 @@ export async function isPersonaGenerationBlockedForGroup(groupId: string): Promi
 }
 
 export async function savePersonaGenerationStatusToDb(status: PersonaGenerationStatus): Promise<void> {
-  const row = await prisma.personaGroup.findUnique({
-    where: { id: status.groupId },
-    select: { metadata: true },
-  });
-  const meta = { ...((row?.metadata as Record<string, unknown> | null) ?? {}) };
-  meta[META_FRAGMENT] = {
-    runId: status.runId,
-    userId: status.userId,
-    groupId: status.groupId,
-    phase: status.phase,
-    completed: status.completed,
-    total: status.total,
-    currentName: status.currentName,
-    generated: status.generated,
-    errors: status.errors,
-    message: status.message,
-    updatedAt: status.updatedAt,
-  };
-  await prisma.personaGroup.update({
-    where: { id: status.groupId },
-    data: { metadata: meta as Prisma.InputJsonValue },
-  });
+  // Single-query merge: use Postgres jsonb concatenation to avoid a round-trip SELECT.
+  await prisma.$executeRaw`
+    UPDATE "PersonaGroup"
+    SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+      ${META_FRAGMENT}::text,
+      jsonb_build_object(
+        'runId',       ${status.runId}::text,
+        'userId',      ${status.userId}::text,
+        'groupId',     ${status.groupId}::text,
+        'phase',       ${status.phase}::text,
+        'completed',   ${status.completed}::int,
+        'total',       ${status.total}::int,
+        'currentName', ${status.currentName ?? null}::text,
+        'generated',   ${status.generated}::int,
+        'errors',      ${status.errors}::int,
+        'message',     ${status.message ?? null}::text,
+        'updatedAt',   ${status.updatedAt}::bigint
+      )
+    )
+    WHERE id = ${status.groupId}::text
+  `;
 }
