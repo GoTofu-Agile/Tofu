@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAuthWithActiveOrg } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { getOrgProductContext } from "@/lib/db/queries/organizations";
@@ -38,6 +39,11 @@ export default async function SettingsPage() {
           <h3 className="text-lg font-medium">Product Context</h3>
           <p className="text-sm text-muted-foreground">
             Tell us about your product so we can create better personas. This info is used as context for all persona generation in this workspace.
+            New workspaces can complete the same step from{" "}
+            <Link href="/setup/product-context" className="font-medium text-foreground underline-offset-4 hover:underline">
+              Add product context
+            </Link>{" "}
+            on Home without opening Settings.
           </p>
         </div>
         <OrgSetupChat

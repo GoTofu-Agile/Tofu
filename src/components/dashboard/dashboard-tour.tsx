@@ -2,8 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import confetti from "canvas-confetti";
+import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import {
   Dialog,
   DialogContent,
@@ -26,8 +30,8 @@ const TOUR_STEPS: TourStep[] = [
     title: "Set Product Context",
     description: "Tell GoTofu what you build and who you serve.",
     whyItMatters: "This makes persona generation and interview insights far more relevant.",
-    href: "/settings",
-    cta: "Open Settings",
+    href: "/setup/product-context",
+    cta: "Add product context",
   },
   {
     title: "Create Personas",
@@ -58,6 +62,9 @@ interface DashboardTourProps {
 }
 
 export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const reduced = useReducedMotion();
   const storageKey = `tofu:dashboard-tour:dismissed:${orgId}`;
   const [open, setOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
@@ -92,6 +99,38 @@ export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps
     }
   }
 
+  function celebrateAndGoHome() {
+    dismissTour();
+    setOpen(false);
+    setStepIndex(0);
+    toast.success("You’re all set! Pick your next step from Home whenever you’re ready.");
+    if (!reduced) {
+      const burst = () =>
+        confetti({
+          particleCount: 90,
+          spread: 80,
+          startVelocity: 32,
+          origin: { y: 0.52 },
+        });
+      burst();
+      window.setTimeout(() => {
+        confetti({
+          particleCount: 55,
+          spread: 100,
+          startVelocity: 25,
+          origin: { y: 0.58 },
+          scalar: 0.9,
+        });
+      }, 220);
+    }
+    if (pathname === "/dashboard") {
+      window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+      router.refresh();
+    } else {
+      router.push("/dashboard");
+    }
+  }
+
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
@@ -112,7 +151,8 @@ export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps
               Quick walkthrough ({stepIndex + 1}/{TOUR_STEPS.length})
             </DialogTitle>
             <DialogDescription>
-              Understand how each part of the dashboard connects.
+              Typical path: product context → persona group → study → insights. Links jump straight in; you can revisit
+              anytime from Home.
             </DialogDescription>
           </DialogHeader>
 
@@ -138,8 +178,19 @@ export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps
             </div>
           </div>
 
-          <DialogFooter>
-            <div className="flex w-full items-center justify-between">
+          <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                dismissTour();
+                setOpen(false);
+              }}
+            >
+              Skip tour
+            </Button>
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
               <Button
                 type="button"
                 variant="outline"
@@ -158,13 +209,7 @@ export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps
                   Next
                 </Button>
               ) : (
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    dismissTour();
-                  }}
-                >
+                <Button type="button" onClick={celebrateAndGoHome}>
                   Finish
                 </Button>
               )}

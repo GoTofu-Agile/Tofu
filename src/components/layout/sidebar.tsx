@@ -11,7 +11,6 @@ import {
   Settings,
   ShieldCheck,
   LogOut,
-  Sparkles,
   PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,7 +38,7 @@ const mainNav = [
 
 export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarProps) {
   const pathname = usePathname();
-  const { sidebarCollapsed, toggleSidebar, open, setChatView, isOpen } = useAssistant();
+  const { sidebarCollapsed, toggleSidebar } = useAssistant();
   const activeOrg = organizations.find((o) => o.id === activeOrgId);
   const isPersonalWorkspace = activeOrg?.isPersonal ?? false;
 
@@ -128,43 +127,6 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
             {item.name}
           </NavItem>
         ))}
-
-        {collapsed ? (
-          <button
-            type="button"
-            onClick={() => {
-              setChatView("chat");
-              open();
-            }}
-            title={"Ask AI — \u2318K or Ctrl+K"}
-            aria-label="Open Ask AI"
-            className={cn(
-              "mt-1 flex w-full items-center justify-center rounded-lg p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              isOpen
-                ? "bg-foreground/10 text-foreground"
-                : "text-muted-foreground/60 hover:bg-foreground/[0.06] hover:text-foreground"
-            )}
-          >
-            <Sparkles className="h-[18px] w-[18px]" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setChatView("chat");
-              open();
-            }}
-            className={cn(
-              "mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              isOpen
-                ? "bg-foreground/5 font-semibold text-foreground shadow-[var(--shadow-soft)]"
-                : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
-            )}
-          >
-            <Sparkles className="h-4 w-4 shrink-0 opacity-90" />
-            Ask AI
-          </button>
-        )}
 
         {collapsed ? (
           <div className="my-3 mx-2 border-t border-border" />
