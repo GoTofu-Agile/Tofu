@@ -10,7 +10,6 @@ import {
   UserPlus,
   ShieldCheck,
   Sparkles,
-  PanelLeft,
   Upload,
 } from "lucide-react";
 import { useAssistant } from "@/components/assistant/assistant-provider";
@@ -51,7 +50,7 @@ function resolveRoute(pathname: string): { title: string; icon: typeof LayoutDas
 
 export function Topbar() {
   const pathname = usePathname();
-  const { toggle, isOpen, toggleSidebar, sidebarCollapsed } = useAssistant();
+  const { toggle, isOpen } = useAssistant();
   const [askShortcutLabel, setAskShortcutLabel] = useState("");
 
   useEffect(() => {
@@ -66,23 +65,11 @@ export function Topbar() {
 
   return (
     <header className="flex h-12 items-center justify-between px-4 border-b border-border">
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground transition-colors"
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-pressed={sidebarCollapsed}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </button>
-        <div className="flex items-center gap-2 ml-1">
-          <Icon className="h-4 w-4 text-muted-foreground/60" />
-          <span className="text-[13px] font-medium text-muted-foreground">
-            {route.title}
-          </span>
-        </div>
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-muted-foreground/60" />
+        <span className="text-[13px] font-medium text-muted-foreground">
+          {route.title}
+        </span>
       </div>
       <div className="flex items-center gap-1.5">
         <button

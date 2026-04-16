@@ -8,7 +8,6 @@ import { AppFrame } from "@/components/layout/app-frame";
 import { AssistantProvider } from "@/components/assistant/assistant-provider";
 import { AssistantChatLazy } from "@/components/assistant/assistant-chat-lazy";
 import { AssistantLiveActivityPanel } from "@/components/assistant/assistant-live-activity-panel";
-import { FeedbackOverlay } from "@/components/feedback/feedback-overlay";
 import { PersonaGenerationFloatingWidget } from "@/components/personas/persona-generation-floating-widget";
 import { AppQueryProvider } from "@/components/providers/app-query-provider";
 
@@ -76,7 +75,6 @@ export default async function DashboardLayout({
           <AssistantLiveActivityPanel />
           <AssistantChatLazy />
           <PersonaGenerationFloatingWidget notifyEnabled={dbUser?.notifyPersonaGenComplete ?? false} />
-          <FeedbackOverlay />
         </div>
       </AssistantProvider>
     </AppQueryProvider>

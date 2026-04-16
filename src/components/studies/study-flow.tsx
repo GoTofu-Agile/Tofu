@@ -415,6 +415,7 @@ export function StudyFlow({
               x: { type: "spring", stiffness: 300, damping: 25 },
               opacity: { duration: 0.2 },
             }}
+            className="pb-28"
           >
             {activeStep === "setup" && (
               <FlowStepSetup

@@ -169,57 +169,57 @@ export function PersonaChatBar({
       }
       transition={{ type: "spring", stiffness: 400, damping: 35 }}
     >
-      <div className="flex items-start gap-2">
+      {/* Icon is absolutely positioned so wrapped lines stay aligned (no text running under the icon). */}
+      <div className="relative min-w-0 pl-9">
         <motion.div
-          className="mt-1 shrink-0 text-muted-foreground"
+          className="pointer-events-none absolute left-0 top-1 text-muted-foreground"
           animate={reduced ? undefined : { opacity: focused ? 1 : 0.88 }}
           transition={{ duration: 0.25 }}
+          aria-hidden
         >
-          <Sparkles className="h-5 w-5" aria-hidden />
+          <Sparkles className="h-5 w-5" />
         </motion.div>
-        <div className="relative min-w-0 flex-1">
-          {showOverlay && (
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={placeholderIdx}
-                initial={reduced ? false : { opacity: 0, y: 5 }}
-                animate={{ opacity: 0.5, y: 0 }}
-                exit={reduced ? undefined : { opacity: 0, y: -4 }}
-                transition={{ duration: reduced ? 0 : 0.28, ease: "easeOut" }}
-                className="pointer-events-none absolute left-0 top-1 z-0 line-clamp-4 text-left text-sm leading-normal text-muted-foreground"
-              >
-                {placeholder}
-              </motion.span>
-            </AnimatePresence>
-          )}
-          <textarea
-            ref={(el) => {
-              if (el) {
-                el.style.height = "auto";
-                el.style.height = el.scrollHeight + "px";
-              }
-            }}
-            value={value}
-            onChange={(e) => {
-              onChange(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = e.target.scrollHeight + "px";
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit();
-              }
-            }}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder=""
-            aria-label="Describe your target users"
-            disabled={loading}
-            rows={1}
-            className="relative z-10 min-h-[1.5rem] min-w-0 flex-1 resize-none border-0 bg-transparent px-0 py-1 text-sm shadow-none outline-none focus-visible:ring-0 disabled:opacity-50"
-          />
-        </div>
+        {showOverlay && (
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={placeholderIdx}
+              initial={reduced ? false : { opacity: 0, y: 5 }}
+              animate={{ opacity: 0.5, y: 0 }}
+              exit={reduced ? undefined : { opacity: 0, y: -4 }}
+              transition={{ duration: reduced ? 0 : 0.28, ease: "easeOut" }}
+              className="pointer-events-none absolute left-9 top-1 z-0 line-clamp-4 pr-1 text-left text-sm leading-normal text-muted-foreground"
+            >
+              {placeholder}
+            </motion.span>
+          </AnimatePresence>
+        )}
+        <textarea
+          ref={(el) => {
+            if (el) {
+              el.style.height = "auto";
+              el.style.height = el.scrollHeight + "px";
+            }
+          }}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            e.target.style.height = "auto";
+            e.target.style.height = e.target.scrollHeight + "px";
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit();
+            }
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder=""
+          aria-label="Describe your target users"
+          disabled={loading}
+          rows={1}
+          className="relative z-10 min-h-[1.5rem] w-full min-w-0 resize-none border-0 bg-transparent py-1 pr-0 pl-0 text-sm shadow-none outline-none focus-visible:ring-0 disabled:opacity-50"
+        />
       </div>
       <div className="flex flex-wrap items-center gap-2 self-end">
         <MotionGhostTextButton
