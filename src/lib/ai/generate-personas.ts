@@ -1278,10 +1278,13 @@ export async function generateAndSavePersonas(
   });
 
   if (actualCount > 0) {
-    // Fire-and-forget — no need to block generation completion on this.
-    assignAppStoreReviewsToPersonas(groupId).catch((e) =>
-      console.error("[generate-personas] assignAppStoreReviewsToPersonas failed:", e)
-    );
+    // Make source linking deterministic. In request-driven flows, fire-and-forget can be
+    // cut off when the response finishes, leaving personas without source evidence links.
+    try {
+      await assignAppStoreReviewsToPersonas(groupId);
+    } catch (e) {
+      console.error("[generate-personas] assignAppStoreReviewsToPersonas failed:", e);
+    }
   }
 
   console.info("[generate-personas] completed", {
