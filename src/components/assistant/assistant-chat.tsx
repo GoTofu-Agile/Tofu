@@ -1247,7 +1247,7 @@ export function AssistantChat() {
 
       {isOpen && pendingStudyDesign && (
         <div className="pointer-events-none fixed inset-y-0 left-0 right-[23rem] z-[60] flex items-center justify-center p-6 max-md:inset-x-0 max-md:right-0 max-md:items-end max-md:p-3">
-          <div className="pointer-events-auto w-[min(34rem,calc(100vw-26rem))] min-w-[22rem] max-w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl max-md:min-w-0 max-md:w-full">
+          <div className="pointer-events-auto flex max-h-[calc(100dvh-3rem)] w-[min(34rem,calc(100vw-26rem))] min-w-[22rem] max-w-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl max-md:max-h-[calc(100dvh-1.5rem)] max-md:min-w-0 max-md:w-full">
             <div className="px-5 pt-5 pb-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -1273,7 +1273,7 @@ export function AssistantChat() {
               </div>
             </div>
 
-            <div className="space-y-3.5 px-4 pb-3.5">
+            <div className="space-y-3.5 overflow-y-auto px-4 pb-3.5">
               <div className="space-y-1.5">
                 <label htmlFor="study-design-title" className="text-[13px] font-medium text-stone-900">
                   Title
@@ -1417,7 +1417,7 @@ export function AssistantChat() {
 
       {isOpen && pendingPersonaDesign && !pendingStudyDesign && (
         <div className="pointer-events-none fixed inset-y-0 left-0 right-[23rem] z-[60] flex items-center justify-center p-6 max-md:inset-x-0 max-md:right-0 max-md:items-end max-md:p-3">
-          <div className="pointer-events-auto w-[min(30rem,calc(100vw-26rem))] min-w-[22rem] max-w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl max-md:min-w-0 max-md:w-full">
+          <div className="pointer-events-auto flex max-h-[calc(100dvh-3rem)] w-[min(30rem,calc(100vw-26rem))] min-w-[22rem] max-w-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl max-md:max-h-[calc(100dvh-1.5rem)] max-md:min-w-0 max-md:w-full">
             <div className="px-5 pt-5 pb-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -1442,7 +1442,7 @@ export function AssistantChat() {
               </div>
             </div>
 
-            <div className="space-y-3.5 px-4 pb-3.5">
+            <div className="space-y-3.5 overflow-y-auto px-4 pb-3.5">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label
