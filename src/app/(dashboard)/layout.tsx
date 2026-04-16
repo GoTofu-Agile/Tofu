@@ -7,6 +7,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { AppFrame } from "@/components/layout/app-frame";
 import { AssistantProvider } from "@/components/assistant/assistant-provider";
 import { AssistantChatLazy } from "@/components/assistant/assistant-chat-lazy";
+import { AssistantLiveActivityPanel } from "@/components/assistant/assistant-live-activity-panel";
 import { FeedbackOverlay } from "@/components/feedback/feedback-overlay";
 import { PersonaGenerationFloatingWidget } from "@/components/personas/persona-generation-floating-widget";
 import { AppQueryProvider } from "@/components/providers/app-query-provider";
@@ -65,13 +66,14 @@ export default async function DashboardLayout({
               activeOrgId={activeOrgId}
               isAdmin={isAdmin}
             />
-            <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <Topbar />
-              <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-[var(--page-padding-x)] sm:py-[var(--page-padding-y)]">
+              <main className="flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-[var(--page-padding-x)] sm:py-[var(--page-padding-y)]">
                 {children}
               </main>
             </div>
           </AppFrame>
+          <AssistantLiveActivityPanel />
           <AssistantChatLazy />
           <PersonaGenerationFloatingWidget notifyEnabled={dbUser?.notifyPersonaGenComplete ?? false} />
           <FeedbackOverlay />

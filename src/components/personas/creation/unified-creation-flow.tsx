@@ -870,7 +870,6 @@ export function UnifiedCreationFlow({
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
           speedMode: personaSpeedMode,
-          async: true,
         }),
       });
 
@@ -1031,7 +1030,6 @@ export function UnifiedCreationFlow({
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
           speedMode: personaSpeedMode,
-          async: true,
         }),
       });
 
@@ -1174,7 +1172,6 @@ export function UnifiedCreationFlow({
           sourceTypeOverride,
           usedDeepResearchPipeline: false,
           speedMode: personaSpeedMode,
-          async: true,
         }),
       });
 
@@ -1292,7 +1289,6 @@ export function UnifiedCreationFlow({
           sourceTypeOverride,
           usedDeepResearchPipeline,
           speedMode: personaSpeedMode,
-          async: true,
         }),
       });
 
@@ -1324,17 +1320,26 @@ export function UnifiedCreationFlow({
         const event = JSON.parse(line);
         if (event.type === "progress") {
           setGenCompleted(event.completed);
-          setGenCurrentName(event.personaName || "");
+          const isFinalizingLinks =
+            Number(event.total ?? genTotal) > 0 &&
+            Number(event.completed ?? 0) >= Number(event.total ?? genTotal);
+          setGenCurrentName(
+            isFinalizingLinks
+              ? "Linking sources & evidence..."
+              : event.personaName || ""
+          );
           publishWidgetState({
             runId,
             groupId: gId,
             phase: "generating",
             completed: Number(event.completed ?? 0),
             total: Number(event.total ?? genTotal),
-            currentName: event.personaName || null,
-            message: "Building personas",
+            currentName: isFinalizingLinks ? null : event.personaName || null,
+            message: isFinalizingLinks
+              ? "Linking sources & evidence..."
+              : "Building personas",
           });
-          if (event.personaName) {
+          if (event.personaName && !isFinalizingLinks) {
             setLastGeneratedName(event.personaName);
           }
         } else if (event.type === "partial") {
@@ -1650,7 +1655,6 @@ export function UnifiedCreationFlow({
                       templateId,
                       usedDeepResearchPipeline: false,
                       speedMode: personaSpeedMode,
-                      async: true,
                     }),
                   });
 

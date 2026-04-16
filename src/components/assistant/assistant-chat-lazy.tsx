@@ -12,7 +12,7 @@ function AskPanelChunkLoading() {
     <aside
       aria-hidden
       className={cn(
-        "fixed z-[100] flex flex-col overflow-hidden bg-background shadow-2xl ring-1 ring-border/80",
+        "fixed z-30 flex flex-col overflow-hidden bg-background shadow-2xl ring-1 ring-border/80",
         "inset-0 h-dvh w-screen rounded-none sm:top-2 sm:bottom-2 sm:right-0 sm:left-auto sm:h-auto sm:w-[min(23rem,100vw-0.75rem)] sm:rounded-l-2xl"
       )}
     >

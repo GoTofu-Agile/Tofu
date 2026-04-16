@@ -22,7 +22,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         "transition-[top,left,bottom,right,border-radius,box-shadow,ring-color]",
         "duration-[var(--duration-normal)] ease-[cubic-bezier(0.25,0.1,0.25,1)]",
         isOpen
-          ? "top-4 left-4 bottom-4 right-[23rem] rounded-[var(--radius-2xl)] shadow-[var(--shadow-card)] ring-1 ring-border"
+          ? "top-0 left-0 bottom-0 right-0 md:top-4 md:left-4 md:bottom-4 md:right-[23rem] md:rounded-[var(--radius-2xl)] md:shadow-[var(--shadow-card)] md:ring-1 md:ring-border"
           : "top-0 left-0 bottom-0 right-0"
       )}
     >

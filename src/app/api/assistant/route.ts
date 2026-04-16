@@ -12,7 +12,6 @@ import {
   getPersona,
 } from "@/lib/db/queries/personas";
 import {
-  createStudy,
   getStudiesForOrg,
   getAnalysisReport,
 } from "@/lib/db/queries/studies";
@@ -27,7 +26,6 @@ import {
 } from "@/lib/db/queries/chat";
 import { resolveActiveOrganizationId } from "@/lib/auth";
 import { ASSISTANT_CONVERSATION_ID_HEADER } from "@/lib/assistant/constants";
-import type { StudyType } from "@prisma/client";
 
 /** Multi-step tool calls can run long; avoid hard kills mid-stream on Vercel Pro+. */
 export const maxDuration = 300;
@@ -217,20 +215,42 @@ TONE:
           interviewGuide,
           personaGroupIds,
         }) => {
-          const study = await createStudy({
-            organizationId: activeOrgId,
-            createdById: dbUser.id,
-            title,
-            description,
-            studyType: "INTERVIEW" as StudyType,
-            interviewGuide,
-            personaGroupIds,
-          });
+          const groups = await getPersonaGroupsForOrg(activeOrgId);
+          const availableGroups = groups.map((g) => ({ id: g.id, name: g.name }));
+          const validGroupIds = personaGroupIds.filter((id) =>
+            groups.some((g) => g.id === id)
+          );
+          const selectedGroups = groups
+            .filter((g) => validGroupIds.includes(g.id))
+            .map((g) => ({ id: g.id, name: g.name }));
+
+          if (validGroupIds.length === 0) {
+            return {
+              message:
+                "I drafted the study, but no valid persona groups were selected. Pick at least one to continue.",
+              status: "pending_confirmation",
+              draft: {
+                title,
+                description,
+                interviewGuide: interviewGuide ?? "",
+                personaGroupIds: [],
+                personaGroups: [],
+                availablePersonaGroups: availableGroups,
+              },
+            };
+          }
+
           return {
-            name: title,
-            id: study.id,
-            url: `/studies/${study.id}`,
-            message: `Created study "${title}". Go there to run interviews.`,
+            message: `Drafted study "${title}". Review and confirm to create it.`,
+            status: "pending_confirmation",
+            draft: {
+              title,
+              description: description ?? "",
+              interviewGuide: interviewGuide ?? "",
+              personaGroupIds: validGroupIds,
+              personaGroups: selectedGroups,
+              availablePersonaGroups: availableGroups,
+            },
           };
         },
       }),
@@ -247,6 +267,7 @@ TONE:
         ),
         execute: async ({ description }) => {
           const groups = await getPersonaGroupsForOrg(activeOrgId);
+          const availableGroups = groups.map((g) => ({ id: g.id, name: g.name }));
           const groupsForAi = groups.map((g) => ({
             id: g.id,
             name: g.name,
@@ -287,21 +308,19 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
             };
           }
 
-          const study = await createStudy({
-            organizationId: activeOrgId,
-            createdById: dbUser.id,
-            title: object.title,
-            description,
-            studyType: "INTERVIEW" as StudyType,
-            interviewGuide: guide,
-            personaGroupIds: groupIds,
-          });
-
           return {
-            name: object.title,
-            id: study.id,
-            url: `/studies/${study.id}`,
-            message: `Created study "${object.title}" with ${object.interviewGuide.length} interview questions.`,
+            message: `Drafted study "${object.title}" with ${object.interviewGuide.length} interview questions.`,
+            status: "pending_confirmation",
+            draft: {
+              title: object.title,
+              description,
+              interviewGuide: guide,
+              personaGroupIds: groupIds,
+              personaGroups: groups
+                .filter((g) => groupIds.includes(g.id))
+                .map((g) => ({ id: g.id, name: g.name })),
+              availablePersonaGroups: availableGroups,
+            },
           };
         },
       }),
