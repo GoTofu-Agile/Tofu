@@ -43,7 +43,7 @@ const featureCards: FeatureCard[] = [
     title: "Product Context",
     description: "Improve persona and study quality",
     icon: Settings,
-    href: "/settings",
+    href: "/setup/product-context",
     color: "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400",
   },
   {

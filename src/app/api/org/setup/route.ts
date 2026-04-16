@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { generateObject, streamText } from "ai";
+import { generateObject } from "ai";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
 import { getUserRole } from "@/lib/db/queries/organizations";
@@ -29,6 +29,23 @@ const requestSchema = z.object({
     })
   ),
 });
+
+/** Match http(s) URLs; stop at whitespace or angle brackets (common in HTML). */
+const URL_IN_TEXT_REGEX = /https?:\/\/[^\s<>]+/gi;
+
+/** Last http(s) URL the user sent — helps when the model forgets to fill websiteUrl. */
+function lastUserHttpsUrl(
+  messages: Array<{ role: "user" | "assistant"; content: string }>
+): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== "user") continue;
+    const raw = messages[i].content.match(URL_IN_TEXT_REGEX);
+    if (!raw?.length) continue;
+    const picked = raw[raw.length - 1];
+    return picked.replace(/[.,;:!?)}\]]+$/u, "");
+  }
+  return null;
+}
 
 // POST: Process chat messages and extract/update org info
 export async function POST(request: NextRequest) {
@@ -104,12 +121,33 @@ Extract all product information you can find. For each field:
 - targetAudience: Who uses it
 - industry: What industry/sector
 - competitors: Comma-separated competitor names
-- websiteUrl: Product website if mentioned
+- websiteUrl: Product or company website ONLY if the user gave a normal http(s) URL for their product. If the user pastes a search-engine or tracking URL, set websiteUrl to null.
+
+IMPORTANT — completion rules:
+- websiteUrl is OPTIONAL. Never block finishing setup because website is missing.
+- If the user provides any plausible product website URL (https://...), put it in websiteUrl and do NOT ask for another URL.
+- If productDescription AND targetAudience are both available (from this extraction OR from "Current known info" above), you MUST set followUpQuestion to null and empty missingFields. Do not ask for a website in that case.
+- Do NOT repeat the same follow-up question; if the user already answered, move on or finish.
 
 Set fields to null if not mentioned or unclear.
-List any important fields still missing in missingFields.
-If critical info is still missing, write a short friendly follow-up question in followUpQuestion. If you have enough to work with (at least productDescription and targetAudience), set followUpQuestion to null.`,
+missingFields: only for genuinely blocking gaps — not website when description and audience are already known.
+followUpQuestion: null when productDescription and targetAudience are both known (conversation or current info). Otherwise one short friendly question.`,
   });
+
+  const urlFromUser = lastUserHttpsUrl(body.messages);
+  if (urlFromUser && !extracted.websiteUrl?.trim()) {
+    extracted.websiteUrl = urlFromUser;
+  }
+
+  const mergedDescription =
+    extracted.productDescription?.trim() || org?.productDescription?.trim() || "";
+  const mergedAudience =
+    extracted.targetAudience?.trim() || org?.targetAudience?.trim() || "";
+
+  if (mergedDescription && mergedAudience) {
+    extracted.followUpQuestion = null;
+    extracted.missingFields = [];
+  }
 
   // Update org with any new data
   const updateData: Record<string, string> = {};
@@ -149,6 +187,7 @@ If critical info is still missing, write a short friendly follow-up question in 
         targetAudience: extracted.targetAudience,
         industry: extracted.industry,
         competitors: extracted.competitors,
+        websiteUrl: extracted.websiteUrl,
       },
       missingFields: extracted.missingFields,
     });

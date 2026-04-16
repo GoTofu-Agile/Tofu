@@ -13,6 +13,7 @@ import { DashboardTour } from "@/components/dashboard/dashboard-tour";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardFlowCard } from "@/components/dashboard/dashboard-flow-card";
 import { CheckCircle2, Circle, Users, FlaskConical, Settings, BarChart3, ArrowRight } from "lucide-react";
+import { ONBOARDING_FULL_LOOP_LEDE, setupStepLabel } from "@/lib/onboarding/dashboard-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +73,7 @@ export default async function DashboardPage() {
       label: "Tell us what you’re building",
       why: "Product context makes personas and interview questions feel specific to you—not generic.",
       done: !!orgContext?.setupCompleted,
-      href: "/settings",
+      href: "/setup/product-context",
       cta: "Add product context",
     },
     {
@@ -140,7 +141,7 @@ export default async function DashboardPage() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2 max-w-xl">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                {allDone ? "Ready when you are" : `Step ${completedStepCount + 1} of 3`}
+                {allDone ? "Ready when you are" : setupStepLabel(completedStepCount)}
               </p>
               <h2 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">
                 {allDone
@@ -177,10 +178,10 @@ export default async function DashboardPage() {
             </p>
             <p className="mt-1 text-xs text-muted-foreground">Used to tailor personas & prompts</p>
             <Link
-              href="/settings"
+              href={orgContext?.setupCompleted ? "/settings" : "/setup/product-context"}
               className="mt-3 inline-flex text-xs font-medium text-muted-foreground hover:text-foreground"
             >
-              {orgContext?.setupCompleted ? "Review in Settings" : "Add in Settings →"}
+              {orgContext?.setupCompleted ? "Review in Settings" : "Add product context →"}
             </Link>
           </div>
           <div className="rounded-xl border bg-card p-4">
@@ -235,14 +236,12 @@ export default async function DashboardPage() {
             <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
               How GoTofu works
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Four steps from setup to decisions—click any step to jump in.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">{ONBOARDING_FULL_LOOP_LEDE}</p>
           </div>
           <TooltipProvider delay={100}>
             <div className="grid gap-3 md:grid-cols-4">
               <DashboardFlowCard
-                href="/settings"
+                href="/setup/product-context"
                 icon={<Settings className="h-4 w-4 text-muted-foreground" />}
                 title="1 · Context"
                 description="What you’re building & who it’s for"
@@ -269,8 +268,8 @@ export default async function DashboardPage() {
                 href="/studies"
                 icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
                 title="4 · Insights"
-                description="Themes, quotes, and recommendations"
-                tooltip="Open any completed study to generate or refresh insights."
+                description="After interviews finish"
+                tooltip="Open a study that has completed sessions to generate themes, quotes, and recommendations."
                 showTooltip={showFlowHelp}
               />
             </div>
@@ -321,7 +320,8 @@ export default async function DashboardPage() {
               Finish setup
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Complete what’s left so interviews and insights stay on-brand.
+              Same three steps as the highlighted card above—complete what&apos;s left so personas, guides, and Ask AI stay
+              aligned with your product.
             </p>
             <div className="mt-4 space-y-2">
               {steps.map((step) => (

@@ -15,6 +15,7 @@ import { ArrowLeft, Users } from "lucide-react";
 import { SOURCE_LABELS } from "@/lib/constants/source-labels";
 import { PersonaGroupActions } from "@/components/personas/persona-group-actions";
 import { PersonaGroupGenerationStatus } from "@/components/personas/persona-group-generation-status";
+import { PostPersonaCreationNextStepDialog } from "@/components/onboarding/post-persona-next-step-dialog";
 
 export default async function PersonaGroupDetailPage({
   params,
@@ -52,6 +53,10 @@ export default async function PersonaGroupDetailPage({
 
   return (
     <MotionPageEnter className="space-y-6">
+      <PostPersonaCreationNextStepDialog
+        orgId={group.organizationId}
+        welcome={query.welcome === "1" && personas.length > 0}
+      />
       <div>
         <Link
           href="/personas"
