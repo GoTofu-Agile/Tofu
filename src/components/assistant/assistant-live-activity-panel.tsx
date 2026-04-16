@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, Loader2, Sparkles, X } from "lucide-react";
 import { useAssistant } from "@/components/assistant/assistant-provider";
@@ -28,9 +27,14 @@ function statusForIndex(index: number, activeIndex: number, isDone: boolean): St
   return "pending";
 }
 
+/** True when the persona floating widget owns progress UI (manual / unified flows). */
+function isActivePersonaWidgetRun(run: WidgetRun | null): boolean {
+  return Boolean(run && run.phase !== "done" && run.phase !== "error");
+}
+
 export function AssistantLiveActivityPanel() {
   const { autopilot, isOpen } = useAssistant();
-  const [widgetRun, setWidgetRun] = useState<WidgetRun | null>(null);
+  const [personaWidgetRun, setPersonaWidgetRun] = useState<WidgetRun | null>(null);
   const [dismissedActivityKey, setDismissedActivityKey] = useState<string | null>(null);
   const [assistantModalOpen, setAssistantModalOpen] = useState(false);
 
@@ -39,17 +43,17 @@ export function AssistantLiveActivityPanel() {
       try {
         const raw = window.localStorage.getItem(PERSONA_WIDGET_STORAGE_KEY);
         if (!raw) {
-          setWidgetRun(null);
+          setPersonaWidgetRun(null);
           return;
         }
         const parsed = JSON.parse(raw) as WidgetRun;
         if (parsed.dismissed) {
-          setWidgetRun(null);
+          setPersonaWidgetRun(null);
           return;
         }
-        setWidgetRun(parsed);
+        setPersonaWidgetRun(parsed);
       } catch {
-        setWidgetRun(null);
+        setPersonaWidgetRun(null);
       }
     };
     read();
@@ -70,13 +74,12 @@ export function AssistantLiveActivityPanel() {
     return () => window.removeEventListener("assistant:modal-open", onModalOpen);
   }, []);
 
-  const shouldShow =
-    autopilot.active || (widgetRun && widgetRun.phase !== "done" && widgetRun.phase !== "error");
-  const activityKey = `${autopilot.active ? "a" : "i"}:${autopilot.title}:${widgetRun?.runId ?? "none"}`;
-  const hasProgress =
-    (autopilot.progress?.total ?? 0) > 0 || (widgetRun?.total ?? 0) > 0;
-  const total = autopilot.progress?.total ?? widgetRun?.total ?? 0;
-  const completed = autopilot.progress?.completed ?? widgetRun?.completed ?? 0;
+  const personaWidgetActive = isActivePersonaWidgetRun(personaWidgetRun);
+  const shouldShow = autopilot.active && !personaWidgetActive;
+  const activityKey = `a:${autopilot.title}:${autopilot.status}:${autopilot.progress?.completed ?? 0}:${autopilot.progress?.total ?? 0}`;
+  const hasProgress = (autopilot.progress?.total ?? 0) > 0;
+  const total = autopilot.progress?.total ?? 0;
+  const completed = autopilot.progress?.completed ?? 0;
   const progressPercent = total > 0 ? Math.max(0, Math.min(100, Math.round((completed / total) * 100))) : 0;
 
   const steps = useMemo(() => {
@@ -111,13 +114,8 @@ export function AssistantLiveActivityPanel() {
       if (ratio >= 0.85) activeIndex = 3;
       else if (ratio >= 0.45) activeIndex = 2;
       else activeIndex = 1;
-    } else if (
-      autopilot.title.toLowerCase().includes("generat") ||
-      widgetRun?.phase === "generating"
-    ) {
+    } else if (autopilot.title.toLowerCase().includes("generat")) {
       activeIndex = 1;
-    } else if (widgetRun?.phase === "researching") {
-      activeIndex = 0;
     }
 
     return base.map((label, index) => ({
@@ -125,7 +123,7 @@ export function AssistantLiveActivityPanel() {
       label,
       status: statusForIndex(index, activeIndex, autopilot.status === "done"),
     }));
-  }, [autopilot.status, autopilot.title, autopilot.detail, completed, hasProgress, total, widgetRun?.phase]);
+  }, [autopilot.status, autopilot.title, autopilot.detail, completed, hasProgress, total]);
 
   return (
     <AnimatePresence>
@@ -137,9 +135,7 @@ export function AssistantLiveActivityPanel() {
           transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
           className={cn(
             "pointer-events-none fixed z-40 w-[min(25rem,calc(100vw-1.5rem))]",
-            widgetRun && widgetRun.phase !== "done" && widgetRun.phase !== "error"
-              ? "bottom-[10.75rem]"
-              : "bottom-4",
+            "bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))]",
             isOpen ? "right-3 sm:right-[24.5rem]" : "right-3 sm:right-4"
           )}
           aria-live="polite"
@@ -159,33 +155,14 @@ export function AssistantLiveActivityPanel() {
                   <p className="mt-0.5 text-xs text-stone-600">{autopilot.detail}</p>
                 ) : null}
               </div>
-              {widgetRun ? (
-                <div className="flex items-center gap-1.5">
-                  <Link
-                    href={`/personas/${widgetRun.groupId}${widgetRun.phase === "done" ? "?welcome=1" : `?runId=${widgetRun.runId}`}`}
-                    className="rounded-md border border-stone-200 bg-white px-2 py-1 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-50"
-                  >
-                    Open
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setDismissedActivityKey(activityKey)}
-                    className="grid h-7 w-7 place-items-center rounded-md border border-stone-200 bg-white text-stone-500 transition-colors hover:bg-stone-50 hover:text-stone-800"
-                    aria-label="Dismiss AI activity panel"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setDismissedActivityKey(activityKey)}
-                  className="grid h-7 w-7 place-items-center rounded-md border border-stone-200 bg-white text-stone-500 transition-colors hover:bg-stone-50 hover:text-stone-800"
-                  aria-label="Dismiss AI activity panel"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setDismissedActivityKey(activityKey)}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-stone-200 bg-white text-stone-500 transition-colors hover:bg-stone-50 hover:text-stone-800"
+                aria-label="Dismiss AI activity panel"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
 
             <div className="space-y-2.5">

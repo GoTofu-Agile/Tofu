@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   LogOut,
   Sparkles,
+  PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrgSwitcher } from "./org-switcher";
@@ -38,7 +39,7 @@ const mainNav = [
 
 export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarProps) {
   const pathname = usePathname();
-  const { sidebarCollapsed, open, setChatView, isOpen } = useAssistant();
+  const { sidebarCollapsed, toggleSidebar, open, setChatView, isOpen } = useAssistant();
   const activeOrg = organizations.find((o) => o.id === activeOrgId);
   const isPersonalWorkspace = activeOrg?.isPersonal ?? false;
 
@@ -64,6 +65,16 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
       {/* Brand + Workspace */}
       {collapsed ? (
         <div className="flex flex-col items-center gap-2 py-4">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground/60 transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+            aria-pressed={sidebarCollapsed}
+          >
+            <PanelLeft className="h-[18px] w-[18px]" />
+          </button>
           <Link href="/dashboard" className="text-xs font-bold text-foreground">
             GT
           </Link>
@@ -75,10 +86,20 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
         </div>
       ) : (
         <>
-          <div className="px-4 pt-4 pb-1">
+          <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-1">
             <Link href="/dashboard" className="text-base font-bold tracking-tight">
               GoTofu
             </Link>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              title="Collapse sidebar"
+              aria-label="Collapse sidebar"
+              aria-pressed={sidebarCollapsed}
+            >
+              <PanelLeft className="h-4 w-4" />
+            </button>
           </div>
           <div className="px-2 py-2">
             <OrgSwitcher
