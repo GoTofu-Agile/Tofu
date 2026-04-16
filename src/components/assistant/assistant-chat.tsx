@@ -67,7 +67,15 @@ interface PendingStudyDesign {
   availablePersonaGroups: { id: string; name: string }[];
 }
 
+type StudyDesignStep = "details" | "questions";
 const ASK_DRAFT_STORAGE_KEY = "gotofu.ask.draft";
+
+function parseInterviewQuestions(guide: string): string[] {
+  return guide
+    .split("\n")
+    .map((line) => line.trim().replace(/^\d+[\.)]\s*/, ""))
+    .filter((line) => line.length > 0);
+}
 
 function trackAssistantEvent(event: string, payload?: Record<string, unknown>) {
   if (typeof window === "undefined") return;
@@ -106,6 +114,9 @@ export function AssistantChat() {
   const [studyTitle, setStudyTitle] = useState("");
   const [studyDescription, setStudyDescription] = useState("");
   const [studyGuide, setStudyGuide] = useState("");
+  const [studyDesignStep, setStudyDesignStep] = useState<StudyDesignStep>("details");
+  const [studyQuestions, setStudyQuestions] = useState<string[]>([]);
+  const [studySelectedQuestions, setStudySelectedQuestions] = useState<string[]>([]);
   const [studySelectedGroupIds, setStudySelectedGroupIds] = useState<string[]>([]);
   const [studyAvailableGroups, setStudyAvailableGroups] = useState<{ id: string; name: string }[]>([]);
   const [creatingStudy, setCreatingStudy] = useState(false);
@@ -179,11 +190,6 @@ export function AssistantChat() {
     if (!isOpen) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        if (pendingStudyDesign && !creatingStudy) {
-          dismissedStudyIdsRef.current.add(pendingStudyDesign.dedupeKey);
-          setPendingStudyDesign(null);
-          return;
-        }
         if (pendingPersonaDesign) {
           dismissedGenerationIdsRef.current.add(pendingPersonaDesign.dedupeKey);
           setPendingPersonaDesign(null);
@@ -201,7 +207,7 @@ export function AssistantChat() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, chatView, setChatView, pendingPersonaDesign, pendingStudyDesign, creatingStudy]);
+  }, [isOpen, chatView, setChatView, pendingPersonaDesign]);
 
   useEffect(() => {
     if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
@@ -249,6 +255,9 @@ export function AssistantChat() {
 
   // Handle navigation tool results
   useEffect(() => {
+    // Prevent assistant "navigateTo" tool from overriding in-progress modal flows
+    // (e.g. study setup confirmations) or post-confirm navigation.
+    if (pendingStudyDesign || pendingPersonaDesign || creatingStudy) return;
     const lastMessage = messages[messages.length - 1];
     if (lastMessage?.role === "assistant") {
       for (const part of lastMessage.parts) {
@@ -263,7 +272,7 @@ export function AssistantChat() {
         }
       }
     }
-  }, [messages, router]);
+  }, [messages, router, pendingStudyDesign, pendingPersonaDesign, creatingStudy]);
 
   const startLivePersonaGeneration = useCallback(
     async (payload: {
@@ -288,7 +297,7 @@ export function AssistantChat() {
         },
       }));
 
-      startAutopilot("Create personas", "Understanding request...");
+      startAutopilot("Creating personas", "Navigating to personas and starting generation...");
       if (url) router.push(url);
 
       try {
@@ -313,8 +322,8 @@ export function AssistantChat() {
         const decoder = new TextDecoder();
         let buffer = "";
         updateAutopilot({
-          title: "Create personas",
-          detail: "Generating personas...",
+          title: "Generating personas",
+          detail: "Agent is creating personas now...",
           status: "running",
         });
 
@@ -336,20 +345,11 @@ export function AssistantChat() {
                   | { type: "error"; message?: string };
 
                 if (evt.type === "progress") {
-                  const ratio = (evt.total ?? count) > 0 ? evt.completed / (evt.total ?? count) : 0;
-                  const isFinalizingLinks =
-                    Number(evt.total ?? count) > 0 &&
-                    Number(evt.completed ?? 0) >= Number(evt.total ?? count);
                   updateAutopilot({
-                    title: "Create personas",
-                    detail:
-                      isFinalizingLinks
-                        ? "Linking sources & evidence..."
-                        : ratio >= 0.65
-                        ? "Structuring attributes..."
-                        : evt.personaName
-                          ? `Generating personas... ${evt.personaName}`
-                          : "Generating personas...",
+                    title: "Generating personas",
+                    detail: evt.personaName
+                      ? `Created ${evt.personaName}. Continuing...`
+                      : "Creating personas...",
                     progress: {
                       completed: evt.completed,
                       total: evt.total ?? count,
@@ -375,8 +375,8 @@ export function AssistantChat() {
                   }));
                 } else if (evt.type === "done") {
                   updateAutopilot({
-                    title: "Create personas",
-                    detail: "Finalizing output...",
+                    title: "Finalizing",
+                    detail: "Wrapping up and syncing the final page...",
                     status: "running",
                   });
                   finishAutopilot(`Done. Generated ${evt.generated} personas.`);
@@ -458,6 +458,7 @@ export function AssistantChat() {
   );
 
   useEffect(() => {
+    if (pendingStudyDesign) return;
     const message = messages[messages.length - 1];
     if (!message || message.role !== "assistant") return;
 
@@ -505,9 +506,10 @@ export function AssistantChat() {
         sourceTypeOverride: output.sourceTypeOverride,
       });
     }
-  }, [messages, pendingPersonaDesign]);
+  }, [messages, pendingPersonaDesign, pendingStudyDesign]);
 
   useEffect(() => {
+    if (pendingStudyDesign) return;
     const message = messages[messages.length - 1];
     if (!message || message.role !== "assistant") return;
 
@@ -544,8 +546,6 @@ export function AssistantChat() {
       const dedupeKey = `${message.id}:${i}:${output.draft.title}`;
       if (startedStudyIdsRef.current.has(dedupeKey)) continue;
       if (dismissedStudyIdsRef.current.has(dedupeKey)) continue;
-      if (pendingStudyDesign?.dedupeKey === dedupeKey) continue;
-
       setPendingStudyDesign({
         dedupeKey,
         title: output.draft.title,
@@ -556,9 +556,9 @@ export function AssistantChat() {
         availablePersonaGroups:
           output.draft.availablePersonaGroups ?? output.draft.personaGroups ?? [],
       });
+      break;
     }
   }, [messages, pendingStudyDesign]);
-
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
     try {
@@ -729,12 +729,25 @@ export function AssistantChat() {
     setStudyTitle(pendingStudyDesign.title);
     setStudyDescription(pendingStudyDesign.description);
     setStudyGuide(pendingStudyDesign.interviewGuide);
+    const questions = parseInterviewQuestions(pendingStudyDesign.interviewGuide);
+    setStudyQuestions(questions);
+    setStudySelectedQuestions(questions);
+    setStudyDesignStep("details");
     setStudySelectedGroupIds(pendingStudyDesign.personaGroupIds);
     setStudyAvailableGroups(pendingStudyDesign.availablePersonaGroups);
     setStudyCreationStage("drafted");
     setCreatingStudy(false);
   }, [pendingStudyDesign]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const open = isOpen && Boolean(pendingStudyDesign || pendingPersonaDesign);
+    window.dispatchEvent(
+      new CustomEvent("assistant:modal-open", {
+        detail: { open },
+      })
+    );
+  }, [isOpen, pendingStudyDesign, pendingPersonaDesign]);
   const personaPromptPresets = useMemo(
     () => [
       "B2B SaaS founders at seed to Series A stage. Include distinct growth, product, and operations mindsets.",
@@ -793,14 +806,17 @@ export function AssistantChat() {
       dismissedStudyIdsRef.current.add(pendingStudyDesign.dedupeKey);
     }
     setPendingStudyDesign(null);
+    setStudyDesignStep("details");
+    setStudyQuestions([]);
+    setStudySelectedQuestions([]);
     setStudySelectedGroupIds([]);
     setStudyAvailableGroups([]);
     setCreatingStudy(false);
     setStudyCreationStage("drafted");
   }
 
-  async function handleConfirmStudyDesign() {
-    if (!pendingStudyDesign || creatingStudy) return;
+  function handleContinueStudyDesign() {
+    if (creatingStudy) return;
     const title = studyTitle.trim();
     const guide = studyGuide.trim();
     if (!title) {
@@ -815,8 +831,40 @@ export function AssistantChat() {
       toast.error("At least one persona group is required.");
       return;
     }
+    const questions = parseInterviewQuestions(guide);
+    if (questions.length === 0) {
+      toast.error("Please include at least one interview question.");
+      return;
+    }
+    setStudyQuestions(questions);
+    setStudySelectedQuestions(questions);
+    setStudyDesignStep("questions");
+  }
+
+  async function handleConfirmStudyDesign() {
+    if (!pendingStudyDesign || creatingStudy) return;
+    const title = studyTitle.trim();
+    const guide = studyGuide.trim();
+    if (!title) {
+      toast.error("Please add a study title.");
+      return;
+    }
+    if (!guide) {
+      toast.error("Please add interview questions.");
+      return;
+    }
+    if (studySelectedQuestions.length === 0) {
+      toast.error("Select at least one interview question.");
+      return;
+    }
+    if (studySelectedGroupIds.length === 0) {
+      toast.error("At least one persona group is required.");
+      return;
+    }
 
     startedStudyIdsRef.current.add(pendingStudyDesign.dedupeKey);
+    setPendingStudyDesign(null);
+    setStudyDesignStep("details");
     setCreatingStudy(true);
     setStudyCreationStage("creating");
     startAutopilot("Create study", "Creating study...");
@@ -828,7 +876,7 @@ export function AssistantChat() {
         body: JSON.stringify({
           title,
           description: studyDescription.trim() || undefined,
-          interviewGuide: guide,
+          interviewGuide: studySelectedQuestions.join("\n"),
           personaGroupIds: studySelectedGroupIds,
         }),
       });
@@ -838,19 +886,58 @@ export function AssistantChat() {
         throw new Error(payload.error || "Failed to create study");
       }
 
-      const payload = (await res.json()) as { url?: string; title?: string };
+      const payload = (await res.json()) as {
+        id?: string;
+        url?: string;
+        title?: string;
+      };
+
+      let interviewsStarted = false;
+      if (payload.id) {
+        updateAutopilot({
+          title: "Create study",
+          detail: "Starting interviews...",
+          status: "running",
+        });
+        try {
+          const runRes = await fetch(`/api/studies/${payload.id}/run-batch`, {
+            method: "POST",
+          });
+          // If interviews already exist, treat as non-fatal.
+          if (!runRes.ok && runRes.status !== 400) {
+            const runPayload = (await runRes.json().catch(() => ({}))) as {
+              error?: string;
+            };
+            throw new Error(runPayload.error || "Failed to start interviews");
+          }
+          interviewsStarted = true;
+        } catch {
+          // Non-blocking: study is created; user can still manually start if needed.
+          toast.error("Study created, but interviews did not start automatically.");
+        }
+      }
+
       setStudyCreationStage("finalizing");
       updateAutopilot({
         title: "Create study",
         detail: "Finalizing output...",
         status: "running",
       });
-      finishAutopilot(`Created study "${payload.title ?? title}".`);
+      finishAutopilot(
+        interviewsStarted
+          ? `Created study "${payload.title ?? title}" and started interviews.`
+          : `Created study "${payload.title ?? title}".`
+      );
       setStudyCreationStage("done");
-      setPendingStudyDesign(null);
+      setStudyQuestions([]);
+      setStudySelectedQuestions([]);
       setStudySelectedGroupIds([]);
       setStudyAvailableGroups([]);
-      if (payload.url) router.push(payload.url);
+      if (payload.id) {
+        router.push(`/studies/${payload.id}`);
+      } else if (payload.url) {
+        router.push(payload.url);
+      }
       setTimeout(() => clearAutopilot(), 1400);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Failed to create study";
@@ -877,6 +964,14 @@ export function AssistantChat() {
     );
   }
 
+  function toggleStudyQuestion(question: string) {
+    if (creatingStudy) return;
+    setStudySelectedQuestions((prev) =>
+      prev.includes(question)
+        ? prev.filter((item) => item !== question)
+        : [...prev, question]
+    );
+  }
   function shufflePersonaPrompt() {
     if (personaPromptPresets.length === 0) return;
     const randomPrompt =
@@ -887,8 +982,8 @@ export function AssistantChat() {
   // ── Single aside with Chat + History overlay ──
   const askLayer = (
     <>
-      {isOpen && (pendingPersonaDesign || pendingStudyDesign) && (
-        <div className="pointer-events-auto fixed inset-y-0 left-0 right-[23rem] z-20 bg-stone-900/20 backdrop-blur-[1px] max-md:hidden" />
+      {isOpen && pendingPersonaDesign && (
+        <div className="pointer-events-auto fixed inset-y-0 left-0 right-[23rem] z-40 bg-stone-900/20 backdrop-blur-[1px] max-md:hidden" />
       )}
 
       <aside
@@ -899,7 +994,7 @@ export function AssistantChat() {
         className={cn(
         // Solid surface + high z-index so fixed UI under the viewport inset (e.g. insights chat at z-40)
         // cannot show through transparent panel chrome.
-        "fixed z-30 flex flex-col overflow-hidden bg-background shadow-2xl ring-1 ring-border/80 transition-all duration-200 ease-out",
+        "fixed z-[100] flex flex-col overflow-hidden bg-background shadow-2xl ring-1 ring-border/80 transition-all duration-300 ease-out",
         "inset-0 h-dvh w-screen rounded-none sm:top-2 sm:bottom-2 sm:right-0 sm:left-auto sm:h-auto sm:w-[min(23rem,100vw-0.75rem)] sm:rounded-l-2xl",
         isOpen
           ? "translate-x-0 opacity-100"
@@ -913,12 +1008,11 @@ export function AssistantChat() {
         chatView === "history" ? "scale-[0.98] opacity-20 pointer-events-none" : ""
       )}>
         {/* Header */}
-        <div className="flex h-14 items-center justify-between border-b border-stone-200/80 pl-3 pr-3">
-          <div className="min-w-0">
-            <span id="ask-panel-title" className="block truncate text-[13px] font-semibold text-stone-900">
+        <div className="flex h-12 items-center justify-between border-b border-stone-200/80 pl-3 pr-3">
+          <div className="flex items-center gap-1.5">
+            <span id="ask-panel-title" className="text-[13px] font-semibold text-stone-900">
               {panelTitle}
             </span>
-            <p className="truncate text-[11px] text-stone-500">Live AI workspace for personas, studies, and insights</p>
           </div>
           <div className="flex items-center gap-[1px]">
             <button
@@ -964,21 +1058,18 @@ export function AssistantChat() {
           aria-live="polite"
           aria-relevant="additions text"
           aria-busy={isLoading}
-          className="flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pt-3 pb-6"
+          className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-3 pb-6 space-y-3"
         >
           {messages.length === 0 && (
-            <div className="my-2 space-y-3 rounded-2xl border border-stone-200 bg-gradient-to-b from-stone-50 to-white p-4 shadow-sm">
-              <div>
-                <p className="text-[13px] font-semibold text-stone-900">What do you want to ship today?</p>
-                <p className="mt-1 text-[12px] leading-5 text-stone-600">
-                  Ask can create personas, set up studies, run interviews, and summarize insights in real time.
-                </p>
-              </div>
-              <div className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-[11px] leading-snug text-stone-500">
-                Keyboard: <span className="font-medium text-stone-700">Enter</span> to send,{" "}
-                <span className="font-medium text-stone-700">Shift+Enter</span> for new line,{" "}
-                <span className="font-medium text-stone-700">{"\u2318K"}</span>/<span className="font-medium text-stone-700">Ctrl+K</span> to toggle.
-              </div>
+            <div className="my-2 space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-3">
+              <p className="text-[13px] leading-5 text-stone-700">
+                Ask can create personas, set up studies, run interviews, and summarize insights.
+              </p>
+              <p className="text-[11px] leading-snug text-stone-500">
+                Tip: Press <span className="font-medium text-stone-600">{"\u2318K"}</span> (Mac) or{" "}
+                <span className="font-medium text-stone-600">Ctrl+K</span> anytime to toggle Ask from anywhere
+                in the app.
+              </p>
               <div className="flex flex-wrap gap-2">
                 {suggestedPrompts.map((prompt) => (
                   <button
@@ -988,7 +1079,7 @@ export function AssistantChat() {
                       trackAssistantEvent("ask_click_suggestion", { prompt });
                       handleSend(prompt);
                     }}
-                    className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] text-stone-700 transition-colors hover:bg-stone-100 active:scale-[0.99]"
+                    className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] text-stone-700 hover:bg-stone-100"
                   >
                     {prompt}
                   </button>
@@ -1127,7 +1218,7 @@ export function AssistantChat() {
             onKeyDown={handleKeyDown}
             placeholder="Ask anything about personas, studies, or insights..."
             rows={1}
-            className="w-full resize-none rounded-2xl border border-stone-300 bg-white px-3 py-2.5 pb-11 pr-14 text-[13px] text-stone-900 placeholder:text-stone-500 transition-colors focus-visible:border-stone-500 focus-visible:outline-none"
+            className="w-full resize-none rounded-2xl border border-stone-300 bg-white px-3 py-2.5 pb-10 text-[13px] text-stone-900 placeholder:text-stone-500 focus-visible:outline-none focus-visible:border-stone-500 transition-colors"
             style={{ minHeight: "2.75rem", maxHeight: "10rem" }}
             aria-label="Ask assistant input"
           />
@@ -1136,7 +1227,7 @@ export function AssistantChat() {
               type="button"
               disabled={!inputValue.trim() || isLoading}
               onClick={() => handleSend()}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-white transition-all duration-200 hover:bg-stone-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-900 text-white disabled:opacity-30 transition-colors hover:bg-stone-800"
               aria-label="Send message"
             >
               {isLoading ? (
@@ -1150,9 +1241,8 @@ export function AssistantChat() {
             {inputValue.trim().length}/2000
           </div>
           </div>
-          <div className="mt-1 flex items-center justify-between pb-1 text-[11px] text-stone-400">
-            <span>Press Enter to send, Shift+Enter for a new line</span>
-            {isLoading ? <span className="text-stone-500">AI is typing...</span> : null}
+          <div className="mt-1 pb-1 text-[11px] text-stone-400">
+            Press Enter to send, Shift+Enter for a new line
           </div>
         </div>
       </div>
@@ -1274,92 +1364,124 @@ export function AssistantChat() {
             </div>
 
             <div className="space-y-3.5 overflow-y-auto px-4 pb-3.5">
-              <div className="space-y-1.5">
-                <label htmlFor="study-design-title" className="text-[13px] font-medium text-stone-900">
-                  Title
-                </label>
-                <input
-                  id="study-design-title"
-                  value={studyTitle}
-                  onChange={(e) => setStudyTitle(e.target.value)}
-                  disabled={creatingStudy}
-                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[13px] text-stone-900 focus-visible:border-stone-500 focus-visible:outline-none disabled:bg-stone-50"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="study-design-description" className="text-[13px] font-medium text-stone-900">
-                  Description
-                </label>
-                <textarea
-                  id="study-design-description"
-                  rows={2}
-                  value={studyDescription}
-                  onChange={(e) => setStudyDescription(e.target.value)}
-                  disabled={creatingStudy}
-                  className="w-full resize-none rounded-lg border border-stone-300 bg-white px-3 py-2 text-[13px] text-stone-900 focus-visible:border-stone-500 focus-visible:outline-none disabled:bg-stone-50"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="study-design-guide" className="text-[13px] font-medium text-stone-900">
-                  Interview guide
-                </label>
-                <textarea
-                  id="study-design-guide"
-                  rows={7}
-                  value={studyGuide}
-                  onChange={(e) => setStudyGuide(e.target.value)}
-                  disabled={creatingStudy}
-                  className="w-full resize-none rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[13px] text-stone-900 focus-visible:border-stone-500 focus-visible:outline-none disabled:bg-stone-50"
-                />
-              </div>
-
-              <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[12px] font-medium text-stone-700">Persona groups</p>
-                  <span className="text-[11px] text-stone-500">
-                    {studySelectedGroupIds.length} selected
-                  </span>
-                </div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {studyAvailableGroups.map((group) => {
-                    const selected = studySelectedGroupIds.includes(group.id);
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => toggleStudyGroup(group.id)}
-                        disabled={creatingStudy}
-                        key={group.id}
-                        className={cn(
-                          "rounded-full border px-2 py-0.5 text-[11px] transition-colors",
-                          selected
-                            ? "border-stone-900 bg-stone-900 text-white"
-                            : "border-stone-200 bg-white text-stone-700 hover:bg-stone-100"
-                        )}
-                      >
-                        {group.name}
-                      </button>
-                    );
-                  })}
-                </div>
-                {studySelectedGroupIds.length === 0 ? (
-                  <p className="mt-1 text-[11px] text-red-600">Select at least one persona group.</p>
-                ) : (
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {studyAvailableGroups
-                      .filter((group) => studySelectedGroupIds.includes(group.id))
-                      .map((group) => (
-                        <span
-                      key={group.id}
-                      className="rounded-full border border-stone-200 bg-white px-2 py-0.5 text-[11px] text-stone-700"
-                    >
-                      {group.name}
-                    </span>
-                      ))}
+              {studyDesignStep === "details" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <label htmlFor="study-design-title" className="text-[13px] font-medium text-stone-900">
+                      Title
+                    </label>
+                    <input
+                      id="study-design-title"
+                      value={studyTitle}
+                      onChange={(e) => setStudyTitle(e.target.value)}
+                      disabled={creatingStudy}
+                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[13px] text-stone-900 focus-visible:border-stone-500 focus-visible:outline-none disabled:bg-stone-50"
+                    />
                   </div>
-                )}
-              </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="study-design-description" className="text-[13px] font-medium text-stone-900">
+                      Description
+                    </label>
+                    <textarea
+                      id="study-design-description"
+                      rows={2}
+                      value={studyDescription}
+                      onChange={(e) => setStudyDescription(e.target.value)}
+                      disabled={creatingStudy}
+                      className="w-full resize-none rounded-lg border border-stone-300 bg-white px-3 py-2 text-[13px] text-stone-900 focus-visible:border-stone-500 focus-visible:outline-none disabled:bg-stone-50"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="study-design-guide" className="text-[13px] font-medium text-stone-900">
+                      Interview guide
+                    </label>
+                    <textarea
+                      id="study-design-guide"
+                      rows={7}
+                      value={studyGuide}
+                      onChange={(e) => setStudyGuide(e.target.value)}
+                      disabled={creatingStudy}
+                      className="w-full resize-none rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[13px] text-stone-900 focus-visible:border-stone-500 focus-visible:outline-none disabled:bg-stone-50"
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[12px] font-medium text-stone-700">Persona groups</p>
+                      <span className="text-[11px] text-stone-500">
+                        {studySelectedGroupIds.length} selected
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {studyAvailableGroups.map((group) => {
+                        const selected = studySelectedGroupIds.includes(group.id);
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => toggleStudyGroup(group.id)}
+                            disabled={creatingStudy}
+                            key={group.id}
+                            className={cn(
+                              "rounded-full border px-2 py-0.5 text-[11px] transition-colors",
+                              selected
+                                ? "border-stone-900 bg-stone-900 text-white"
+                                : "border-stone-200 bg-white text-stone-700 hover:bg-stone-100"
+                            )}
+                          >
+                            {group.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {studySelectedGroupIds.length === 0 ? (
+                      <p className="mt-1 text-[11px] text-red-600">Select at least one persona group.</p>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2 rounded-xl border border-stone-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[13px] font-medium text-stone-900">Select interview questions</p>
+                    <span className="text-[11px] text-stone-500">
+                      {studySelectedQuestions.length}/{studyQuestions.length} selected
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Choose which questions to include before starting the study.
+                  </p>
+                  <div className="space-y-1.5">
+                    {studyQuestions.map((question) => {
+                      const checked = studySelectedQuestions.includes(question);
+                      return (
+                        <button
+                          key={question}
+                          type="button"
+                          onClick={() => toggleStudyQuestion(question)}
+                          className={cn(
+                            "flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left text-[12px] transition-colors",
+                            checked
+                              ? "border-stone-900 bg-stone-900/5 text-stone-900"
+                              : "border-stone-200 bg-white text-stone-700 hover:bg-stone-50"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-sm border",
+                              checked ? "border-stone-900 bg-stone-900" : "border-stone-300 bg-white"
+                            )}
+                          />
+                          <span>{question}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {studySelectedQuestions.length === 0 ? (
+                    <p className="text-[11px] text-red-600">Select at least one interview question.</p>
+                  ) : null}
+                </div>
+              )}
 
               <div className="space-y-2 rounded-xl border border-stone-200 bg-white px-3 py-2.5">
                 {["Understanding request...", "Drafting study...", "Creating study...", "Finalizing output..."].map(
@@ -1389,15 +1511,23 @@ export function AssistantChat() {
             <div className="flex items-center justify-end gap-2 border-t border-stone-200 bg-stone-50/60 px-4 py-3">
               <button
                 type="button"
-                onClick={handleCancelStudyDesign}
+                onClick={
+                  studyDesignStep === "questions"
+                    ? () => setStudyDesignStep("details")
+                    : handleCancelStudyDesign
+                }
                 disabled={creatingStudy}
                 className="inline-flex items-center justify-center rounded-full border border-stone-300 bg-white px-4 py-2 text-[13px] font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-40"
               >
-                Cancel
+                {studyDesignStep === "questions" ? "Back" : "Cancel"}
               </button>
               <button
                 type="button"
-                onClick={handleConfirmStudyDesign}
+                onClick={
+                  studyDesignStep === "questions"
+                    ? handleConfirmStudyDesign
+                    : handleContinueStudyDesign
+                }
                 disabled={creatingStudy}
                 className="inline-flex items-center justify-center rounded-full bg-stone-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-stone-800 disabled:opacity-60"
               >
@@ -1407,7 +1537,7 @@ export function AssistantChat() {
                     Creating...
                   </span>
                 ) : (
-                  "Create study"
+                  studyDesignStep === "questions" ? "Start study" : "Continue"
                 )}
               </button>
             </div>
@@ -1442,7 +1572,7 @@ export function AssistantChat() {
               </div>
             </div>
 
-            <div className="space-y-3.5 overflow-y-auto px-4 pb-3.5">
+            <div className="space-y-3.5 px-4 pb-3.5">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label

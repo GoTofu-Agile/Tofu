@@ -32,6 +32,7 @@ export function AssistantLiveActivityPanel() {
   const { autopilot, isOpen } = useAssistant();
   const [widgetRun, setWidgetRun] = useState<WidgetRun | null>(null);
   const [dismissedActivityKey, setDismissedActivityKey] = useState<string | null>(null);
+  const [assistantModalOpen, setAssistantModalOpen] = useState(false);
 
   useEffect(() => {
     const read = () => {
@@ -60,6 +61,15 @@ export function AssistantLiveActivityPanel() {
     };
   }, []);
 
+  useEffect(() => {
+    const onModalOpen = (event: Event) => {
+      const custom = event as CustomEvent<{ open?: boolean }>;
+      setAssistantModalOpen(Boolean(custom.detail?.open));
+    };
+    window.addEventListener("assistant:modal-open", onModalOpen);
+    return () => window.removeEventListener("assistant:modal-open", onModalOpen);
+  }, []);
+
   const shouldShow =
     autopilot.active || (widgetRun && widgetRun.phase !== "done" && widgetRun.phase !== "error");
   const activityKey = `${autopilot.active ? "a" : "i"}:${autopilot.title}:${widgetRun?.runId ?? "none"}`;
@@ -70,15 +80,32 @@ export function AssistantLiveActivityPanel() {
   const progressPercent = total > 0 ? Math.max(0, Math.min(100, Math.round((completed / total) * 100))) : 0;
 
   const steps = useMemo(() => {
-    const base = [
-      "Understanding request...",
-      "Generating personas...",
-      "Structuring attributes...",
-      "Finalizing output...",
-    ];
+    const isStudyFlow =
+      autopilot.title.toLowerCase().includes("study") ||
+      autopilot.detail?.toLowerCase().includes("study");
+    const base = isStudyFlow
+      ? [
+          "Understanding request...",
+          "Drafting study...",
+          "Creating study...",
+          "Finalizing output...",
+        ]
+      : [
+          "Understanding request...",
+          "Generating personas...",
+          "Structuring attributes...",
+          "Finalizing output...",
+        ];
     let activeIndex = 0;
     if (autopilot.status === "done") activeIndex = base.length - 1;
     else if (autopilot.title.toLowerCase().includes("final")) activeIndex = 3;
+    else if (isStudyFlow) {
+      const detail = autopilot.detail?.toLowerCase() ?? "";
+      if (detail.includes("draft")) activeIndex = 1;
+      else if (detail.includes("creating")) activeIndex = 2;
+      else if (detail.includes("final")) activeIndex = 3;
+      else activeIndex = 0;
+    }
     else if (hasProgress && total > 0 && completed > 0) {
       const ratio = completed / total;
       if (ratio >= 0.85) activeIndex = 3;
@@ -98,11 +125,11 @@ export function AssistantLiveActivityPanel() {
       label,
       status: statusForIndex(index, activeIndex, autopilot.status === "done"),
     }));
-  }, [autopilot.status, autopilot.title, completed, hasProgress, total, widgetRun?.phase]);
+  }, [autopilot.status, autopilot.title, autopilot.detail, completed, hasProgress, total, widgetRun?.phase]);
 
   return (
     <AnimatePresence>
-      {shouldShow && dismissedActivityKey !== activityKey ? (
+      {shouldShow && dismissedActivityKey !== activityKey && !assistantModalOpen ? (
         <motion.aside
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}

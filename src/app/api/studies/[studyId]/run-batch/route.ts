@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
-import { getStudy, getPersonaIdsWithSessionsForStudy } from "@/lib/db/queries/studies";
+import {
+  getStudy,
+  getPersonaIdsWithSessionsForStudy,
+  updateStudyStatus,
+} from "@/lib/db/queries/studies";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { inngest } from "@/lib/inngest/client";
 
@@ -49,6 +53,18 @@ export async function POST(
     return Response.json({
       error: "All personas already have sessions",
     }, { status: 400 });
+  }
+
+  // If we're about to run interviews, make the study ACTIVE immediately.
+  // This prevents the study page from showing the Setup step while sessions
+  // are still being created asynchronously.
+  if (study.status === "DRAFT") {
+    try {
+      await updateStudyStatus(studyId, "ACTIVE");
+    } catch (error) {
+      console.error("[run-batch] Failed to update study status:", error);
+      // Non-blocking: interviews can still run even if status update fails.
+    }
   }
 
   // Send event to Inngest
