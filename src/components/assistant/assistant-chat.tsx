@@ -16,17 +16,10 @@ import {
   Shuffle,
   Copy,
   RotateCcw,
-  Users,
   FlaskConical,
-  Settings,
-  MessageSquare,
   Sparkles,
   Clock,
   Check,
-  UserPlus,
-  Search,
-  FileText,
-  Compass,
   ArrowUpRight,
   ChevronRight,
 } from "lucide-react";
@@ -64,7 +57,25 @@ interface PendingPersonaDesign {
   sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
 }
 
+interface PendingStudyDesign {
+  dedupeKey: string;
+  title: string;
+  description: string;
+  interviewGuide: string;
+  personaGroupIds: string[];
+  personaGroups: { id: string; name: string }[];
+  availablePersonaGroups: { id: string; name: string }[];
+}
+
+type StudyDesignStep = "details" | "questions";
 const ASK_DRAFT_STORAGE_KEY = "gotofu.ask.draft";
+
+function parseInterviewQuestions(guide: string): string[] {
+  return guide
+    .split("\n")
+    .map((line) => line.trim().replace(/^\d+[\.)]\s*/, ""))
+    .filter((line) => line.length > 0);
+}
 
 function trackAssistantEvent(event: string, payload?: Record<string, unknown>) {
   if (typeof window === "undefined") return;
@@ -97,8 +108,19 @@ export function AssistantChat() {
   const [historyQuery, setHistoryQuery] = useState("");
   const [liveGenerations, setLiveGenerations] = useState<Record<string, LivePersonaGeneration>>({});
   const [pendingPersonaDesign, setPendingPersonaDesign] = useState<PendingPersonaDesign | null>(null);
+  const [pendingStudyDesign, setPendingStudyDesign] = useState<PendingStudyDesign | null>(null);
   const [personaDesignCount, setPersonaDesignCount] = useState(5);
   const [personaDesignPrompt, setPersonaDesignPrompt] = useState("");
+  const [studyTitle, setStudyTitle] = useState("");
+  const [studyDescription, setStudyDescription] = useState("");
+  const [studyGuide, setStudyGuide] = useState("");
+  const [studyDesignStep, setStudyDesignStep] = useState<StudyDesignStep>("details");
+  const [studyQuestions, setStudyQuestions] = useState<string[]>([]);
+  const [studySelectedQuestions, setStudySelectedQuestions] = useState<string[]>([]);
+  const [studySelectedGroupIds, setStudySelectedGroupIds] = useState<string[]>([]);
+  const [studyAvailableGroups, setStudyAvailableGroups] = useState<{ id: string; name: string }[]>([]);
+  const [creatingStudy, setCreatingStudy] = useState(false);
+  const [studyCreationStage, setStudyCreationStage] = useState<"drafted" | "creating" | "finalizing" | "done" | "error">("drafted");
   const [chatError, setChatError] = useState<string | null>(null);
   const [lastUserPrompt, setLastUserPrompt] = useState("");
   const [expandedResponses, setExpandedResponses] = useState<Record<string, boolean>>({});
@@ -106,6 +128,8 @@ export function AssistantChat() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const startedGenerationIdsRef = useRef<Set<string>>(new Set());
   const dismissedGenerationIdsRef = useRef<Set<string>>(new Set());
+  const startedStudyIdsRef = useRef<Set<string>>(new Set());
+  const dismissedStudyIdsRef = useRef<Set<string>>(new Set());
   const scrollRafRef = useRef<number | null>(null);
   const hasLoadedDraftRef = useRef(false);
   const [isClient, setIsClient] = useState(false);
@@ -231,6 +255,9 @@ export function AssistantChat() {
 
   // Handle navigation tool results
   useEffect(() => {
+    // Prevent assistant "navigateTo" tool from overriding in-progress modal flows
+    // (e.g. study setup confirmations) or post-confirm navigation.
+    if (pendingStudyDesign || pendingPersonaDesign || creatingStudy) return;
     const lastMessage = messages[messages.length - 1];
     if (lastMessage?.role === "assistant") {
       for (const part of lastMessage.parts) {
@@ -245,7 +272,7 @@ export function AssistantChat() {
         }
       }
     }
-  }, [messages, router]);
+  }, [messages, router, pendingStudyDesign, pendingPersonaDesign, creatingStudy]);
 
   const startLivePersonaGeneration = useCallback(
     async (payload: {
@@ -431,6 +458,7 @@ export function AssistantChat() {
   );
 
   useEffect(() => {
+    if (pendingStudyDesign) return;
     const message = messages[messages.length - 1];
     if (!message || message.role !== "assistant") return;
 
@@ -478,8 +506,59 @@ export function AssistantChat() {
         sourceTypeOverride: output.sourceTypeOverride,
       });
     }
-  }, [messages, pendingPersonaDesign]);
+  }, [messages, pendingPersonaDesign, pendingStudyDesign]);
 
+  useEffect(() => {
+    if (pendingStudyDesign) return;
+    const message = messages[messages.length - 1];
+    if (!message || message.role !== "assistant") return;
+
+    for (let i = 0; i < message.parts.length; i++) {
+      const part = message.parts[i];
+      const isStudyTool =
+        part.type === "tool-createStudy" ||
+        part.type === "tool-setupStudyFromDescription";
+      if (
+        !isStudyTool ||
+        !("state" in part) ||
+        part.state !== "output-available" ||
+        !("output" in part)
+      ) {
+        continue;
+      }
+
+      const output = part.output as {
+        status?: string;
+        draft?: {
+          title?: string;
+          description?: string;
+          interviewGuide?: string;
+          personaGroupIds?: string[];
+          personaGroups?: { id: string; name: string }[];
+          availablePersonaGroups?: { id: string; name: string }[];
+        };
+      };
+
+      if (output?.status !== "pending_confirmation" || !output?.draft?.title) {
+        continue;
+      }
+
+      const dedupeKey = `${message.id}:${i}:${output.draft.title}`;
+      if (startedStudyIdsRef.current.has(dedupeKey)) continue;
+      if (dismissedStudyIdsRef.current.has(dedupeKey)) continue;
+      setPendingStudyDesign({
+        dedupeKey,
+        title: output.draft.title,
+        description: output.draft.description ?? "",
+        interviewGuide: output.draft.interviewGuide ?? "",
+        personaGroupIds: output.draft.personaGroupIds ?? [],
+        personaGroups: output.draft.personaGroups ?? [],
+        availablePersonaGroups:
+          output.draft.availablePersonaGroups ?? output.draft.personaGroups ?? [],
+      });
+      break;
+    }
+  }, [messages, pendingStudyDesign]);
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
     try {
@@ -645,6 +724,30 @@ export function AssistantChat() {
     setPersonaDesignPrompt(latestUserText || "");
   }, [pendingPersonaDesign, messages]);
 
+  useEffect(() => {
+    if (!pendingStudyDesign) return;
+    setStudyTitle(pendingStudyDesign.title);
+    setStudyDescription(pendingStudyDesign.description);
+    setStudyGuide(pendingStudyDesign.interviewGuide);
+    const questions = parseInterviewQuestions(pendingStudyDesign.interviewGuide);
+    setStudyQuestions(questions);
+    setStudySelectedQuestions(questions);
+    setStudyDesignStep("details");
+    setStudySelectedGroupIds(pendingStudyDesign.personaGroupIds);
+    setStudyAvailableGroups(pendingStudyDesign.availablePersonaGroups);
+    setStudyCreationStage("drafted");
+    setCreatingStudy(false);
+  }, [pendingStudyDesign]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const open = isOpen && Boolean(pendingStudyDesign || pendingPersonaDesign);
+    window.dispatchEvent(
+      new CustomEvent("assistant:modal-open", {
+        detail: { open },
+      })
+    );
+  }, [isOpen, pendingStudyDesign, pendingPersonaDesign]);
   const personaPromptPresets = useMemo(
     () => [
       "B2B SaaS founders at seed to Series A stage. Include distinct growth, product, and operations mindsets.",
@@ -698,6 +801,177 @@ export function AssistantChat() {
     setPersonaDesignPrompt("");
   }
 
+  function handleCancelStudyDesign() {
+    if (pendingStudyDesign) {
+      dismissedStudyIdsRef.current.add(pendingStudyDesign.dedupeKey);
+    }
+    setPendingStudyDesign(null);
+    setStudyDesignStep("details");
+    setStudyQuestions([]);
+    setStudySelectedQuestions([]);
+    setStudySelectedGroupIds([]);
+    setStudyAvailableGroups([]);
+    setCreatingStudy(false);
+    setStudyCreationStage("drafted");
+  }
+
+  function handleContinueStudyDesign() {
+    if (creatingStudy) return;
+    const title = studyTitle.trim();
+    const guide = studyGuide.trim();
+    if (!title) {
+      toast.error("Please add a study title.");
+      return;
+    }
+    if (!guide) {
+      toast.error("Please add interview questions.");
+      return;
+    }
+    if (studySelectedGroupIds.length === 0) {
+      toast.error("At least one persona group is required.");
+      return;
+    }
+    const questions = parseInterviewQuestions(guide);
+    if (questions.length === 0) {
+      toast.error("Please include at least one interview question.");
+      return;
+    }
+    setStudyQuestions(questions);
+    setStudySelectedQuestions(questions);
+    setStudyDesignStep("questions");
+  }
+
+  async function handleConfirmStudyDesign() {
+    if (!pendingStudyDesign || creatingStudy) return;
+    const title = studyTitle.trim();
+    const guide = studyGuide.trim();
+    if (!title) {
+      toast.error("Please add a study title.");
+      return;
+    }
+    if (!guide) {
+      toast.error("Please add interview questions.");
+      return;
+    }
+    if (studySelectedQuestions.length === 0) {
+      toast.error("Select at least one interview question.");
+      return;
+    }
+    if (studySelectedGroupIds.length === 0) {
+      toast.error("At least one persona group is required.");
+      return;
+    }
+
+    startedStudyIdsRef.current.add(pendingStudyDesign.dedupeKey);
+    setPendingStudyDesign(null);
+    setStudyDesignStep("details");
+    setCreatingStudy(true);
+    setStudyCreationStage("creating");
+    startAutopilot("Create study", "Creating study...");
+
+    try {
+      const res = await fetch("/api/studies/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description: studyDescription.trim() || undefined,
+          interviewGuide: studySelectedQuestions.join("\n"),
+          personaGroupIds: studySelectedGroupIds,
+        }),
+      });
+
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || "Failed to create study");
+      }
+
+      const payload = (await res.json()) as {
+        id?: string;
+        url?: string;
+        title?: string;
+      };
+
+      let interviewsStarted = false;
+      if (payload.id) {
+        updateAutopilot({
+          title: "Create study",
+          detail: "Starting interviews...",
+          status: "running",
+        });
+        try {
+          const runRes = await fetch(`/api/studies/${payload.id}/run-batch`, {
+            method: "POST",
+          });
+          // If interviews already exist, treat as non-fatal.
+          if (!runRes.ok && runRes.status !== 400) {
+            const runPayload = (await runRes.json().catch(() => ({}))) as {
+              error?: string;
+            };
+            throw new Error(runPayload.error || "Failed to start interviews");
+          }
+          interviewsStarted = true;
+        } catch {
+          // Non-blocking: study is created; user can still manually start if needed.
+          toast.error("Study created, but interviews did not start automatically.");
+        }
+      }
+
+      setStudyCreationStage("finalizing");
+      updateAutopilot({
+        title: "Create study",
+        detail: "Finalizing output...",
+        status: "running",
+      });
+      finishAutopilot(
+        interviewsStarted
+          ? `Created study "${payload.title ?? title}" and started interviews.`
+          : `Created study "${payload.title ?? title}".`
+      );
+      setStudyCreationStage("done");
+      setStudyQuestions([]);
+      setStudySelectedQuestions([]);
+      setStudySelectedGroupIds([]);
+      setStudyAvailableGroups([]);
+      if (payload.id) {
+        router.push(`/studies/${payload.id}`);
+      } else if (payload.url) {
+        router.push(payload.url);
+      }
+      setTimeout(() => clearAutopilot(), 1400);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to create study";
+      setStudyCreationStage("error");
+      failAutopilot(msg);
+      toast.error(msg);
+    } finally {
+      setCreatingStudy(false);
+    }
+  }
+
+  function getStudyStepState(index: number): "pending" | "running" | "done" | "error" {
+    if (studyCreationStage === "error" && index >= 2) return "error";
+    if (studyCreationStage === "drafted") return index < 2 ? "done" : "pending";
+    if (studyCreationStage === "creating") return index < 2 ? "done" : index === 2 ? "running" : "pending";
+    if (studyCreationStage === "finalizing") return index < 3 ? "done" : "running";
+    return "done";
+  }
+
+  function toggleStudyGroup(groupId: string) {
+    if (creatingStudy) return;
+    setStudySelectedGroupIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
+    );
+  }
+
+  function toggleStudyQuestion(question: string) {
+    if (creatingStudy) return;
+    setStudySelectedQuestions((prev) =>
+      prev.includes(question)
+        ? prev.filter((item) => item !== question)
+        : [...prev, question]
+    );
+  }
   function shufflePersonaPrompt() {
     if (personaPromptPresets.length === 0) return;
     const randomPrompt =
@@ -1061,9 +1335,219 @@ export function AssistantChat() {
 
       </aside>
 
-      {isOpen && pendingPersonaDesign && (
-        <div className="pointer-events-none fixed inset-y-0 left-0 right-[23rem] z-[45] flex items-center justify-center p-6 max-md:inset-x-0 max-md:right-0 max-md:items-end max-md:p-3">
-          <div className="pointer-events-auto w-[min(30rem,calc(100vw-26rem))] min-w-[22rem] max-w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl max-md:min-w-0 max-md:w-full">
+      {isOpen && pendingStudyDesign && (
+        <div className="pointer-events-none fixed inset-y-0 left-0 right-[23rem] z-[60] flex items-center justify-center p-6 max-md:inset-x-0 max-md:right-0 max-md:items-end max-md:p-3">
+          <div className="pointer-events-auto flex max-h-[calc(100dvh-3rem)] w-[min(34rem,calc(100vw-26rem))] min-w-[22rem] max-w-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl max-md:max-h-[calc(100dvh-1.5rem)] max-md:min-w-0 max-md:w-full">
+            <div className="px-5 pt-5 pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-11 w-11 place-items-center rounded-xl border border-stone-200 bg-stone-50 text-stone-700">
+                    <FlaskConical className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold tracking-tight text-stone-900">Study Setup</p>
+                    <p className="mt-1 text-[13px] text-stone-600">
+                      Review and confirm details before creating your study.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelStudyDesign}
+                  disabled={creatingStudy}
+                  className="rounded-md p-1 text-stone-500 hover:bg-stone-100 hover:text-stone-900 disabled:opacity-40"
+                  aria-label="Close study setup"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3.5 overflow-y-auto px-4 pb-3.5">
+              {studyDesignStep === "details" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <label htmlFor="study-design-title" className="text-[13px] font-medium text-stone-900">
+                      Title
+                    </label>
+                    <input
+                      id="study-design-title"
+                      value={studyTitle}
+                      onChange={(e) => setStudyTitle(e.target.value)}
+                      disabled={creatingStudy}
+                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[13px] text-stone-900 focus-visible:border-stone-500 focus-visible:outline-none disabled:bg-stone-50"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="study-design-description" className="text-[13px] font-medium text-stone-900">
+                      Description
+                    </label>
+                    <textarea
+                      id="study-design-description"
+                      rows={2}
+                      value={studyDescription}
+                      onChange={(e) => setStudyDescription(e.target.value)}
+                      disabled={creatingStudy}
+                      className="w-full resize-none rounded-lg border border-stone-300 bg-white px-3 py-2 text-[13px] text-stone-900 focus-visible:border-stone-500 focus-visible:outline-none disabled:bg-stone-50"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="study-design-guide" className="text-[13px] font-medium text-stone-900">
+                      Interview guide
+                    </label>
+                    <textarea
+                      id="study-design-guide"
+                      rows={7}
+                      value={studyGuide}
+                      onChange={(e) => setStudyGuide(e.target.value)}
+                      disabled={creatingStudy}
+                      className="w-full resize-none rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[13px] text-stone-900 focus-visible:border-stone-500 focus-visible:outline-none disabled:bg-stone-50"
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[12px] font-medium text-stone-700">Persona groups</p>
+                      <span className="text-[11px] text-stone-500">
+                        {studySelectedGroupIds.length} selected
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {studyAvailableGroups.map((group) => {
+                        const selected = studySelectedGroupIds.includes(group.id);
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => toggleStudyGroup(group.id)}
+                            disabled={creatingStudy}
+                            key={group.id}
+                            className={cn(
+                              "rounded-full border px-2 py-0.5 text-[11px] transition-colors",
+                              selected
+                                ? "border-stone-900 bg-stone-900 text-white"
+                                : "border-stone-200 bg-white text-stone-700 hover:bg-stone-100"
+                            )}
+                          >
+                            {group.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {studySelectedGroupIds.length === 0 ? (
+                      <p className="mt-1 text-[11px] text-red-600">Select at least one persona group.</p>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2 rounded-xl border border-stone-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[13px] font-medium text-stone-900">Select interview questions</p>
+                    <span className="text-[11px] text-stone-500">
+                      {studySelectedQuestions.length}/{studyQuestions.length} selected
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Choose which questions to include before starting the study.
+                  </p>
+                  <div className="space-y-1.5">
+                    {studyQuestions.map((question) => {
+                      const checked = studySelectedQuestions.includes(question);
+                      return (
+                        <button
+                          key={question}
+                          type="button"
+                          onClick={() => toggleStudyQuestion(question)}
+                          className={cn(
+                            "flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left text-[12px] transition-colors",
+                            checked
+                              ? "border-stone-900 bg-stone-900/5 text-stone-900"
+                              : "border-stone-200 bg-white text-stone-700 hover:bg-stone-50"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-sm border",
+                              checked ? "border-stone-900 bg-stone-900" : "border-stone-300 bg-white"
+                            )}
+                          />
+                          <span>{question}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {studySelectedQuestions.length === 0 ? (
+                    <p className="text-[11px] text-red-600">Select at least one interview question.</p>
+                  ) : null}
+                </div>
+              )}
+
+              <div className="space-y-2 rounded-xl border border-stone-200 bg-white px-3 py-2.5">
+                {["Understanding request...", "Drafting study...", "Creating study...", "Finalizing output..."].map(
+                  (step, idx) => {
+                    const status = getStudyStepState(idx);
+                    return (
+                      <div key={step} className="flex items-center gap-2 text-[12px]">
+                        {status === "done" ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : status === "running" ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-stone-700" />
+                        ) : status === "error" ? (
+                          <X className="h-3.5 w-3.5 text-red-600" />
+                        ) : (
+                          <span className="h-2 w-2 rounded-full bg-stone-300" />
+                        )}
+                        <span className={status === "pending" ? "text-stone-500" : "text-stone-800"}>
+                          {step}
+                        </span>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-stone-200 bg-stone-50/60 px-4 py-3">
+              <button
+                type="button"
+                onClick={
+                  studyDesignStep === "questions"
+                    ? () => setStudyDesignStep("details")
+                    : handleCancelStudyDesign
+                }
+                disabled={creatingStudy}
+                className="inline-flex items-center justify-center rounded-full border border-stone-300 bg-white px-4 py-2 text-[13px] font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-40"
+              >
+                {studyDesignStep === "questions" ? "Back" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={
+                  studyDesignStep === "questions"
+                    ? handleConfirmStudyDesign
+                    : handleContinueStudyDesign
+                }
+                disabled={creatingStudy}
+                className="inline-flex items-center justify-center rounded-full bg-stone-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-stone-800 disabled:opacity-60"
+              >
+                {creatingStudy ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Creating...
+                  </span>
+                ) : (
+                  studyDesignStep === "questions" ? "Start study" : "Continue"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isOpen && pendingPersonaDesign && !pendingStudyDesign && (
+        <div className="pointer-events-none fixed inset-y-0 left-0 right-[23rem] z-[60] flex items-center justify-center p-6 max-md:inset-x-0 max-md:right-0 max-md:items-end max-md:p-3">
+          <div className="pointer-events-auto flex max-h-[calc(100dvh-3rem)] w-[min(30rem,calc(100vw-26rem))] min-w-[22rem] max-w-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl max-md:max-h-[calc(100dvh-1.5rem)] max-md:min-w-0 max-md:w-full">
             <div className="px-5 pt-5 pb-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
