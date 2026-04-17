@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { requireAuthWithActiveOrg } from "@/lib/auth";
+import { getActiveOrgId, requireAuthWithOrgs } from "@/lib/auth";
 import { getOrgProductContext } from "@/lib/db/queries/organizations";
-import { prisma } from "@/lib/db/prisma";
 import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import { SetupChatPanel } from "./setup-chat-panel";
 import { buttonVariants } from "@/components/ui/button";
@@ -9,14 +8,24 @@ import { cn } from "@/lib/utils";
 import { setupStepLabel } from "@/lib/onboarding/dashboard-copy";
 
 export default async function ProductContextSetupPage() {
-  const { activeOrgId } = await requireAuthWithActiveOrg();
-  const [activeOrg, productContext] = await Promise.all([
-    prisma.organization.findUnique({
-      where: { id: activeOrgId },
-      select: { name: true, isPersonal: true },
-    }),
-    getOrgProductContext(activeOrgId),
-  ]);
+  const { organizations } = await requireAuthWithOrgs();
+  const activeOrgId = await getActiveOrgId(organizations);
+  if (!activeOrgId) {
+    throw new Error("No active organization");
+  }
+
+  const activeOrg = organizations.find((org) => org.id === activeOrgId);
+
+  let productContext: Awaited<ReturnType<typeof getOrgProductContext>> = null;
+  try {
+    productContext = await getOrgProductContext(activeOrgId);
+  } catch (error) {
+    // Keep setup route usable even if context lookup fails for a specific workspace.
+    console.error("[setup/product-context] Failed to load existing context", {
+      activeOrgId,
+      error,
+    });
+  }
 
   const orgName = activeOrg?.isPersonal ? "Personal" : (activeOrg?.name ?? "Workspace");
 
