@@ -20,40 +20,6 @@ export default async function ProductContextSetupPage() {
 
   const orgName = activeOrg?.isPersonal ? "Personal" : (activeOrg?.name ?? "Workspace");
 
-  if (productContext?.setupCompleted) {
-    return (
-      <div className="mx-auto max-w-xl space-y-6">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-          Back to Home
-        </Link>
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
-          <div className="flex gap-3">
-            <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600 dark:text-emerald-500" aria-hidden />
-            <div className="space-y-1">
-              <h1 className="text-lg font-semibold tracking-tight">Product context is set</h1>
-              <p className="text-sm text-muted-foreground">
-                You can refine it anytime in Settings, or continue with personas and studies.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Link href="/personas/new" className={cn(buttonVariants(), "gap-1.5")}>
-              Create personas
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-            </Link>
-            <Link href="/settings" className={buttonVariants({ variant: "outline" })}>
-              Edit in Settings
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const existingData = productContext
     ? {
         productName: productContext.productName,
@@ -92,6 +58,28 @@ export default async function ProductContextSetupPage() {
           <li className="rounded-full border border-border px-2 py-0.5">3 Study</li>
         </ol>
       </header>
+      {productContext?.setupCompleted ? (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+          <div className="flex gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-500" aria-hidden />
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-foreground">Product context already saved</p>
+              <p className="text-sm text-muted-foreground">
+                You can review or refine it below. Changes save in this workspace and update future personas and studies.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Link href="/personas/new" className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}>
+                  Continue to personas
+                  <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                </Link>
+                <Link href="/settings" className={buttonVariants({ size: "sm", variant: "outline" })}>
+                  Open Settings
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <SetupChatPanel orgId={activeOrgId} orgName={orgName} existingData={existingData} />
       <p className="text-center text-xs text-muted-foreground">
         Prefer the full settings page?{" "}
