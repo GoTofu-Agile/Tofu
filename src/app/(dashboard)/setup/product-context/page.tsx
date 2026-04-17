@@ -17,9 +17,11 @@ export default async function ProductContextSetupPage() {
   const activeOrg = organizations.find((org) => org.id === activeOrgId);
 
   let productContext: Awaited<ReturnType<typeof getOrgProductContext>> = null;
+  let contextLoadFailed = false;
   try {
     productContext = await getOrgProductContext(activeOrgId);
   } catch (error) {
+    contextLoadFailed = true;
     // Keep setup route usable even if context lookup fails for a specific workspace.
     console.error("[setup/product-context] Failed to load existing context", {
       activeOrgId,
@@ -67,6 +69,14 @@ export default async function ProductContextSetupPage() {
           <li className="rounded-full border border-border px-2 py-0.5">3 Study</li>
         </ol>
       </header>
+      {contextLoadFailed ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <p className="text-sm font-medium text-foreground">We could not load your saved context.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            You can still edit and save your product context below. If this keeps happening, contact support.
+          </p>
+        </div>
+      ) : null}
       {productContext?.setupCompleted ? (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
           <div className="flex gap-3">
