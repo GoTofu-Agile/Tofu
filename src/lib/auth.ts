@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getUser, getUserByEmail, upsertUser } from "@/lib/db/queries/users";
 import {
@@ -67,7 +68,7 @@ export async function requireAuth() {
   return dbUser;
 }
 
-export async function requireAuthWithOrgs() {
+const requireAuthWithOrgsUncached = async () => {
   const authUser = await getAuthUser();
   if (!authUser) {
     throw new Error("Not authenticated");
@@ -102,7 +103,14 @@ export async function requireAuthWithOrgs() {
   }
 
   return { user: dbUser, organizations };
-}
+};
+
+/**
+ * Request-scoped auth/org resolver used by server components.
+ * Caching avoids duplicate Supabase + DB lookups within the same render pass
+ * (e.g. dashboard layout + nested page), which reduces intermittent auth mismatches.
+ */
+export const requireAuthWithOrgs = cache(requireAuthWithOrgsUncached);
 
 /**
  * Auth helper for dashboard pages.
