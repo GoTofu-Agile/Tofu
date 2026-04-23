@@ -1,13 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import confetti from "canvas-confetti";
-import { toast } from "sonner";
+import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import {
   Dialog,
   DialogContent,
@@ -17,44 +12,38 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type TourStep = {
-  title: string;
-  description: string;
-  whyItMatters: string;
-  href: string;
-  cta: string;
-};
-
-const TOUR_STEPS: TourStep[] = [
-  {
-    title: "Set Product Context",
-    description: "Tell GoTofu what you build and who you serve.",
-    whyItMatters: "This makes persona generation and interview insights far more relevant.",
-    href: "/setup/product-context",
-    cta: "Add product context",
-  },
-  {
-    title: "Create Personas",
-    description: "Generate your first audience as a persona group.",
-    whyItMatters: "Personas are the participants for studies and interviews.",
-    href: "/personas/new",
-    cta: "Create Personas",
-  },
-  {
-    title: "Run a Study",
-    description: "Create an interview study and run sessions with your personas.",
-    whyItMatters: "This creates transcripts you can analyze for decisions.",
-    href: "/studies/new",
-    cta: "Start Study",
-  },
-  {
-    title: "Review Insights",
-    description: "Turn interview transcripts into themes, quotes, and recommendations.",
-    whyItMatters: "Insights help you prioritize product decisions with confidence.",
-    href: "/studies",
-    cta: "View Studies",
-  },
-];
+function ArcadeEmbed() {
+  return (
+    <div className="overflow-hidden rounded-xl">
+      <div
+        style={{
+          position: "relative",
+          // Keep extra vertical space so Arcade's bottom navigation (blue arrows) stays visible.
+          paddingBottom: "calc(49.941520467836256% + 64px)",
+          height: 0,
+          width: "100%",
+        }}
+      >
+        <iframe
+          src="https://demo.arcade.software/w7LoJ2jI7Ti6KlnBXptv?embed&embed_mobile=inline&embed_desktop=inline&show_copy_link=true"
+          title="Generate and Analyze Insights from User Research Interviews"
+          frameBorder="0"
+          loading="lazy"
+          allowFullScreen
+          allow="clipboard-write"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            colorScheme: "light",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 
 interface DashboardTourProps {
   orgId: string;
@@ -62,20 +51,8 @@ interface DashboardTourProps {
 }
 
 export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const reduced = useReducedMotion();
   const storageKey = `tofu:dashboard-tour:dismissed:${orgId}`;
   const [open, setOpen] = useState(false);
-  const [stepIndex, setStepIndex] = useState(0);
-
-  const step = TOUR_STEPS[stepIndex];
-  const isFirst = stepIndex === 0;
-  const isLast = stepIndex === TOUR_STEPS.length - 1;
-  const progress = useMemo(
-    () => Math.round(((stepIndex + 1) / TOUR_STEPS.length) * 100),
-    [stepIndex]
-  );
 
   useEffect(() => {
     if (!defaultOpen) return;
@@ -99,38 +76,6 @@ export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps
     }
   }
 
-  function celebrateAndGoHome() {
-    dismissTour();
-    setOpen(false);
-    setStepIndex(0);
-    toast.success("You’re all set! Pick your next step from Home whenever you’re ready.");
-    if (!reduced) {
-      const burst = () =>
-        confetti({
-          particleCount: 90,
-          spread: 80,
-          startVelocity: 32,
-          origin: { y: 0.52 },
-        });
-      burst();
-      window.setTimeout(() => {
-        confetti({
-          particleCount: 55,
-          spread: 100,
-          startVelocity: 25,
-          origin: { y: 0.58 },
-          scalar: 0.9,
-        });
-      }, 220);
-    }
-    if (pathname === "/dashboard") {
-      window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
-      router.refresh();
-    } else {
-      router.push("/dashboard");
-    }
-  }
-
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
@@ -145,74 +90,51 @@ export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps
           if (!next) dismissTour();
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-5xl">
           <DialogHeader>
-            <DialogTitle>
-              Quick walkthrough ({stepIndex + 1}/{TOUR_STEPS.length})
-            </DialogTitle>
+            <DialogTitle>Quick walkthrough</DialogTitle>
             <DialogDescription>
-              Typical path: product context → persona group → study → insights. Links jump straight in; you can revisit
-              anytime from Home.
+              A short interactive tutorial to get you started.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-foreground transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
+          <div className="space-y-3">
+            <div className="mx-auto w-full max-w-4xl">
+              <ArcadeEmbed />
             </div>
-
-            <div className="rounded-xl border p-4">
-              <p className="text-sm font-semibold">{step.title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
-              <p className="mt-2 text-xs text-muted-foreground">{step.whyItMatters}</p>
-              <Link
-                href={step.href}
-                onClick={() => setOpen(false)}
-                className="mt-3 inline-flex text-sm font-medium underline underline-offset-2"
+            <div className="mx-auto w-full max-w-4xl">
+              <a
+                href="https://demo.arcade.software/w7LoJ2jI7Ti6KlnBXptv"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex text-xs font-medium underline underline-offset-2"
               >
-                {step.cta}
-              </Link>
+                Open tutorial in new tab
+              </a>
             </div>
           </div>
 
-          <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                dismissTour();
-                setOpen(false);
-              }}
-            >
-              Skip tour
-            </Button>
-            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+          <DialogFooter>
+            <div className="flex w-full items-center justify-between">
               <Button
                 type="button"
-                variant="outline"
-                disabled={isFirst}
-                onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+                variant="ghost"
+                onClick={() => {
+                  setOpen(false);
+                  dismissTour();
+                }}
               >
-                Back
+                Skip tour
               </Button>
-              {!isLast ? (
-                <Button
-                  type="button"
-                  onClick={() =>
-                    setStepIndex((i) => Math.min(TOUR_STEPS.length - 1, i + 1))
-                  }
-                >
-                  Next
-                </Button>
-              ) : (
-                <Button type="button" onClick={celebrateAndGoHome}>
-                  Finish
-                </Button>
-              )}
+              <Button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  dismissTour();
+                }}
+              >
+                Finish
+              </Button>
             </div>
           </DialogFooter>
         </DialogContent>
@@ -220,4 +142,3 @@ export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps
     </>
   );
 }
-
