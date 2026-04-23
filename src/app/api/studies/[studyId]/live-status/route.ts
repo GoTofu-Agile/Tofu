@@ -4,6 +4,9 @@ import { getUser } from "@/lib/db/queries/users";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { prisma } from "@/lib/db/prisma";
 
+/** SSE while batch interviews run; keep connection alive within platform limits. */
+export const maxDuration = 300;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ studyId: string }> }
@@ -49,41 +52,52 @@ export async function GET(
       let lastCompleted = 0;
       let lastRunningPersona: string | null = null;
 
-      // Initial state
-      const initialCompleted = await prisma.session.count({
-        where: { studyId, status: "COMPLETED" },
-      });
+      // Initial state — parallelise both queries
+      const [initialCompleted, totalPersonas] = await Promise.all([
+        prisma.session.count({ where: { studyId, status: "COMPLETED" } }),
+        getTotalPersonas(studyId),
+      ]);
       lastCompleted = initialCompleted;
 
-      const totalPersonas = await getTotalPersonas(studyId);
+      send("status", { completed: initialCompleted, total: totalPersonas });
 
-      send("status", {
-        completed: initialCompleted,
-        total: totalPersonas,
-      });
+      let closed = false;
+      let timeoutId: ReturnType<typeof setTimeout>;
+      let tickId: ReturnType<typeof setTimeout>;
 
-      // Poll every 2s
-      const interval = setInterval(async () => {
+      function close() {
+        if (closed) return;
+        closed = true;
+        clearTimeout(timeoutId);
+        clearTimeout(tickId);
+        try { controller.close(); } catch { /* already closed */ }
+      }
+
+      // Adaptive polling: start at 2 s, slow to 5 s after 20 quiet ticks (~40 s)
+      let quietTicks = 0;
+      const BASE_INTERVAL = 2000;
+      const SLOW_INTERVAL = 5000;
+      const QUIET_THRESHOLD = 20;
+
+      async function tick() {
+        if (closed) return;
         try {
-          // Count completed sessions
-          const completed = await prisma.session.count({
-            where: { studyId, status: "COMPLETED" },
-          });
-
-          // Find running session
-          const running = await prisma.session.findFirst({
-            where: { studyId, status: "RUNNING" },
-            select: {
-              id: true,
-              personaId: true,
-              persona: { select: { name: true } },
-            },
-            orderBy: { createdAt: "desc" },
-          });
+          // One round-trip: count + running session in parallel
+          const [completed, running] = await Promise.all([
+            prisma.session.count({ where: { studyId, status: "COMPLETED" } }),
+            prisma.session.findFirst({
+              where: { studyId, status: "RUNNING" },
+              select: {
+                id: true,
+                personaId: true,
+                persona: { select: { name: true } },
+              },
+              orderBy: { createdAt: "desc" },
+            }),
+          ]);
 
           const runningName = running?.persona?.name ?? null;
 
-          // Emit interview-start when a new persona starts
           if (running && runningName && runningName !== lastRunningPersona) {
             send("interview-start", {
               sessionId: running.id,
@@ -93,11 +107,12 @@ export async function GET(
               total: totalPersonas,
             });
             lastRunningPersona = runningName;
+            quietTicks = 0;
           }
 
-          // Emit interview-complete when count increases
           if (completed > lastCompleted) {
-            // Get the most recently completed session's persona + last quote
+            quietTicks = 0;
+            // Only fetch last-completed details when the count actually moved
             const lastSession = await prisma.session.findFirst({
               where: { studyId, status: "COMPLETED" },
               orderBy: { completedAt: "desc" },
@@ -128,38 +143,32 @@ export async function GET(
 
             lastCompleted = completed;
 
-            // Check if all done
             if (completed >= totalPersonas && totalPersonas > 0) {
               send("all-done", { completed, total: totalPersonas });
-              clearInterval(interval);
-              controller.close();
+              close();
               return;
             }
+          } else {
+            quietTicks++;
           }
         } catch {
-          // Ignore polling errors
+          // Ignore transient errors, keep polling
         }
-      }, 2000);
 
-      // Timeout after 10 minutes
-      setTimeout(() => {
-        clearInterval(interval);
-        try {
-          controller.close();
-        } catch {
-          // Already closed
+        if (!closed) {
+          const delay = quietTicks >= QUIET_THRESHOLD ? SLOW_INTERVAL : BASE_INTERVAL;
+          tickId = setTimeout(tick, delay);
         }
-      }, 600000);
+      }
+
+      // Kick off first tick
+      tickId = setTimeout(tick, BASE_INTERVAL);
+
+      // Hard timeout after 10 minutes
+      timeoutId = setTimeout(close, 600_000);
 
       // Handle client disconnect
-      request.signal.addEventListener("abort", () => {
-        clearInterval(interval);
-        try {
-          controller.close();
-        } catch {
-          // Already closed
-        }
-      });
+      request.signal.addEventListener("abort", close);
     },
   });
 

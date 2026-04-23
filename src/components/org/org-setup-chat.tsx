@@ -60,10 +60,19 @@ export function OrgSetupChat({
   );
   const [complete, setComplete] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const navigateAfterCompleteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      if (navigateAfterCompleteRef.current) {
+        clearTimeout(navigateAfterCompleteRef.current);
+      }
+    };
+  }, []);
 
   async function handleSend() {
     const text = input.trim();
@@ -98,6 +107,12 @@ export function OrgSetupChat({
       if (data.type === "complete") {
         setComplete(true);
         toast.success("Product info saved!");
+        if (onComplete) {
+          navigateAfterCompleteRef.current = setTimeout(() => {
+            navigateAfterCompleteRef.current = null;
+            onComplete();
+          }, 650);
+        }
       }
     } catch {
       toast.error("Something went wrong. Try again.");
@@ -114,7 +129,10 @@ export function OrgSetupChat({
   }
 
   function handleDone() {
-    onComplete?.();
+    if (onComplete) {
+      onComplete();
+      return;
+    }
     router.refresh();
   }
 
@@ -196,11 +214,17 @@ export function OrgSetupChat({
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
             <span className="text-sm text-muted-foreground flex-1">
-              Product info saved!
+              {onComplete
+                ? "All set — opening step 2 (create personas)…"
+                : "Product info saved!"}
             </span>
-            <Button size="sm" onClick={handleDone}>
-              Done
-            </Button>
+            {onComplete ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+            ) : (
+              <Button size="sm" onClick={handleDone}>
+                Done
+              </Button>
+            )}
           </div>
         ) : (
           <>

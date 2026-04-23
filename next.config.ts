@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 /** Hosts (no protocol) allowed to talk to the dev server — needed for Cursor/VS Code previews and port tunnels. */
 const defaultAllowedDevOrigins = [
@@ -15,11 +16,16 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [...defaultAllowedDevOrigins, ...extraAllowedDevOrigins],
   // Avoid picking a parent directory when multiple package-lock.json files exist (e.g. ~/package-lock.json).
   turbopack: {
-    root: process.cwd(),
+    // This worktree has no node_modules — they live in the monorepo root
+    // 3 levels up (Tofu/ → .claude/ → worktrees/ → mystifying-goldberg/).
+    // Setting root to that ancestor lets Turbopack resolve packages from
+    // Tofu/node_modules without symlinks or path manipulation.
+    root: path.resolve(__dirname, "../../.."),
   },
   // Tree-shake heavy barrel packages (icons / animation) — smaller client bundles.
   experimental: {
-    optimizePackageImports: ["lucide-react", "framer-motion"],
+    // Smaller client bundles via granular imports (Next-supported packages only).
+    optimizePackageImports: ["lucide-react", "framer-motion", "react-markdown"],
   },
   poweredByHeader: false,
   compress: true,

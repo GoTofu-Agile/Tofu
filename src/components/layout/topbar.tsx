@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -9,10 +10,10 @@ import {
   UserPlus,
   ShieldCheck,
   Sparkles,
-  PanelLeft,
   Upload,
 } from "lucide-react";
 import { useAssistant } from "@/components/assistant/assistant-provider";
+import { cn } from "@/lib/utils";
 
 const routes: Record<string, { title: string; icon: typeof LayoutDashboard }> = {
   "/dashboard": { title: "Home", icon: LayoutDashboard },
@@ -49,47 +50,57 @@ function resolveRoute(pathname: string): { title: string; icon: typeof LayoutDas
 
 export function Topbar() {
   const pathname = usePathname();
-  const { toggle, isOpen, toggleSidebar, sidebarCollapsed } = useAssistant();
+  const { toggle, isOpen } = useAssistant();
+  const [askShortcutLabel, setAskShortcutLabel] = useState("");
+
+  useEffect(() => {
+    const mac =
+      /Mac|iPhone|iPad|iPod/.test(navigator.platform) ||
+      navigator.userAgent.includes("Mac OS");
+    setAskShortcutLabel(mac ? "\u2318K" : "Ctrl+K");
+  }, []);
 
   const route = resolveRoute(pathname);
   const Icon = route.icon;
 
   return (
     <header className="flex h-12 items-center justify-between px-4 border-b border-border">
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground transition-colors"
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-pressed={sidebarCollapsed}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </button>
-        <div className="flex items-center gap-2 ml-1">
-          <Icon className="h-4 w-4 text-muted-foreground/60" />
-          <span className="text-[13px] font-medium text-muted-foreground">
-            {route.title}
-          </span>
-        </div>
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-muted-foreground/60" />
+        <span className="text-[13px] font-medium text-muted-foreground">
+          {route.title}
+        </span>
       </div>
       <div className="flex items-center gap-1.5">
         <button
           type="button"
           onClick={toggle}
-          className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all ${
+          className={cn(
+            "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
             isOpen
               ? "border-foreground bg-foreground text-background"
-              : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-          }`}
-          aria-label="Open Ask — your research copilot"
+              : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+          )}
+          aria-label="Ask — your research copilot. Keyboard: Command K or Control K."
+          aria-keyshortcuts="Meta+K Control+K"
           aria-expanded={isOpen}
           aria-controls="ask-panel"
         >
           <Sparkles className="h-3 w-3" />
           <span className="hidden sm:inline">Ask AI</span>
           <span className="sm:hidden">Ask</span>
+          {askShortcutLabel ? (
+            <kbd
+              className={cn(
+                "pointer-events-none hidden h-5 select-none items-center rounded border px-1 font-mono text-[10px] font-medium tabular-nums sm:inline-flex",
+                isOpen
+                  ? "border-white/25 bg-white/10 text-background/90"
+                  : "border-border bg-muted/40 text-muted-foreground"
+              )}
+            >
+              {askShortcutLabel}
+            </kbd>
+          ) : null}
         </button>
       </div>
     </header>

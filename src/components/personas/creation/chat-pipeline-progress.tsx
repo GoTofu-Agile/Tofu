@@ -27,7 +27,7 @@ export function ChatPipelineProgress({
   const genPct = genTotal > 0 ? (genCompleted / genTotal) * 100 : 0;
 
   return (
-    <div className="space-y-8 py-4">
+    <div className="space-y-5 py-4">
       <div className="space-y-2">
         {steps.map((s) => {
           const icon =

@@ -56,6 +56,7 @@ import {
   mergeQuickResearchBreakdown,
   sumResearchBreakdownSnippets,
 } from "@/lib/research/research-quick-breakdown";
+import { PERSONA_WIDGET_STORAGE_KEY } from "@/lib/personas/publish-widget-run";
 
 async function readGenerateApiError(response: Response): Promise<string> {
   try {
@@ -102,8 +103,6 @@ const SOURCE_TYPE_MAP: Partial<Record<CreationMethod, string>> = {
   "company-url": "UPLOAD_BASED",
   // deep-search → DATA_BASED auto-set by knowledge.length
 };
-
-const PERSONA_WIDGET_STORAGE_KEY = "personaGenerationWidgetRun";
 
 function classifyPipelineBucket(label: string): "appStore" | "playStore" | "webSearch" | "browsed" | "synth" {
   const text = label.toLowerCase();
@@ -323,15 +322,11 @@ function buildWorkflowSteps(params: {
       status: webSearchStatus,
       sources: webSources,
       findings:
-        researchEntries.length > 0
-          ? researchEntries
-              .slice(0, 4)
-              .map(([k, v]) => `${humanLabelForBreakdownKey(k)} · ${v} snippets`)
-          : researchResults > 0
-            ? [
-                `${researchResults} snippets saved from the last research run (see breakdown when sources finish).`,
-              ]
-            : [],
+        researchResults > 0 && researchEntries.length === 0
+          ? [
+              `${researchResults} snippets saved from the last research run.`,
+            ]
+          : [],
     },
     {
       id: "wf-browse",
@@ -393,6 +388,9 @@ export function UnifiedCreationFlow({
   const [depth, setDepth] = useState<"quick" | "deep">("quick");
   const [personaCount, setPersonaCount] = useState(10);
   const [includeSkeptics, setIncludeSkeptics] = useState(true);
+  /** Near-instant template assembly (no persona LLM). Otherwise uses fast parallel AI path. */
+  const [turboMode, setTurboMode] = useState(false);
+  const personaSpeedMode = turboMode ? "turbo" : "fast";
 
   // Step: Progress
   const [progressPhase, setProgressPhase] = useState<"researching" | "generating" | "done">("researching");
@@ -415,6 +413,16 @@ export function UnifiedCreationFlow({
   } | null>(null);
   const [starting, setStarting] = useState(false);
   const [chatPipelineSteps, setChatPipelineSteps] = useState<ChatPipelineStepView[] | null>(null);
+
+  /** Inngest queued job (202): stop blocking the page; widget polls status. */
+  function finishIfQueuedAsyncGeneration(response: Response): boolean {
+    if (response.status !== 202) return false;
+    toast.success(
+      "Personas are generating in the background. Track progress in the widget."
+    );
+    setStarting(false);
+    return true;
+  }
 
   // Chat entry → describe step
   const [promptText, setPromptText] = useState(
@@ -756,6 +764,7 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride,
           usedDeepResearchPipeline: source === "deep-search",
+          speedMode: personaSpeedMode,
         }),
       });
       await ensureGenerateResponseOk(response);
@@ -860,10 +869,12 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
+          speedMode: personaSpeedMode,
         }),
       });
 
       await ensureGenerateResponseOk(response);
+      if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -912,6 +923,7 @@ export function UnifiedCreationFlow({
     let mapData: {
       apps?: AppStoreAudienceMappedApp[];
       tavilyDisabled?: boolean;
+      serpDisabled?: boolean;
       error?: string;
     } = {};
 
@@ -939,14 +951,14 @@ export function UnifiedCreationFlow({
     }
 
     const apps = mapData.apps ?? [];
-    const tavilyOff = Boolean(mapData.tavilyDisabled);
-    setAudienceTavilyDisabled(tavilyOff);
+    const searchOff = Boolean(mapData.tavilyDisabled) || Boolean(mapData.serpDisabled);
+    setAudienceTavilyDisabled(searchOff);
     setAudienceMappedApps(apps);
     setAudienceMappingStatus("success");
 
-    if (tavilyOff) {
+    if (searchOff) {
       toast.info(
-        "App discovery needs Tavily (TAVILY_API_KEY). Use the App tab with a direct App Store URL."
+        "App discovery requires SERPAPI_API_KEY. Use the App tab with a direct App Store URL."
       );
     }
 
@@ -1017,10 +1029,12 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride: "DATA_BASED",
           usedDeepResearchPipeline: false,
+          speedMode: personaSpeedMode,
         }),
       });
 
       await ensureGenerateResponseOk(response);
+      if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -1157,10 +1171,12 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride,
           usedDeepResearchPipeline: false,
+          speedMode: personaSpeedMode,
         }),
       });
 
       await ensureGenerateResponseOk(response);
+      if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -1272,10 +1288,12 @@ export function UnifiedCreationFlow({
           clientRunId: runId,
           sourceTypeOverride,
           usedDeepResearchPipeline,
+          speedMode: personaSpeedMode,
         }),
       });
 
       await ensureGenerateResponseOk(response);
+      if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
@@ -1302,18 +1320,33 @@ export function UnifiedCreationFlow({
         const event = JSON.parse(line);
         if (event.type === "progress") {
           setGenCompleted(event.completed);
-          setGenCurrentName(event.personaName || "");
+          const isFinalizingLinks =
+            Number(event.total ?? genTotal) > 0 &&
+            Number(event.completed ?? 0) >= Number(event.total ?? genTotal);
+          setGenCurrentName(
+            isFinalizingLinks
+              ? "Linking sources & evidence..."
+              : event.personaName || ""
+          );
           publishWidgetState({
             runId,
             groupId: gId,
             phase: "generating",
             completed: Number(event.completed ?? 0),
             total: Number(event.total ?? genTotal),
-            currentName: event.personaName || null,
-            message: "Building personas",
+            currentName: isFinalizingLinks ? null : event.personaName || null,
+            message: isFinalizingLinks
+              ? "Linking sources & evidence..."
+              : "Building personas",
           });
-          if (event.personaName) {
+          if (event.personaName && !isFinalizingLinks) {
             setLastGeneratedName(event.personaName);
+          }
+        } else if (event.type === "partial") {
+          const n = typeof event.name === "string" ? event.name : "";
+          if (n) {
+            setGenCurrentName(n);
+            setLastGeneratedName(n);
           }
         } else if (event.type === "done") {
           opts?.onGenerationUiComplete?.();
@@ -1536,6 +1569,20 @@ export function UnifiedCreationFlow({
             transition={{ duration: reduced ? 0 : 0.28, ease: [0.25, 0.1, 0.25, 1] }}
             className="space-y-6"
           >
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+            <input
+              id="turbo-personas"
+              type="checkbox"
+              checked={turboMode}
+              onChange={(e) => setTurboMode(e.target.checked)}
+              className="rounded accent-primary"
+            />
+            <label htmlFor="turbo-personas" className="cursor-pointer text-sm leading-snug">
+              Turbo mode: instant personas from built-in templates (often under two seconds). Leave off for
+              parallel AI generation with fuller backstories.
+            </label>
+          </div>
+
           {method === "templates" && (
             <StepTemplates
               personaCount={personaCount}
@@ -1607,10 +1654,12 @@ export function UnifiedCreationFlow({
                       sourceTypeOverride: "PROMPT_GENERATED",
                       templateId,
                       usedDeepResearchPipeline: false,
+                      speedMode: personaSpeedMode,
                     }),
                   });
 
                   await ensureGenerateResponseOk(response);
+                  if (finishIfQueuedAsyncGeneration(response)) return;
                   await streamGenerationProgress(response, gId, runId);
                 } catch (error) {
                   toast.error(
@@ -1788,15 +1837,15 @@ export function UnifiedCreationFlow({
                 transition={{ duration: reduced ? 0 : 0.3, ease: [0.25, 0.1, 0.25, 1] }}
                 className="space-y-4 sm:space-y-5"
               >
-                <div className="flex flex-col gap-2 rounded-xl border bg-card/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center justify-between gap-3 rounded-xl border bg-card/70 px-4 py-3">
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Persona generation is running in background.
+                    Running in background — you can navigate away.
                   </p>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="self-start sm:self-auto"
+                    className="shrink-0"
                     onClick={() => setProgressViewMode("minimized")}
                     aria-label="Minimize generation progress"
                   >
@@ -1854,9 +1903,10 @@ export function UnifiedCreationFlow({
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduced ? undefined : { opacity: 0, y: -10 }}
                 transition={{ duration: reduced ? 0 : 0.2 }}
-                className="rounded-xl border border-dashed bg-card/50 p-4 text-sm text-muted-foreground"
+                className="flex items-center gap-2.5 rounded-xl border bg-card/70 px-4 py-3 text-sm text-muted-foreground"
               >
-                Progress minimized. You can keep working while personas generate.
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" aria-hidden />
+                Personas generating in background — check the widget in the corner.
               </motion.div>
             )}
 

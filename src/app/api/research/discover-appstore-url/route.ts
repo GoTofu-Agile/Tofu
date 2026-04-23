@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/db/queries/users";
 import { getPersonaGroup } from "@/lib/db/queries/personas";
 import { getUserRole } from "@/lib/db/queries/organizations";
-import { searchTavily } from "@/lib/research/tavily";
+import { serpGet, isSerpApiConfigured } from "@/lib/research/serpapi/client";
+import { rowsFromAppleAppStoreSearchJson } from "@/lib/research/serpapi/parse-apple-app-store-search";
 
 const requestSchema = z.object({
   groupId: z.string().min(1),
@@ -44,14 +45,17 @@ export async function POST(request: NextRequest) {
   const role = await getUserRole(group.organizationId, dbUser.id);
   if (!role) return Response.json({ error: "Access denied" }, { status: 403 });
 
-  if (!process.env.TAVILY_API_KEY) {
-    return Response.json({ appUrl: null, reason: "tavily_disabled" });
+  if (!isSerpApiConfigured()) {
+    return Response.json({ appUrl: null, reason: "serp_disabled" });
   }
 
-  const query = `${body.prompt} app iPhone site:apps.apple.com`;
-  const results = await searchTavily(query, { maxResults: 8, searchDepth: "basic" });
-  const match = results.find((r) => isAppStoreUrl(r.url))?.url ?? null;
-
-  return Response.json({ appUrl: match });
+  try {
+    const json = await serpGet({ engine: "apple_app_store", term: body.prompt });
+    const rows = rowsFromAppleAppStoreSearchJson(json);
+    const match = rows.find((r) => isAppStoreUrl(r.url))?.url ?? null;
+    return Response.json({ appUrl: match });
+  } catch (e) {
+    console.error("[discover-appstore-url] SerpAPI search failed", e);
+    return Response.json({ appUrl: null, reason: "search_failed" });
+  }
 }
-

@@ -9,7 +9,10 @@ import { getPersonaTemplateById } from "@/lib/personas/templates";
 import {
   initPersonaGenerationRun,
   updatePersonaGenerationRun,
+  flushPersonaGenerationPersistence,
 } from "@/lib/server/persona-generation-tracker";
+import { isPersonaGenerationBlockedForGroup } from "@/lib/server/persona-generation-db";
+import { inngest } from "@/lib/inngest/client";
 import {
   acquireInFlightLease,
   checkRateLimit,
@@ -19,6 +22,11 @@ import {
   assertPersonaGenerationAllowed,
   getPersonaGenerationGuardForGroup,
 } from "@/lib/personas/persona-generation-guard";
+import type { PersonaGenerationSpeedMode } from "@/lib/ai/generate-personas";
+import { sendPersonaGenCompleteEmail } from "@/lib/email/resend";
+
+/** Vercel / serverless max wall time for streaming generation (plan may cap lower). */
+export const maxDuration = 300;
 
 const requestSchema = z.object({
   groupId: z.string().min(1),
@@ -30,6 +38,14 @@ const requestSchema = z.object({
   clientRunId: z.string().min(1).max(80).optional(),
   /** True when the client used the “deep search” research path (Quick or Guided). */
   usedDeepResearchPipeline: z.boolean().optional(),
+  /**
+   * quality: slowest, full prompts + LLM authenticity judge.
+   * fast: default — parallel LLM + compact prompts + heuristic scores.
+   * turbo: template assembly, no persona LLM (near-instant).
+   */
+  speedMode: z.enum(["quality", "fast", "turbo"]).optional(),
+  /** When true, enqueue Inngest and return 202 immediately (progress via `/api/personas/generation-status`). */
+  async: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -134,6 +150,16 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const genBlock = await isPersonaGenerationBlockedForGroup(body.groupId);
+  if (genBlock.blocked) {
+    releaseInFlightLease(leaseKey);
+    return new Response(
+      JSON.stringify({ error: genBlock.reason ?? "Persona generation is already in progress for this group." }),
+      { status: 409, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const runId = body.clientRunId ?? crypto.randomUUID();
   initPersonaGenerationRun({
     runId,
@@ -141,6 +167,47 @@ export async function POST(request: NextRequest) {
     groupId: body.groupId,
     total: body.count,
   });
+  await flushPersonaGenerationPersistence(runId);
+
+  if (body.async) {
+    try {
+      await inngest.send({
+        name: "persona/generate.requested",
+        data: {
+          runId,
+          userId: authUser.id,
+          groupId: body.groupId,
+          count: body.count,
+          domainContext: body.domainContext,
+          sourceTypeOverride: body.sourceTypeOverride,
+          templateId: body.templateId,
+          includeSkeptics: body.includeSkeptics ?? true,
+          speedMode: (body.speedMode ?? "fast") as PersonaGenerationSpeedMode,
+          qualityTier: guard.tier,
+        },
+      });
+    } catch (err) {
+      console.error("[personas/generate] inngest.send failed:", err);
+      updatePersonaGenerationRun(runId, {
+        phase: "error",
+        message: "Failed to queue persona generation. Try again.",
+      });
+      await flushPersonaGenerationPersistence(runId);
+      releaseInFlightLease(leaseKey);
+      return new Response(JSON.stringify({ error: "Failed to queue persona generation. Try again." }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    releaseInFlightLease(leaseKey);
+    return new Response(JSON.stringify({ runId, async: true }), {
+      status: 202,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Persona-Run-Id": runId,
+      },
+    });
+  }
 
   // Stream generation progress as NDJSON
   const encoder = new TextEncoder();
@@ -154,6 +221,8 @@ export async function POST(request: NextRequest) {
           throw new Error("Selected template was not found.");
         }
 
+        const speedMode: PersonaGenerationSpeedMode = body.speedMode ?? "fast";
+
         const result = await generateAndSavePersonas({
           groupId: body.groupId,
           count: body.count,
@@ -162,6 +231,18 @@ export async function POST(request: NextRequest) {
           templateConfig,
           includeSkeptics: body.includeSkeptics ?? true,
           qualityTier: guard.tier,
+          speedMode,
+          onPartial: ({ index, name, archetype, age }) => {
+            const event = JSON.stringify({
+              type: "partial",
+              runId,
+              index,
+              name,
+              archetype,
+              age,
+            });
+            controller.enqueue(encoder.encode(event + "\n"));
+          },
           onProgress: (completed, total, personaName, personaId) => {
             updatePersonaGenerationRun(runId, {
               phase: "generating",
@@ -202,6 +283,17 @@ export async function POST(request: NextRequest) {
           authenticity: result.authenticity,
         });
         controller.enqueue(encoder.encode(doneEvent + "\n"));
+
+        // Send email notification if user opted in and there's something to report
+        if (dbUser.notifyPersonaGenComplete && result.generated > 0) {
+          sendPersonaGenCompleteEmail({
+            to: dbUser.email,
+            userName: dbUser.name,
+            groupName: group.name,
+            generated: result.generated,
+            groupId: body.groupId,
+          }).catch(() => {/* non-fatal */});
+        }
       } catch (error) {
         updatePersonaGenerationRun(runId, {
           phase: "error",
@@ -215,6 +307,7 @@ export async function POST(request: NextRequest) {
         });
         controller.enqueue(encoder.encode(errorEvent + "\n"));
       } finally {
+        await flushPersonaGenerationPersistence(runId);
         releaseInFlightLease(leaseKey);
         controller.close();
       }

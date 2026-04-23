@@ -68,6 +68,21 @@ export function getEmbeddingModel() {
 }
 
 /**
+ * Fast, cheap model for scoring / evaluation tasks.
+ * These calls don't need frontier intelligence — just structured scoring.
+ * Uses mini/haiku regardless of which tier the persona generation model is on.
+ * Override with EVAL_MODEL env var if needed.
+ */
+export function getEvalModel() {
+  const provider = resolveProviderWithFallback();
+  const override = process.env.EVAL_MODEL;
+
+  if (provider === "openai") return openai(override || "gpt-4o-mini");
+  if (provider === "claude") return anthropic(override || "claude-3-5-haiku-20241022");
+  return google(override || "gemini-2.0-flash");
+}
+
+/**
  * Persona JSON generation: model quality scales with workspace tier (see persona-creation-policy).
  * Override per tier with PERSONA_MODEL_TIER_1 / _2 / _3 (same provider as LLM_PROVIDER).
  */

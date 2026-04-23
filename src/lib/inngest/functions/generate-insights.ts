@@ -53,15 +53,16 @@ export const generateInsights = inngest.createFunction(
       customPrompt?: string;
     };
 
-    // Load study + all transcripts
+    // Load study + transcripts in parallel — completely independent queries
     const [study, transcripts] = await step.run("load-data", async () => {
-      const s = await prisma.study.findUnique({
-        where: { id: studyId },
-        select: { id: true, title: true, interviewGuide: true },
-      });
+      const [s, t] = await Promise.all([
+        prisma.study.findUnique({
+          where: { id: studyId },
+          select: { id: true, title: true, interviewGuide: true },
+        }),
+        getStudyTranscripts(studyId),
+      ]);
       if (!s) throw new Error("Study not found");
-
-      const t = await getStudyTranscripts(studyId);
       if (t.length === 0) throw new Error("No completed interviews found");
 
       return [s, t] as const;
@@ -100,6 +101,8 @@ export const generateInsights = inngest.createFunction(
     const insights = await step.run("analyze", async () => {
       const { object } = await generateObject({
         model: getModel(),
+        temperature: 0.4,
+        maxOutputTokens: 3000,
         schema: dynamicSchema,
         prompt: `You are an expert user researcher analyzing interview transcripts from a study titled "${study.title}".
 

@@ -141,12 +141,18 @@ export function StudyFlow({
   const [analysisReport, setAnalysisReport] = useState(initialReport);
   const [analysisReports, setAnalysisReports] = useState(initialReports);
   const [interviewsRunning, setInterviewsRunning] = useState(false);
+  /** Live batch progress (SSE) can exceed server props until router.refresh() finishes. */
+  const [clientMaxInterviewCompleted, setClientMaxInterviewCompleted] = useState(0);
   const completionToastShownRef = useRef(false);
   useEffect(() => {
     if (interviewsRunning) {
       completionToastShownRef.current = false;
     }
   }, [interviewsRunning]);
+
+  useEffect(() => {
+    setClientMaxInterviewCompleted(0);
+  }, [studyId]);
 
 
   // Sync server props to client state after router.refresh()
@@ -162,8 +168,13 @@ export function StudyFlow({
   const isSetupComplete =
     title.trim().length > 0 && studyType.length > 0 && selectedGroupIds.length > 0;
   const isGuideComplete = guideQuestions.length >= 1;
-  const allInterviewsDone = completedCount >= totalCount && totalCount > 0;
-  const hasCompletedSessions = completedCount > 0;
+  const effectiveInterviewCompleted = Math.max(
+    completedCount,
+    clientMaxInterviewCompleted
+  );
+  const allInterviewsDone =
+    effectiveInterviewCompleted >= totalCount && totalCount > 0;
+  const hasCompletedSessions = effectiveInterviewCompleted > 0;
   const hasReport = !!analysisReport;
 
   // Selected group names for display in Guide step
@@ -215,6 +226,37 @@ export function StudyFlow({
     [isSetupComplete, isGuideComplete, hasCompletedSessions]
   );
 
+  const canEnterStepRef = useRef(canEnterStep);
+  canEnterStepRef.current = canEnterStep;
+
+  /** Deep-link from Ask GoTofu etc.: /studies/:id#insights (panel stays open on client nav). */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stepByHash: Record<string, FlowStep> = {
+      setup: "setup",
+      guide: "guide",
+      interviews: "interviews",
+      insight: "insights",
+      insights: "insights",
+    };
+    function applyHashToStep() {
+      const raw = window.location.hash.replace(/^#/, "").toLowerCase();
+      if (!raw) return;
+      const step = stepByHash[raw];
+      if (!step || !canEnterStepRef.current(step)) return;
+      setDirection(0);
+      setActiveStep(step);
+      requestAnimationFrame(() => {
+        document
+          .getElementById("study-step-panel")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    applyHashToStep();
+    window.addEventListener("hashchange", applyHashToStep);
+    return () => window.removeEventListener("hashchange", applyHashToStep);
+  }, [studyId]);
+
   function goToStep(step: FlowStep) {
     if (canEnterStep(step)) {
       const oldIdx = stepOrder.indexOf(activeStep);
@@ -247,6 +289,10 @@ export function StudyFlow({
       add ? [...prev, groupId] : prev.filter((id) => id !== groupId)
     );
   }
+
+  const handleLiveInterviewCompleted = useCallback((n: number) => {
+    setClientMaxInterviewCompleted((prev) => Math.max(prev, n));
+  }, []);
 
   function handleInterviewsComplete() {
     setInterviewsRunning(false);
@@ -348,7 +394,7 @@ export function StudyFlow({
           isInterviewsRunning={interviewsRunning}
           interviewProgress={
             interviewsRunning
-              ? `${completedCount}/${totalCount}`
+              ? `${effectiveInterviewCompleted}/${totalCount}`
               : undefined
           }
         />
@@ -358,6 +404,7 @@ export function StudyFlow({
       <div className="min-h-[400px] relative">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
+            id="study-step-panel"
             key={activeStep}
             custom={direction}
             variants={reduced ? undefined : stepVariants}
@@ -368,6 +415,7 @@ export function StudyFlow({
               x: { type: "spring", stiffness: 300, damping: 25 },
               opacity: { duration: 0.2 },
             }}
+            className="pb-28"
           >
             {activeStep === "setup" && (
               <FlowStepSetup
@@ -401,7 +449,7 @@ export function StudyFlow({
               />
             )}
 
-            {activeStep === "interviews" && (
+                       {activeStep === "interviews" && (
               <FlowStepInterviews
                 studyId={studyId}
                 studyTitle={title}
@@ -414,13 +462,14 @@ export function StudyFlow({
                 onComplete={handleInterviewsComplete}
                 onRunningChange={setInterviewsRunning}
                 onGoToInsights={() => goToStep("insights")}
+                onLiveInterviewCompleted={handleLiveInterviewCompleted}
               />
             )}
 
             {activeStep === "insights" && (
               <FlowStepInsights
                 studyId={studyId}
-                completedCount={completedCount}
+                completedCount={effectiveInterviewCompleted}
                 totalCount={totalCount}
                 avgDurationMs={avgDurationMs}
                 reports={analysisReports}

@@ -270,6 +270,30 @@ export async function getSession(sessionId: string) {
   });
 }
 
+/**
+ * Lightweight session fetch for the chat route — skips messages entirely.
+ * The chat route receives conversation history from the client (UIMessages),
+ * so loading all DB messages on every request is pure wasted I/O.
+ */
+export async function getSessionForChat(sessionId: string) {
+  return prisma.session.findUnique({
+    where: { id: sessionId },
+    include: {
+      persona: {
+        include: { personality: true },
+      },
+      study: {
+        select: {
+          id: true,
+          studyType: true,
+          interviewGuide: true,
+          organizationId: true,
+        },
+      },
+    },
+  });
+}
+
 export async function createSession(data: {
   studyId: string;
   personaId: string;
@@ -413,8 +437,23 @@ export async function getStudyResults(studyId: string) {
   };
 }
 
-export async function getStudyTranscripts(studyId: string) {
-  return prisma.session.findMany({
+/**
+ * Load transcripts for insight generation.
+ *
+ * Defaults:
+ * - sessionLimit 60   – avoids OOM on large studies; insights quality doesn't
+ *                        meaningfully improve beyond ~60 sessions.
+ * - msgCharCap  600   – ~150 tokens per message; keeps total prompt under
+ *                        ~100k chars without losing signal.
+ */
+export async function getStudyTranscripts(
+  studyId: string,
+  options?: { sessionLimit?: number; msgCharCap?: number }
+) {
+  const sessionLimit = options?.sessionLimit ?? 60;
+  const msgCharCap = options?.msgCharCap ?? 600;
+
+  const sessions = await prisma.session.findMany({
     where: { studyId, status: "COMPLETED" },
     include: {
       persona: {
@@ -427,10 +466,34 @@ export async function getStudyTranscripts(studyId: string) {
       },
     },
     orderBy: { createdAt: "asc" },
+    take: sessionLimit,
   });
+
+  // Truncate long messages to stay within LLM token budget
+  return sessions.map((s) => ({
+    ...s,
+    messages: s.messages.map((m) => ({
+      ...m,
+      content:
+        m.content.length > msgCharCap
+          ? `${m.content.slice(0, msgCharCap)}…`
+          : m.content,
+    })),
+  }));
 }
 
-export async function completeSession(sessionId: string) {
+export async function completeSession(
+  sessionId: string,
+  options?: {
+    /**
+     * Skip the per-session `study.completedCount` update.
+     * Use this in batch contexts where the caller does one final update
+     * after all sessions finish — avoids N sequential count+update
+     * operations on the study row (one per completed session).
+     */
+    skipStudyUpdate?: boolean;
+  }
+) {
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
     select: { startedAt: true, studyId: true },
@@ -449,8 +512,8 @@ export async function completeSession(sessionId: string) {
     },
   });
 
-  // Update study completed count
-  if (session?.studyId) {
+  // Update study completed count — skip in batch contexts
+  if (!options?.skipStudyUpdate && session?.studyId) {
     const completedCount = await prisma.session.count({
       where: { studyId: session.studyId, status: "COMPLETED" },
     });

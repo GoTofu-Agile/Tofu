@@ -14,6 +14,7 @@ import { checkRateLimit } from "@/lib/server/request-guards";
 const requestSchema = z.object({
   groupId: z.string().min(1),
   count: z.number().int().min(1).max(100).default(5),
+  speedMode: z.enum(["quality", "fast", "turbo"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
       count: body.count,
       domainContext: group.domainContext ?? undefined,
       qualityTier: guard.tier,
+      speedMode: body.speedMode ?? "fast",
     });
 
     return Response.json({

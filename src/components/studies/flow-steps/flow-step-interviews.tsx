@@ -38,6 +38,8 @@ interface FlowStepInterviewsProps {
   onComplete?: () => void;
   onRunningChange?: (running: boolean) => void;
   onGoToInsights?: () => void;
+  /** Report live completed count (SSE) so parent can unlock Insights before server props refresh. */
+  onLiveInterviewCompleted?: (count: number) => void;
 }
 
 interface SelectedPersona {
@@ -340,6 +342,7 @@ export function FlowStepInterviews({
   onComplete,
   onRunningChange,
   onGoToInsights,
+  onLiveInterviewCompleted,
 }: FlowStepInterviewsProps) {
   const reduced = useReducedMotion();
   const [isRunning, setIsRunning] = useState(false);
@@ -350,6 +353,10 @@ export function FlowStepInterviews({
   >([]);
   const [launching, setLaunching] = useState(false);
   const [liveCompleted, setLiveCompleted] = useState(completedCount);
+
+  useEffect(() => {
+    setLiveCompleted((prev) => Math.max(prev, completedCount));
+  }, [completedCount]);
 
   const allDone = (liveCompleted >= totalCount || completedCount >= totalCount) && totalCount > 0;
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -389,12 +396,17 @@ export function FlowStepInterviews({
     }
   }, [liveCompleted, studyId]);
 
-  // Auto-unlock insights when interviews are already complete on mount
   useEffect(() => {
-    if (allDone && onComplete) {
-      onComplete();
+    onLiveInterviewCompleted?.(liveCompleted);
+  }, [liveCompleted, onLiveInterviewCompleted]);
+
+  const prevAllDoneRef = useRef(false);
+  useEffect(() => {
+    if (allDone && !prevAllDoneRef.current) {
+      onComplete?.();
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- only on mount
+    prevAllDoneRef.current = allDone;
+  }, [allDone, onComplete]);
 
   // Auto-select the running persona during live interviews via SSE events
   useEffect(() => {

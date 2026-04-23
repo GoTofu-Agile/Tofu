@@ -142,4 +142,3 @@ export function DashboardTour({ orgId, defaultOpen = false }: DashboardTourProps
     </>
   );
 }
-

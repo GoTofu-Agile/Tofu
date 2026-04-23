@@ -21,6 +21,8 @@ model User {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  notifyPersonaGenComplete Boolean @default(true)
+
   memberships       OrganizationMember[]
   studies            Study[]
   uploads            Upload[]

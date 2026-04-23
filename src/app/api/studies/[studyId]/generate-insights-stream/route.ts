@@ -12,6 +12,8 @@ import {
 import { prisma } from "@/lib/db/prisma";
 import { createNDJSONStream, streamDelay } from "@/lib/streaming/ndjson";
 
+export const maxDuration = 300;
+
 const requestSchema = z.object({
   analysisTypes: z.array(z.string()).optional(),
   customPrompt: z.string().optional(),
@@ -128,7 +130,9 @@ export async function POST(
     });
     await streamDelay(300);
 
-    // Format transcripts
+    // Format transcripts — shared across both LLM passes.
+    // getStudyTranscripts already caps sessions (60) and per-message chars (600),
+    // so this string stays within a safe token budget.
     const formattedTranscripts = transcripts
       .map((session) => {
         const p = session.persona;
@@ -142,6 +146,21 @@ export async function POST(
         return `${header}\n\n${messages}`;
       })
       .join("\n\n===\n\n");
+
+    // Condensed version for Pass 2: one line per persona with their last response.
+    // Pass 2 needs verbatim quotes but only from each persona — sending the full
+    // transcript again doubles token usage for no benefit once themes are known.
+    const condensedForQuotes = transcripts
+      .map((session) => {
+        const p = session.persona;
+        // Include all respondent lines so the model can pick the best quote
+        const respondentLines = session.messages
+          .filter((m) => m.role === "RESPONDENT")
+          .map((m) => `${p.name}: ${m.content}`)
+          .join("\n");
+        return `[${p.name}]\n${respondentLines}`;
+      })
+      .join("\n\n");
 
     const baseContext = `You are an expert user researcher analyzing interview transcripts from a study titled "${study.title}".
 ${study.interviewGuide ? `Interview Guide: ${study.interviewGuide}\n` : ""}
@@ -201,18 +220,17 @@ ${formattedTranscripts}`,
       schema: makeQuotesSchema(personaNames.length),
       prompt: `${baseContext}
 
-The following themes were identified: ${themeNames.join(", ")}
+Themes already identified: ${themeNames.join(", ")}
 
-Now extract from the same transcripts:
-
-1. **Key Quotes**: You MUST include at least one representative quote from EACH of these ${personaNames.length} personas: ${personaNames.join(", ")}. Each quote must include the persona's exact name, context, and which theme it relates to.
+From the respondent quotes below, extract:
+1. **Key Quotes**: At least one verbatim quote from EACH of these ${personaNames.length} personas: ${personaNames.join(", ")}. Include persona name, context, and which theme it relates to.
 2. **Recommendations**: 3-5 actionable recommendations with priority and supporting evidence.
 3. **Summary**: 2-3 sentence executive summary of all findings.
 
 Double-check every persona is represented in keyQuotes.
 
-TRANSCRIPTS:
-${formattedTranscripts}`,
+RESPONDENT QUOTES (condensed):
+${condensedForQuotes}`,
     });
 
     emit({ type: "partial_quotes", quotes: quotesResult.keyQuotes });

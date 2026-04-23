@@ -83,7 +83,12 @@ export async function POST(request: NextRequest) {
   }
 
   const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) return Response.json({ error: "TAVILY_API_KEY not set" }, { status: 500 });
+  if (!apiKey) {
+    return Response.json(
+      { error: "URL import requires Tavily (TAVILY_API_KEY). Please paste your product description instead, or use the Quick Prompt method." },
+      { status: 503 }
+    );
+  }
 
   const client = tavily({ apiKey });
 
