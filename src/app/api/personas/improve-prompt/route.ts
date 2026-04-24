@@ -30,11 +30,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const wordCount = body.text.trim().split(/\s+/).filter(Boolean).length;
     const { text } = await generateText({
       model: getModel(),
-      prompt: `You improve briefs for synthetic user research personas.
+      prompt: `You improve persona briefs for synthetic user research.
 
-Rewrite the user's brief to be clearer, more specific, and richer in concrete signals: role, context, constraints, pains, and goals. Keep the same intent and audience. Do not add markdown or bullet labels—use 1–3 short paragraphs of plain prose.
+Your task:
+- Preserve the core intent, audience, and role from the user's brief.
+- Expand the brief into richer, practical prose by clarifying likely context, goals, constraints, and pain points.
+- You may infer reasonable generic details from the stated role/context, but do NOT fabricate specific proper nouns (person names, company names, exact tools, exact locations) unless already provided.
+- Do NOT turn it into a fictional character story.
+- Return plain text only (no markdown, no bullets, no labels, no quotes).
+
+Length rules:
+- If the input is short (${wordCount} words, under 8), return 2-3 concise sentences.
+- Otherwise, return 3-5 concise sentences.
+- Keep it compact but more detailed than the original.
 
 User brief:
 ${body.text}`,

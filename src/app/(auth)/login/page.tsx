@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { login } from "../actions";
 import { AuthShell } from "@/components/auth/auth-shell";
 
 function mapLoginError(message: string): string {
@@ -36,27 +35,52 @@ function mapLoginError(message: string): string {
 function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const next = searchParams.get("next");
 
-  async function handlePasswordLogin(formData: FormData) {
+  async function handleSubmit(formData: FormData) {
+    if (loading || googleLoading || redirecting) return;
     setLoading(true);
     setError(null);
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseAnonKey) {
-      setError("Authentication is temporarily unavailable. Please try again.");
-      setLoading(false);
-      return;
-    }
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) {
+        setError("Authentication is temporarily unavailable. Please try again.");
+        return;
+      }
 
-    // Server action persists session via Set-Cookie; client-only signIn often fails the next middleware read on localhost.
-    const result = await login(formData);
-    setLoading(false);
-    if (result?.error) {
-      setError(mapLoginError(result.error));
+      const supabase = createClient();
+      const email = String(formData.get("email") ?? "").trim();
+      const password = String(formData.get("password") ?? "");
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError(mapLoginError(signInError.message));
+        return;
+      }
+
+      const nextPath =
+        typeof formData.get("next") === "string" &&
+        String(formData.get("next")).startsWith("/") &&
+        !String(formData.get("next")).startsWith("//")
+          ? String(formData.get("next"))
+          : "/dashboard";
+      setRedirecting(true);
+      router.push(nextPath);
+      router.refresh();
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setRedirecting(false);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -120,7 +144,7 @@ function LoginForm() {
             {error}
           </p>
         )}
-        <form action={handlePasswordLogin} className="space-y-4">
+        <form action={handleSubmit} className="space-y-4" aria-busy={loading || redirecting}>
           {next ? <input type="hidden" name="next" value={next} /> : null}
           <div className="space-y-2">
             <Label htmlFor="email">Work email</Label>
@@ -131,7 +155,7 @@ function LoginForm() {
               autoComplete="email"
               placeholder="you@company.com"
               required
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || redirecting}
             />
           </div>
           <div className="space-y-2">
@@ -143,19 +167,29 @@ function LoginForm() {
               autoComplete="current-password"
               placeholder="Enter your password"
               required
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || redirecting}
             />
           </div>
-          <Button type="submit" className="w-full cursor-pointer" size="lg" disabled={loading}>
-            {loading ? (
+          <Button
+            type="submit"
+            className="w-full cursor-pointer"
+            size="lg"
+            disabled={loading || googleLoading || redirecting}
+          >
+            {loading || redirecting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in...
+                {redirecting ? "Redirecting..." : "Signing in..."}
               </>
             ) : (
               "Sign in"
             )}
           </Button>
+          {(loading || redirecting) && (
+            <p className="text-center text-xs text-muted-foreground">
+              Please wait a moment, this can take a few seconds.
+            </p>
+          )}
         </form>
         <div className="my-4 flex items-center gap-3">
           <div className="h-px flex-1 bg-border" />

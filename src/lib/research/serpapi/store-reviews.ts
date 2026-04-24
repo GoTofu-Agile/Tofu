@@ -4,6 +4,7 @@ import {
   extractGooglePlayProductId,
   isAppleAppStoreUrl,
   isGooglePlayStoreUrl,
+  type StoreLocale,
 } from "./store-url";
 
 /** Normalized row for /api/reviews/appstore persistence. */
@@ -31,6 +32,7 @@ function parseAppleReviewDate(s: string | undefined): string | null {
 export async function fetchAppleReviewsViaSerpApi(params: {
   appUrl: string;
   limit: number;
+  locale?: StoreLocale;
 }): Promise<SerpStoreReview[]> {
   const productId = extractAppleAppStoreProductId(params.appUrl);
   if (!productId) {
@@ -46,6 +48,8 @@ export async function fetchAppleReviewsViaSerpApi(params: {
       product_id: productId,
       page,
       sort: "mostrecent",
+      // Best effort storefront targeting (derived from URL locale).
+      country: params.locale?.country,
     })) as {
       reviews?: Array<{
         id?: string;
@@ -91,6 +95,7 @@ export async function fetchAppleReviewsViaSerpApi(params: {
 export async function fetchGooglePlayReviewsViaSerpApi(params: {
   appUrl: string;
   limit: number;
+  locale?: StoreLocale;
 }): Promise<SerpStoreReview[]> {
   const productId = extractGooglePlayProductId(params.appUrl);
   if (!productId) {
@@ -106,8 +111,9 @@ export async function fetchGooglePlayReviewsViaSerpApi(params: {
       engine: "google_play_product",
       store: "apps",
       product_id: productId,
-      hl: "en",
-      gl: "us",
+      // Prefer URL-derived locale; fall back to historical defaults.
+      hl: params.locale?.language ?? "en",
+      gl: params.locale?.country ?? "us",
       all_reviews: true,
       num: pageSize,
       sort_by: 2,
@@ -158,6 +164,7 @@ export async function fetchGooglePlayReviewsViaSerpApi(params: {
 export async function fetchStoreReviewsViaSerpApi(params: {
   appUrl: string;
   limit: number;
+  locale?: StoreLocale;
 }): Promise<SerpStoreReview[]> {
   if (isGooglePlayStoreUrl(params.appUrl)) {
     return fetchGooglePlayReviewsViaSerpApi(params);

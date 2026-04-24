@@ -35,7 +35,6 @@ import type {
 import type { AudienceMappingUiStatus } from "./audience-app-mapping-preview";
 import { ALL_RESEARCH_SOURCE_IDS, buildQueriesFromContext } from "@/lib/research/build-queries";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
-import { DEFAULT_PERSONA_PROMPT } from "@/lib/personas/quick-starters";
 import {
   getNewlyReachedMilestones,
   loadPersonaEngagement,
@@ -425,9 +424,7 @@ export function UnifiedCreationFlow({
   }
 
   // Chat entry → describe step
-  const [promptText, setPromptText] = useState(
-    () => initialPrompt?.trim() || DEFAULT_PERSONA_PROMPT
-  );
+  const [promptText, setPromptText] = useState(() => initialPrompt?.trim() || "");
   useEffect(() => {
     const t = initialPrompt?.trim();
     if (t) setPromptText(t);
@@ -1534,7 +1531,10 @@ export function UnifiedCreationFlow({
                 workspacePersonaCount={creationContext?.organizationPersonaCount}
                 workspaceTierLabel={creationContext?.qualityTierLabel}
               />
-              <PersonaQuickStarters onSelect={(p) => setPromptText(p)} />
+              <PersonaQuickStarters
+                selectedPrompt={promptText}
+                onSelect={(p) => setPromptText(p)}
+              />
               <PersonaPromptHistory />
             </div>
             <PersonaInputWizard

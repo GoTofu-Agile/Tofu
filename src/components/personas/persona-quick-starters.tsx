@@ -8,9 +8,11 @@ import { Zap } from "lucide-react";
 
 export function PersonaQuickStarters({
   onSelect,
+  selectedPrompt,
   className,
 }: {
   onSelect: (prompt: string) => void;
+  selectedPrompt?: string;
   className?: string;
 }) {
   const reduced = useReducedMotion();
@@ -21,7 +23,7 @@ export function PersonaQuickStarters({
         <Zap className="size-3.5 text-amber-600 dark:text-amber-500" aria-hidden />
         1-click starters — tap to fill, then press send
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mt-1 flex gap-2 overflow-x-auto px-0.5 pb-1.5 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {QUICK_STARTERS.map((s, i) => (
           <motion.button
             key={s.id}
@@ -35,7 +37,9 @@ export function PersonaQuickStarters({
             className={cn(
               "shrink-0 rounded-full border bg-card px-3 py-1.5 text-left text-xs font-medium",
               "shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/[0.04]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              selectedPrompt?.trim() === s.prompt.trim() &&
+                "border-primary/60 bg-primary/10 text-primary shadow-none"
             )}
           >
             {s.label}

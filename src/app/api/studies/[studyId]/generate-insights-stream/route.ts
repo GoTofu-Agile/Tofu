@@ -38,6 +38,33 @@ const themesSchema = z.object({
   }),
 });
 
+function normalizeSentimentBreakdown(input: {
+  overall: "positive" | "negative" | "neutral" | "mixed";
+  positivePercent: number;
+  negativePercent: number;
+  neutralPercent: number;
+}) {
+  const p = Math.max(0, Math.round(input.positivePercent));
+  const n = Math.max(0, Math.round(input.negativePercent));
+  const u = Math.max(0, Math.round(input.neutralPercent));
+  const total = p + n + u;
+  if (total <= 0) {
+    return { ...input, positivePercent: 0, negativePercent: 0, neutralPercent: 100 };
+  }
+  const scaled = [p, n, u].map((v) => Math.round((v / total) * 100));
+  let diff = 100 - (scaled[0] + scaled[1] + scaled[2]);
+  const maxIdx = scaled[0] >= scaled[1] && scaled[0] >= scaled[2] ? 0 : scaled[1] >= scaled[2] ? 1 : 2;
+  scaled[maxIdx] += diff;
+  diff = 100 - (scaled[0] + scaled[1] + scaled[2]);
+  if (diff !== 0) scaled[2] += diff;
+  return {
+    ...input,
+    positivePercent: scaled[0],
+    negativePercent: scaled[1],
+    neutralPercent: scaled[2],
+  };
+}
+
 function makeQuotesSchema(minQuotes: number) {
   return z.object({
     keyQuotes: z
@@ -189,6 +216,14 @@ Be specific and cite actual content. Don't be generic.
 TRANSCRIPTS:
 ${formattedTranscripts}`,
     });
+    const normalizedSentiment = normalizeSentimentBreakdown(
+      themesResult.sentimentBreakdown as {
+        overall: "positive" | "negative" | "neutral" | "mixed";
+        positivePercent: number;
+        negativePercent: number;
+        neutralPercent: number;
+      }
+    );
 
     emit({
       type: "partial_themes",
@@ -196,7 +231,7 @@ ${formattedTranscripts}`,
     });
     emit({
       type: "partial_sentiment",
-      sentiment: themesResult.sentimentBreakdown,
+      sentiment: normalizedSentiment,
     });
     emit({
       type: "step",
@@ -262,7 +297,7 @@ ${condensedForQuotes}`,
       summary: quotesResult.summary,
       keyFindings: quotesResult.keyQuotes,
       themes: themesResult.themes,
-      sentimentBreakdown: themesResult.sentimentBreakdown,
+      sentimentBreakdown: normalizedSentiment,
       recommendations: quotesResult.recommendations,
     });
 

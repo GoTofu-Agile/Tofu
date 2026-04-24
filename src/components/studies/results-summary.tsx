@@ -61,12 +61,14 @@ export function ResultsSummary({
   sentimentBreakdown,
 }: ResultsSummaryProps) {
   const reduced = useReducedMotion();
+  const hasSentiment = Boolean(sentimentBreakdown);
   const stats = [
     { label: "Interviews", value: totalInterviews, display: <AnimatedNumber value={totalInterviews} /> },
     { label: "Avg Duration", value: null, display: formatDuration(avgDurationMs) },
     ...(sentimentBreakdown
       ? [
           { label: "Positive", value: sentimentBreakdown.positivePercent, display: <span className="text-green-600"><AnimatedNumber value={sentimentBreakdown.positivePercent} suffix="%" /></span> },
+          { label: "Neutral", value: sentimentBreakdown.neutralPercent, display: <span className="text-muted-foreground"><AnimatedNumber value={sentimentBreakdown.neutralPercent} suffix="%" /></span> },
           { label: "Negative", value: sentimentBreakdown.negativePercent, display: <span className="text-red-600"><AnimatedNumber value={sentimentBreakdown.negativePercent} suffix="%" /></span> },
         ]
       : []),
@@ -83,7 +85,7 @@ export function ResultsSummary({
         <p className="text-sm leading-relaxed">{summary}</p>
       </motion.div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-3 ${hasSentiment ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}
