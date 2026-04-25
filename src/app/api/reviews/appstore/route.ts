@@ -9,6 +9,7 @@ import {
   fetchStoreReviewsViaSerpApi,
 } from "@/lib/research/serpapi/store-reviews";
 import {
+  extractStoreLocaleFromUrl,
   isAppleAppStoreUrl,
   isGooglePlayStoreUrl,
 } from "@/lib/research/serpapi/store-url";
@@ -88,12 +89,14 @@ export async function POST(request: NextRequest) {
   const domain = extractDomain(body.appUrl);
   const isPlay = isGooglePlayStoreUrl(body.appUrl);
   const isApple = isAppleAppStoreUrl(body.appUrl);
+  const locale = extractStoreLocaleFromUrl(body.appUrl);
 
   let reviews;
   try {
     reviews = await fetchStoreReviewsViaSerpApi({
       appUrl: body.appUrl,
       limit: body.limit ?? 100,
+      locale,
     });
   } catch (error) {
     const message =
@@ -138,6 +141,8 @@ export async function POST(request: NextRequest) {
           country: r.country,
           reviewUrl: r.url,
           serpReviewId: r.serpReviewId,
+          requestedCountry: locale.country ?? null,
+          requestedLanguage: locale.language ?? null,
         },
       };
     })

@@ -176,11 +176,30 @@ followUpQuestion: null when productDescription and targetAudience are both known
     });
   }
 
-  // If still missing info, generate a conversational follow-up
-  if (extracted.followUpQuestion) {
+  // Build an effective context view (existing org data + newly extracted values).
+  const effectiveProductDescription =
+    extracted.productDescription || org?.productDescription || null;
+  const effectiveTargetAudience =
+    extracted.targetAudience || org?.targetAudience || null;
+
+  // Only treat these as critical for onboarding completion.
+  // Product name and website are optional, so we should not block with follow-up for those.
+  const missingCritical: string[] = [];
+  if (!effectiveProductDescription) missingCritical.push("product description");
+  if (!effectiveTargetAudience) missingCritical.push("target audience");
+
+  // If still missing critical info, ask a focused follow-up.
+  if (missingCritical.length > 0) {
+    const followUpQuestion =
+      missingCritical.length === 2
+        ? "Can you quickly add what your product does and who it is for?"
+        : missingCritical[0] === "product description"
+          ? "Can you briefly describe what your product does?"
+          : "Who is your primary target audience?";
+
     return Response.json({
       type: "follow_up",
-      message: extracted.followUpQuestion,
+      message: followUpQuestion,
       extracted: {
         productName: extracted.productName,
         productDescription: extracted.productDescription,
@@ -189,7 +208,7 @@ followUpQuestion: null when productDescription and targetAudience are both known
         competitors: extracted.competitors,
         websiteUrl: extracted.websiteUrl,
       },
-      missingFields: extracted.missingFields,
+      missingFields: missingCritical,
     });
   }
 

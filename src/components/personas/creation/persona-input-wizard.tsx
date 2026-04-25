@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAssistant } from "@/components/assistant/assistant-provider";
 import {
   CREATION_METHOD_OPTIONS,
   type CreationMethod,
@@ -102,6 +103,7 @@ export function PersonaInputWizard({
 }: PersonaInputWizardProps) {
   const [tab, setTab] = useState("quick");
   const reduced = useReducedMotion();
+  const { isOpen: isAskOpen } = useAssistant();
 
   return (
     <div className="space-y-6">
@@ -121,7 +123,14 @@ export function PersonaInputWizard({
             <HelpCircle className="h-4 w-4" />
             What makes a good persona?
           </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:max-w-md">
+          <SheetContent
+            side="right"
+            className={cn(
+              "w-full sm:max-w-md",
+              // Keep the help sheet fully visible when Ask AI panel is open on desktop.
+              isAskOpen && "sm:right-[23rem]"
+            )}
+          >
             <SheetHeader>
               <SheetTitle>What makes a strong persona brief?</SheetTitle>
               <SheetDescription>
