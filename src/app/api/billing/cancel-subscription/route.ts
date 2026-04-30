@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAuth, resolveActiveOrganizationId } from "@/lib/auth";
-import { getStripeServerClient } from "@/lib/billing/stripe";
+import { getStripeServerClient, subscriptionCurrentPeriodEnd } from "@/lib/billing/stripe";
 import { BillingPlanTier, markSubscriptionUpdated } from "@/lib/billing/credits";
 
 function tierFromMetadata(planTierRaw: string | undefined): BillingPlanTier | null {
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const planTier = tierFromMetadata(updated.metadata?.planTier);
+    const currentPeriodEnd = subscriptionCurrentPeriodEnd(updated);
     await markSubscriptionUpdated({
       userId: user.id,
       organizationId: activeOrgId,
@@ -65,12 +66,12 @@ export async function POST(request: NextRequest) {
       status: updated.status,
       planTier,
       cancelAtPeriodEnd: updated.cancel_at_period_end ?? true,
-      currentPeriodEnd: updated.current_period_end ?? null,
+      currentPeriodEnd,
     });
 
     return Response.json({
       scheduled: updated.cancel_at_period_end ?? true,
-      currentPeriodEnd: updated.current_period_end ?? null,
+      currentPeriodEnd,
       planTier,
     });
   } catch (error) {

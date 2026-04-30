@@ -10,6 +10,8 @@ import { inngest } from "@/lib/inngest/client";
 import { scorePersonaAuthenticity } from "@/lib/evals/persona-authenticity";
 import { Prisma } from "@prisma/client";
 
+export type PersonaGenerationSpeedMode = "quality" | "fast" | "turbo";
+
 export interface GeneratePersonasParams {
   groupId: string;
   count: number;
@@ -17,6 +19,9 @@ export interface GeneratePersonasParams {
   sourceTypeOverride?: "PROMPT_GENERATED" | "DATA_BASED" | "UPLOAD_BASED";
   templateConfig?: PersonaTemplateConfig;
   includeSkeptics?: boolean;
+  /** Faster modes use a lower model tier than the workspace cap when possible. */
+  speedMode?: PersonaGenerationSpeedMode;
+  onPartial?: (info: { index: number; name: string; archetype: string; age: number }) => void;
   onProgress?: (
     completed: number,
     total: number,
@@ -25,6 +30,17 @@ export interface GeneratePersonasParams {
   ) => void;
   /** When set (e.g. from API guard), skips an extra org count query. */
   qualityTier?: PersonaQualityTier;
+}
+
+function modelTierForSpeed(
+  tier: PersonaQualityTier,
+  speedMode: PersonaGenerationSpeedMode | undefined
+): PersonaQualityTier {
+  const mode = speedMode ?? "fast";
+  if (mode === "quality") return tier;
+  if (mode === "turbo") return 1;
+  if (tier === 1) return 1;
+  return (tier - 1) as PersonaQualityTier;
 }
 
 export interface GeneratePersonasResult {
@@ -580,9 +596,10 @@ export async function generateAndSavePersonas(
     sourceTypeOverride,
     templateConfig,
     includeSkeptics = true,
+    speedMode,
+    onPartial,
     onProgress,
-  } =
-    params;
+  } = params;
   const startedAt = Date.now();
 
   let qualityTier = params.qualityTier;
@@ -597,7 +614,7 @@ export async function generateAndSavePersonas(
     const orgCount = await countPersonasForOrganization(g.organizationId);
     qualityTier = qualityTierFromOrgPersonaCount(orgCount);
   }
-  const personaModel = getPersonaGenerationModel(qualityTier);
+  const personaModel = getPersonaGenerationModel(modelTierForSpeed(qualityTier, speedMode));
 
   // Load domain knowledge for RAG context (with provenance tracking)
   const knowledge = await prisma.domainKnowledge.findMany({
@@ -823,6 +840,12 @@ export async function generateAndSavePersonas(
       if (!persona) {
         throw new Error("Unable to generate non-repetitive persona after retries");
       }
+      onPartial?.({
+        index: i,
+        name: persona.name,
+        archetype: persona.archetype,
+        age: persona.age,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       errors.push(`Persona ${i + 1}: ${message}`);

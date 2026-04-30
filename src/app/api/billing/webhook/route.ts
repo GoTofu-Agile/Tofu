@@ -12,6 +12,8 @@ import {
   assertStripeEnvConfigured,
   getStripeServerClient,
   getStripeWebhookSecret,
+  subscriptionCurrentPeriodEnd,
+  invoiceSubscriptionId,
 } from "@/lib/billing/stripe";
 
 function tierFromSubscription(subscription: Stripe.Subscription): BillingPlanTier | null {
@@ -129,10 +131,7 @@ export async function POST(request: Request) {
 
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId =
-          typeof invoice.subscription === "string"
-            ? invoice.subscription
-            : invoice.subscription?.id;
+        const subscriptionId = invoiceSubscriptionId(invoice);
         const customerId =
           typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
         const invoiceId = invoice.id;
@@ -166,7 +165,7 @@ export async function POST(request: Request) {
           status: subscription.status,
           planTier,
           cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
-          currentPeriodEnd: subscription.current_period_end ?? null,
+          currentPeriodEnd: subscriptionCurrentPeriodEnd(subscription),
         });
         break;
       }
@@ -191,10 +190,7 @@ export async function POST(request: Request) {
           organizationId: userCtx.organizationId,
           stripeCustomerId: customerId,
           stripeInvoiceId: invoiceId,
-          stripeSubscriptionId:
-            typeof invoice.subscription === "string"
-              ? invoice.subscription
-              : invoice.subscription?.id,
+          stripeSubscriptionId: invoiceSubscriptionId(invoice),
         });
         break;
       }
@@ -222,7 +218,7 @@ export async function POST(request: Request) {
           status: subscription.status,
           planTier: tierFromSubscription(subscription),
           cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
-          currentPeriodEnd: subscription.current_period_end ?? null,
+          currentPeriodEnd: subscriptionCurrentPeriodEnd(subscription),
         });
         break;
       }

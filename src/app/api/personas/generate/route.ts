@@ -269,14 +269,14 @@ export async function POST(request: NextRequest) {
           includeSkeptics: body.includeSkeptics ?? true,
           qualityTier: guard.tier,
           speedMode,
-          onPartial: ({ index, name, archetype, age }) => {
+          onPartial: ({ index, name, archetype, age: ageNum }) => {
             const event = JSON.stringify({
               type: "partial",
               runId,
               index,
               name,
               archetype,
-              age,
+              age: String(ageNum),
             });
             controller.enqueue(encoder.encode(event + "\n"));
           },
