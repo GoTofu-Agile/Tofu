@@ -8,6 +8,10 @@ import {
 } from "@/lib/db/queries/studies";
 import { getUserRole } from "@/lib/db/queries/organizations";
 import { inngest } from "@/lib/inngest/client";
+import {
+  BillingUpgradeRequiredError,
+  consumeCreditOrThrow,
+} from "@/lib/billing/credits";
 
 export async function POST(
   request: NextRequest,
@@ -53,6 +57,36 @@ export async function POST(
     return Response.json({
       error: "All personas already have sessions",
     }, { status: 400 });
+  }
+
+  const isFirstInterviewRun = existingPersonaIds.size === 0;
+  if (isFirstInterviewRun) {
+    try {
+      await consumeCreditOrThrow({
+        userId: dbUser.id,
+        organizationId: study.organizationId,
+        kind: "study",
+        idempotencyKey: studyId,
+        metadata: {
+          trigger: "run_batch_api",
+          studyId,
+          pendingCount,
+        },
+      });
+    } catch (error) {
+      if (error instanceof BillingUpgradeRequiredError) {
+        return Response.json(
+          {
+            error: error.message,
+            billingRequired: true,
+            creditKind: error.kind,
+            credits: error.snapshot,
+          },
+          { status: 402 }
+        );
+      }
+      return Response.json({ error: "Failed to validate study credits" }, { status: 500 });
+    }
   }
 
   // If we're about to run interviews, make the study ACTIVE immediately.

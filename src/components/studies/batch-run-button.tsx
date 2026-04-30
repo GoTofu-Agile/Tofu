@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Play, Loader2, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
 import { runBatchInterviews } from "@/app/(dashboard)/studies/actions";
+import { useUpgrade } from "@/components/billing/upgrade-provider";
 
 const POLL_INTERVAL = 3000;
 const POLL_TIMEOUT = 5 * 60 * 1000; // 5 minutes
@@ -31,6 +32,7 @@ export function BatchRunButton({
   completedCount: initialCompleted,
   onComplete,
 }: BatchRunButtonProps) {
+  const { openUpgrade } = useUpgrade();
   const [starting, setStarting] = useState(false);
   const [polling, setPolling] = useState(false);
   const [status, setStatus] = useState<BatchStatus | null>(null);
@@ -100,6 +102,9 @@ export function BatchRunButton({
       const result = await runBatchInterviews(studyId);
 
       if (result.error) {
+        if ("billingRequired" in result && result.billingRequired) {
+          openUpgrade("study");
+        }
         toast.error(result.error);
         return;
       }

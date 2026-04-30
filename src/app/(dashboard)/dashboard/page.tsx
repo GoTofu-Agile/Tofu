@@ -162,7 +162,7 @@ export default async function DashboardPage() {
                 {primaryCta}
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
-              <DashboardTour orgId={activeOrgId} defaultOpen={isFirstTime} />
+              <DashboardTour orgId={activeOrgId} defaultOpen />
             </div>
           </div>
         </section>

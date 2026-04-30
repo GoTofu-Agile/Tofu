@@ -11,8 +11,10 @@ import {
   Sparkles,
   PanelLeft,
   Upload,
+  ArrowUpRight,
 } from "lucide-react";
 import { useAssistant } from "@/components/assistant/assistant-provider";
+import { useUpgrade } from "@/components/billing/upgrade-provider";
 
 const routes: Record<string, { title: string; icon: typeof LayoutDashboard }> = {
   "/dashboard": { title: "Home", icon: LayoutDashboard },
@@ -50,6 +52,7 @@ function resolveRoute(pathname: string): { title: string; icon: typeof LayoutDas
 export function Topbar() {
   const pathname = usePathname();
   const { toggle, isOpen, isDisabled, toggleSidebar, sidebarCollapsed } = useAssistant();
+  const { openUpgrade } = useUpgrade();
 
   const route = resolveRoute(pathname);
   const Icon = route.icon;
@@ -76,6 +79,15 @@ export function Topbar() {
       </div>
       {!isDisabled && (
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => openUpgrade("See plans and remaining free credits.")}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-all hover:text-foreground hover:border-foreground/30"
+            aria-label="Open upgrade plans and credits"
+          >
+            <ArrowUpRight className="h-3 w-3" />
+            <span>Upgrade</span>
+          </button>
           <button
             type="button"
             onClick={toggle}

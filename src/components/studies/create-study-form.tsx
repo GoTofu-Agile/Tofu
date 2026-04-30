@@ -7,6 +7,7 @@ import { createNewStudy } from "@/app/(dashboard)/studies/actions";
 import { StepSetup } from "./steps/step-setup";
 import { StepQuestions, type SurveyQuestion } from "./steps/step-questions";
 import { StepReview } from "./steps/step-review";
+import { useUpgrade } from "@/components/billing/upgrade-provider";
 
 type StudyType = "INTERVIEW" | "SURVEY" | "FOCUS_GROUP" | "USABILITY_TEST";
 type Step = "setup" | "questions" | "review";
@@ -38,6 +39,7 @@ interface CreateStudyFormProps {
 
 export function CreateStudyForm({ personaGroups, orgContext }: CreateStudyFormProps) {
   const router = useRouter();
+  const { openUpgrade } = useUpgrade();
   const [step, setStep] = useState<Step>("setup");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -69,6 +71,9 @@ export function CreateStudyForm({ personaGroups, orgContext }: CreateStudyFormPr
     });
 
     if (result.error) {
+      if ("billingRequired" in result && result.billingRequired) {
+        openUpgrade("Your free study credits are used. Upgrade to create more studies.");
+      }
       toast.error(result.error);
       return;
     }

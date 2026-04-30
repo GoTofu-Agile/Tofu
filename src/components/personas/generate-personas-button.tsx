@@ -9,6 +9,7 @@ import { Sparkles, Loader2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getPersonaProgressBadgeLabel } from "@/lib/personas/progress-copy";
 import { publishPersonaGenerationWidgetRun } from "@/lib/personas/publish-widget-run";
+import { useUpgrade } from "@/components/billing/upgrade-provider";
 
 interface GeneratePersonasButtonProps {
   groupId: string;
@@ -49,6 +50,7 @@ export function GeneratePersonasButton({
   autoStart = false,
   useBackgroundJob = true,
 }: GeneratePersonasButtonProps) {
+  const { openUpgrade } = useUpgrade();
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<{
     completed: number;
@@ -86,6 +88,12 @@ export function GeneratePersonasButton({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (
+          response.status === 402 &&
+          typeof (errorData as { billingRequired?: unknown }).billingRequired === "boolean"
+        ) {
+          openUpgrade("Your free persona credits are used. Upgrade to generate more personas.");
+        }
         throw new Error((errorData as { error?: string }).error || "Generation failed");
       }
 
@@ -157,7 +165,7 @@ export function GeneratePersonasButton({
       setGenerating(false);
       setProgress(null);
     }
-  }, [generating, groupId, defaultCount, domainContext, useBackgroundJob]);
+  }, [generating, groupId, defaultCount, domainContext, useBackgroundJob, openUpgrade]);
 
   useEffect(() => {
     if (autoStart) {

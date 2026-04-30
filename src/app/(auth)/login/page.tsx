@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { login } from "@/app/(auth)/actions";
 import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth/auth-shell";
 
@@ -37,7 +38,6 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const next = searchParams.get("next");
@@ -47,35 +47,12 @@ function LoginForm() {
     setLoading(true);
     setError(null);
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (!supabaseUrl || !supabaseAnonKey) {
-        setError("Authentication is temporarily unavailable. Please try again.");
+      const result = await login(formData);
+      if (result?.error) {
+        setError(mapLoginError(result.error));
         return;
       }
-
-      const supabase = createClient();
-      const email = String(formData.get("email") ?? "").trim();
-      const password = String(formData.get("password") ?? "");
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        setError(mapLoginError(signInError.message));
-        return;
-      }
-
-      const nextPath =
-        typeof formData.get("next") === "string" &&
-        String(formData.get("next")).startsWith("/") &&
-        !String(formData.get("next")).startsWith("//")
-          ? String(formData.get("next"))
-          : "/dashboard";
       setRedirecting(true);
-      router.push(nextPath);
-      router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
       setRedirecting(false);
@@ -92,11 +69,17 @@ function LoginForm() {
       const redirectPath = next
         ? `/callback?next=${encodeURIComponent(next)}`
         : "/callback";
-      const redirectTo = `${window.location.origin}${redirectPath}`;
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "");
+      const redirectTo = `${appUrl}${redirectPath}`;
+
+      await supabase.auth.signOut();
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo },
+        options: {
+          redirectTo,
+          queryParams: { prompt: "select_account" },
+        },
       });
 
       if (oauthError) {

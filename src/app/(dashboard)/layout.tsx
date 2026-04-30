@@ -10,6 +10,9 @@ import { AssistantChatLazy } from "@/components/assistant/assistant-chat-lazy";
 import { AssistantLiveActivityPanel } from "@/components/assistant/assistant-live-activity-panel";
 import { PersonaGenerationFloatingWidget } from "@/components/personas/persona-generation-floating-widget";
 import { AppQueryProvider } from "@/components/providers/app-query-provider";
+import { UpgradeProvider } from "@/components/billing/upgrade-provider";
+import { UpgradeDialog } from "@/components/billing/upgrade-dialog";
+import { BillingToast } from "@/components/billing/billing-toast";
 
 export default async function DashboardLayout({
   children,
@@ -56,27 +59,31 @@ export default async function DashboardLayout({
 
   return (
     <AppQueryProvider>
-      <AssistantProvider>
-        <div className="relative h-dvh w-full max-w-full overflow-hidden bg-background">
-          <AppFrame>
-            <Sidebar
-              user={user}
-              organizations={organizations}
-              activeOrgId={activeOrgId}
-              isAdmin={isAdmin}
-            />
-            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-              <Topbar />
-              <main className="flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-[var(--page-padding-x)] sm:py-[var(--page-padding-y)]">
-                {children}
-              </main>
-            </div>
-          </AppFrame>
-          <AssistantLiveActivityPanel />
-          <AssistantChatLazy />
-          <PersonaGenerationFloatingWidget notifyEnabled={dbUser?.notifyPersonaGenComplete ?? false} />
-        </div>
-      </AssistantProvider>
+      <UpgradeProvider>
+        <AssistantProvider>
+          <div className="relative h-dvh w-full max-w-full overflow-hidden bg-background">
+            <AppFrame>
+              <Sidebar
+                user={user}
+                organizations={organizations}
+                activeOrgId={activeOrgId}
+                isAdmin={isAdmin}
+              />
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                <Topbar />
+                <main className="flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-[var(--page-padding-x)] sm:py-[var(--page-padding-y)]">
+                  {children}
+                </main>
+              </div>
+            </AppFrame>
+            <AssistantLiveActivityPanel />
+            <AssistantChatLazy />
+            <PersonaGenerationFloatingWidget notifyEnabled={dbUser?.notifyPersonaGenComplete ?? false} />
+            <UpgradeDialog />
+            <BillingToast />
+          </div>
+        </AssistantProvider>
+      </UpgradeProvider>
     </AppQueryProvider>
   );
 }

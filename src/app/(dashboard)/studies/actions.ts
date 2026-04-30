@@ -19,6 +19,10 @@ import {
   completeSession,
 } from "@/lib/db/queries/studies";
 import type { StudyType } from "@prisma/client";
+import {
+  BillingUpgradeRequiredError,
+  consumeCreditOrThrow,
+} from "@/lib/billing/credits";
 
 async function getActiveOrg() {
   const user = await requireAuth();
@@ -82,11 +86,39 @@ export async function startStudy(studyId: string) {
 }
 
 export async function startSession(studyId: string, personaId: string) {
-  const { activeOrgId } = await getActiveOrg();
+  const { user, activeOrgId } = await getActiveOrg();
 
   const study = await getStudy(studyId);
   if (!study || study.organizationId !== activeOrgId) {
     return { error: "Study not found" };
+  }
+
+  const existingPersonaIds = await getPersonaIdsWithSessionsForStudy(studyId);
+  const isFirstInterviewRun = existingPersonaIds.length === 0;
+  if (isFirstInterviewRun) {
+    try {
+      await consumeCreditOrThrow({
+        userId: user.id,
+        organizationId: activeOrgId,
+        kind: "study",
+        idempotencyKey: studyId,
+        metadata: {
+          trigger: "start_session",
+          studyId,
+          personaId,
+        },
+      });
+    } catch (error) {
+      if (error instanceof BillingUpgradeRequiredError) {
+        return {
+          error: error.message,
+          billingRequired: true,
+          creditKind: error.kind,
+          credits: error.snapshot,
+        };
+      }
+      return { error: "Failed to validate study credits" };
+    }
   }
 
   // Auto-activate if still draft
@@ -108,7 +140,7 @@ export async function endSession(sessionId: string) {
 }
 
 export async function runBatchInterviews(studyId: string) {
-  const { activeOrgId } = await getActiveOrg();
+  const { user, activeOrgId } = await getActiveOrg();
 
   const study = await getStudy(studyId);
   if (!study || study.organizationId !== activeOrgId) {
@@ -128,6 +160,33 @@ export async function runBatchInterviews(studyId: string) {
 
   if (pendingCount === 0) {
     return { error: "All personas already have sessions" };
+  }
+
+  const isFirstInterviewRun = existingPersonaIds.size === 0;
+  if (isFirstInterviewRun) {
+    try {
+      await consumeCreditOrThrow({
+        userId: user.id,
+        organizationId: activeOrgId,
+        kind: "study",
+        idempotencyKey: studyId,
+        metadata: {
+          trigger: "run_batch",
+          studyId,
+          pendingCount,
+        },
+      });
+    } catch (error) {
+      if (error instanceof BillingUpgradeRequiredError) {
+        return {
+          error: error.message,
+          billingRequired: true,
+          creditKind: error.kind,
+          credits: error.snapshot,
+        };
+      }
+      return { error: "Failed to validate study credits" };
+    }
   }
 
   // Send event directly to Inngest (no HTTP round-trip)
