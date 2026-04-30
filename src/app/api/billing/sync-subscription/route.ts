@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAuth, resolveActiveOrganizationId } from "@/lib/auth";
-import { getStripeServerClient } from "@/lib/billing/stripe";
+import { getStripeServerClient, subscriptionCurrentPeriodEnd } from "@/lib/billing/stripe";
 import { BillingPlanTier, markSubscriptionUpdated } from "@/lib/billing/credits";
 
 export async function POST(request: NextRequest) {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         const subscription = await stripe.subscriptions.retrieve(subscriptionIdFromSession);
         subscriptionStatusFromSession = subscription.status;
         cancelAtPeriodEndFromSession = subscription.cancel_at_period_end ?? false;
-        currentPeriodEndFromSession = subscription.current_period_end ?? null;
+        currentPeriodEndFromSession = subscriptionCurrentPeriodEnd(subscription);
         const planTierRaw = subscription.metadata?.planTier;
         planTierFromSession =
           planTierRaw === "pilot" || planTierRaw === "builder" || planTierRaw === "studio"
