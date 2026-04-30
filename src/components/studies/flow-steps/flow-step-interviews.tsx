@@ -11,6 +11,7 @@ import { useReducedMotion, safeSpring } from "@/lib/hooks/use-reduced-motion";
 import { StudyPersonaList } from "@/components/studies/study-persona-list";
 import { InterviewLiveBar } from "@/components/studies/interview-live-bar";
 import { runBatchInterviews, getSessionMessages } from "@/app/(dashboard)/studies/actions";
+import { useUpgrade } from "@/components/billing/upgrade-provider";
 
 interface PersonaGroup {
   groupId: string;
@@ -344,6 +345,7 @@ export function FlowStepInterviews({
   onGoToInsights,
   onLiveInterviewCompleted,
 }: FlowStepInterviewsProps) {
+  const { openUpgrade } = useUpgrade();
   const reduced = useReducedMotion();
   const [isRunning, setIsRunning] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<SelectedPersona | null>(null);
@@ -558,6 +560,9 @@ export function FlowStepInterviews({
     const result = await runBatchInterviews(studyId);
     setLaunching(false);
     if (result.error) {
+      if ("billingRequired" in result && result.billingRequired) {
+        openUpgrade("study");
+      }
       toast.error(result.error);
       setIsRunning(false);
       onRunningChange?.(false);

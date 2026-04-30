@@ -56,20 +56,31 @@ import {
   sumResearchBreakdownSnippets,
 } from "@/lib/research/research-quick-breakdown";
 import { PERSONA_WIDGET_STORAGE_KEY } from "@/lib/personas/publish-widget-run";
+import { useUpgrade } from "@/components/billing/upgrade-provider";
 
-async function readGenerateApiError(response: Response): Promise<string> {
+async function readGenerateApiError(
+  response: Response
+): Promise<{ message: string; billingRequired: boolean }> {
   try {
-    const data = (await response.json()) as { error?: unknown };
-    if (typeof data?.error === "string") return data.error;
+    const data = (await response.json()) as { error?: unknown; billingRequired?: unknown };
+    return {
+      message: typeof data?.error === "string" ? data.error : "Generation failed",
+      billingRequired: data?.billingRequired === true,
+    };
   } catch {
     // ignore
   }
-  return "Generation failed";
+  return { message: "Generation failed", billingRequired: false };
 }
 
-async function ensureGenerateResponseOk(response: Response): Promise<void> {
+async function ensureGenerateResponseOk(
+  response: Response,
+  onBillingRequired?: () => void
+): Promise<void> {
   if (response.ok) return;
-  throw new Error(await readGenerateApiError(response));
+  const error = await readGenerateApiError(response);
+  if (error.billingRequired) onBillingRequired?.();
+  throw new Error(error.message);
 }
 
 type Phase = "pick" | "form" | "progress";
@@ -375,6 +386,7 @@ export function UnifiedCreationFlow({
   initialCreationContext,
 }: UnifiedCreationFlowProps) {
   const router = useRouter();
+  const { openUpgrade } = useUpgrade();
   const reduced = useReducedMotion();
 
   const [phase, setPhase] = useState<Phase>("pick");
@@ -764,7 +776,9 @@ export function UnifiedCreationFlow({
           speedMode: personaSpeedMode,
         }),
       });
-      await ensureGenerateResponseOk(response);
+      await ensureGenerateResponseOk(response, () =>
+        openUpgrade("Your free persona credits are used. Upgrade to generate more personas.")
+      );
       await streamGenerationProgress(response, gId, runId, {
         onGenerationUiComplete: () => {
           if (genStep) setPipelineStatus(genStep.id, "done");
@@ -870,7 +884,9 @@ export function UnifiedCreationFlow({
         }),
       });
 
-      await ensureGenerateResponseOk(response);
+      await ensureGenerateResponseOk(response, () =>
+        openUpgrade("Your free persona credits are used. Upgrade to generate more personas.")
+      );
       if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
@@ -1030,7 +1046,9 @@ export function UnifiedCreationFlow({
         }),
       });
 
-      await ensureGenerateResponseOk(response);
+      await ensureGenerateResponseOk(response, () =>
+        openUpgrade("Your free persona credits are used. Upgrade to generate more personas.")
+      );
       if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
@@ -1172,7 +1190,9 @@ export function UnifiedCreationFlow({
         }),
       });
 
-      await ensureGenerateResponseOk(response);
+      await ensureGenerateResponseOk(response, () =>
+        openUpgrade("Your free persona credits are used. Upgrade to generate more personas.")
+      );
       if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
@@ -1289,7 +1309,9 @@ export function UnifiedCreationFlow({
         }),
       });
 
-      await ensureGenerateResponseOk(response);
+      await ensureGenerateResponseOk(response, () =>
+        openUpgrade("Your free persona credits are used. Upgrade to generate more personas.")
+      );
       if (finishIfQueuedAsyncGeneration(response)) return;
       await streamGenerationProgress(response, gId, runId);
     } catch (error) {
@@ -1658,7 +1680,9 @@ export function UnifiedCreationFlow({
                     }),
                   });
 
-                  await ensureGenerateResponseOk(response);
+                  await ensureGenerateResponseOk(response, () =>
+                    openUpgrade("Your free persona credits are used. Upgrade to generate more personas.")
+                  );
                   if (finishIfQueuedAsyncGeneration(response)) return;
                   await streamGenerationProgress(response, gId, runId);
                 } catch (error) {

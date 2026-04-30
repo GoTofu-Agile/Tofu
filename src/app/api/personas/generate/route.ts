@@ -24,6 +24,10 @@ import {
 } from "@/lib/personas/persona-generation-guard";
 import type { PersonaGenerationSpeedMode } from "@/lib/ai/generate-personas";
 import { sendPersonaGenCompleteEmail } from "@/lib/email/resend";
+import {
+  BillingUpgradeRequiredError,
+  consumeCreditOrThrow,
+} from "@/lib/billing/credits";
 
 /** Vercel / serverless max wall time for streaming generation (plan may cap lower). */
 export const maxDuration = 300;
@@ -135,6 +139,39 @@ export async function POST(request: NextRequest) {
       JSON.stringify({ error: "Not a member of this organization" }),
       { status: 403, headers: { "Content-Type": "application/json" } }
     );
+  }
+
+  try {
+    await consumeCreditOrThrow({
+      userId: dbUser.id,
+      organizationId: group.organizationId,
+      kind: "persona",
+      metadata: {
+        groupId: body.groupId,
+        requestedCount: body.count,
+      },
+    });
+  } catch (error) {
+    if (error instanceof BillingUpgradeRequiredError) {
+      releaseInFlightLease(leaseKey);
+      return new Response(
+        JSON.stringify({
+          error: error.message,
+          billingRequired: true,
+          creditKind: error.kind,
+          credits: error.snapshot,
+        }),
+        {
+          status: 402,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+    releaseInFlightLease(leaseKey);
+    return new Response(JSON.stringify({ error: "Failed to validate credits" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   try {
