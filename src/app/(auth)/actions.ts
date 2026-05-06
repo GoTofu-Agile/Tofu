@@ -1,7 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { resolveAppBaseUrl } from "@/lib/url/app-url";
 
 function getSafeNextPath(formData: FormData): string | null {
   const nextRaw = formData.get("next");
@@ -62,11 +64,13 @@ export async function signOut() {
 
 export async function signInWithOAuth(provider: "google" | "github") {
   const supabase = await createClient();
+  const h = await headers();
+  const baseUrl = resolveAppBaseUrl(h);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/callback`,
+      redirectTo: `${baseUrl}/callback`,
     },
   });
 

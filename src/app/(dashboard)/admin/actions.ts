@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { requireAuth } from "@/lib/auth";
+import { resolveAppBaseUrl } from "@/lib/url/app-url";
 import {
   createOrganization,
   createInvitation,
@@ -36,9 +37,7 @@ export async function createOrgForCustomer(name: string, founderEmail: string) {
   const invitation = await createInvitation(org.id, founderEmail, "ADMIN");
 
   const headersList = await headers();
-  const host = headersList.get("host") ?? "localhost:3004";
-  const proto = headersList.get("x-forwarded-proto") ?? "http";
-  const origin = `${proto}://${host}`;
+  const origin = resolveAppBaseUrl(headersList);
 
   return {
     orgId: org.id,
@@ -53,9 +52,7 @@ export async function generateAdminInviteLink(orgId: string, email: string, role
   const invitation = await createInvitation(orgId, email || "invite@placeholder.local", role);
 
   const headersList = await headers();
-  const host = headersList.get("host") ?? "localhost:3004";
-  const proto = headersList.get("x-forwarded-proto") ?? "http";
-  const origin = `${proto}://${host}`;
+  const origin = resolveAppBaseUrl(headersList);
 
   return { inviteUrl: `${origin}/accept-invite/${invitation.token}` };
 }

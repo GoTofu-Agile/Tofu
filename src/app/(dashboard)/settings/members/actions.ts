@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { resolveAppBaseUrl } from "@/lib/url/app-url";
 import {
   getUserRole,
   createInvitation,
@@ -43,9 +44,7 @@ export async function createInviteLink(email: string, role: "ADMIN" | "MEMBER" |
   const invitation = await createInvitation(ctx.activeOrgId, email || "invite@placeholder.local", role);
 
   const headersList = await headers();
-  const host = headersList.get("host") ?? "localhost:3004";
-  const proto = headersList.get("x-forwarded-proto") ?? "http";
-  const origin = `${proto}://${host}`;
+  const origin = resolveAppBaseUrl(headersList);
 
   return { inviteUrl: `${origin}/accept-invite/${invitation.token}` };
 }

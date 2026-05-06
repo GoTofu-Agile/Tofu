@@ -26,6 +26,7 @@ import {
 } from "@/lib/db/queries/chat";
 import { resolveActiveOrganizationId } from "@/lib/auth";
 import { ASSISTANT_CONVERSATION_ID_HEADER } from "@/lib/assistant/constants";
+import { resolveAppBaseUrl } from "@/lib/url/app-url";
 
 /** Multi-step tool calls can run long; avoid hard kills mid-stream on Vercel Pro+. */
 export const maxDuration = 300;
@@ -590,7 +591,7 @@ Generate: title, 6-8 interview questions, and relevant group IDs.`,
             return { message: "Only workspace admins can invite team members." };
           }
           const invitation = await createInvitation(activeOrgId, email, memberRole);
-          const origin = request.headers.get("origin") || "http://localhost:3004";
+          const origin = resolveAppBaseUrl(request.headers);
           const inviteUrl = `${origin}/accept-invite/${invitation.token}`;
           return {
             message: `Invited ${email} as ${memberRole}. Share this link: ${inviteUrl}`,
