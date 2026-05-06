@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { resolveAppBaseUrl } from "@/lib/url/app-url";
 
 export async function sendPersonaGenCompleteEmail({
   to,
@@ -16,7 +17,8 @@ export async function sendPersonaGenCompleteEmail({
   const resend = new Resend(process.env.RESEND_API_KEY);
   const displayName = userName ?? to.split("@")[0];
   const personaWord = generated === 1 ? "persona" : "personas";
-  const groupUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.gotofu.io"}/personas/${groupId}`;
+  const appBaseUrl = resolveAppBaseUrl();
+  const groupUrl = `${appBaseUrl}/personas/${groupId}`;
 
   await resend.emails.send({
     from: "GoTofu <notifications@gotofu.io>",
@@ -47,7 +49,7 @@ export async function sendPersonaGenCompleteEmail({
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;">
           <p style="margin:0;font-size:12px;color:#9ca3af;">
             You're receiving this because you enabled generation notifications in your
-            <a href="${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.gotofu.io"}/settings" style="color:#6b7280;">GoTofu settings</a>.
+            <a href="${appBaseUrl}/settings" style="color:#6b7280;">GoTofu settings</a>.
           </p>
         </td></tr>
       </table>

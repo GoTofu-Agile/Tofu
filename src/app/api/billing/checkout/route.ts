@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       organizationId: activeOrgId,
     });
     const priceId = getPriceIdForTier(planTier);
-    const appUrl = getPublicAppUrl().replace(/\/$/, "");
+    const appUrl = getPublicAppUrl(request.headers).replace(/\/$/, "");
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",

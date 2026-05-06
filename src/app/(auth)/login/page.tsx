@@ -69,7 +69,7 @@ function LoginForm() {
       const redirectPath = next
         ? `/callback?next=${encodeURIComponent(next)}`
         : "/callback";
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "");
+      const appUrl = window.location.origin.replace(/\/$/, "");
       const redirectTo = `${appUrl}${redirectPath}`;
 
       await supabase.auth.signOut();

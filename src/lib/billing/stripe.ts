@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { prisma } from "@/lib/db/prisma";
 import type { BillingPlanTier } from "@/lib/billing/credits";
+import { resolveAppBaseUrl } from "@/lib/url/app-url";
 
 /** Current Stripe Billing API: `current_period_end` is on subscription items, not the subscription root. */
 export function subscriptionCurrentPeriodEnd(subscription: Stripe.Subscription): number | null {
@@ -67,8 +68,8 @@ export function getPriceIdForTier(tier: BillingPlanTier): string {
   }
 }
 
-export function getPublicAppUrl(): string {
-  return getEnv("NEXT_PUBLIC_APP_URL");
+export function getPublicAppUrl(headers?: Headers): string {
+  return resolveAppBaseUrl(headers);
 }
 
 export async function getOrCreateStripeCustomerForUser(params: {
