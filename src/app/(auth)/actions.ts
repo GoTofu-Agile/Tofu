@@ -4,54 +4,37 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 function getSafeNextPath(formData: FormData): string | null {
-  const nextRaw = formData.get("next");
-  if (typeof nextRaw !== "string") return null;
-  if (!nextRaw.startsWith("/")) return null;
-  if (nextRaw.startsWith("//")) return null;
-  return nextRaw;
+  const raw = formData.get("next");
+  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+function str(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "").trim();
 }
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
-
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-
   const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+    email: str(formData, "email"),
+    password: String(formData.get("password") ?? ""),
   });
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  const nextPath = getSafeNextPath(formData);
-  redirect(nextPath ?? "/dashboard");
+  if (error) return { error: error.message };
+  redirect(getSafeNextPath(formData) ?? "/dashboard");
 }
 
 export async function signup(formData: FormData) {
   const supabase = await createClient();
-
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const name = formData.get("name") as string;
-
   const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { name },
-    },
+    email: str(formData, "email"),
+    password: String(formData.get("password") ?? ""),
+    options: { data: { name: str(formData, "name") } },
   });
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  const nextPath = getSafeNextPath(formData);
-  const nextQuery = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
-  redirect(`/login?message=Check your email to confirm your account${nextQuery}`);
+  if (error) return { error: error.message };
+  const nextQuery = getSafeNextPath(formData);
+  redirect(
+    `/login?message=Check your email to confirm your account${nextQuery ? `&next=${encodeURIComponent(nextQuery)}` : ""}`,
+  );
 }
 
 export async function signOut() {
@@ -60,21 +43,22 @@ export async function signOut() {
   redirect("/login");
 }
 
-export async function signInWithOAuth(provider: "google" | "github") {
+export async function resetPassword(formData: FormData) {
   const supabase = await createClient();
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/callback`,
-    },
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  // Fire and forget — never reveal whether the email is registered
+  await supabase.auth.resetPasswordForEmail(str(formData, "email"), {
+    redirectTo: `${appUrl}/callback?next=/reset-password`,
   });
+  redirect("/forgot-password?sent=1");
+}
 
-  if (error) {
-    return { error: error.message };
-  }
-
-  if (data.url) {
-    redirect(data.url);
-  }
+export async function updatePassword(formData: FormData) {
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 6) return { error: "Password must be at least 6 characters." };
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: error.message };
+  await supabase.auth.signOut();
+  redirect("/login?message=Password updated. Sign in with your new password.");
 }

@@ -9,11 +9,12 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Password recovery sessions must go straight to the reset form
+      if (data.session?.user?.aud === "authenticated" && next === "/reset-password") {
+        return NextResponse.redirect(`${appBaseUrl}/reset-password`);
+      }
       return NextResponse.redirect(`${appBaseUrl}${next}`);
     }
   }
