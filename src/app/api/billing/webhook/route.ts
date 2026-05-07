@@ -22,6 +22,13 @@ function tierFromSubscription(subscription: Stripe.Subscription): BillingPlanTie
   return null;
 }
 
+function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): number | null {
+  const currentPeriodEnd = (subscription as unknown as { current_period_end?: unknown })
+    .current_period_end;
+  if (typeof currentPeriodEnd === "number") return currentPeriodEnd;
+  return typeof subscription.cancel_at === "number" ? subscription.cancel_at : null;
+}
+
 async function getOrganizationIdForUser(userId: string): Promise<string | null> {
   const member = await prisma.organizationMember.findFirst({
     where: { userId },
@@ -166,7 +173,7 @@ export async function POST(request: Request) {
           status: subscription.status,
           planTier,
           cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
-          currentPeriodEnd: subscription.current_period_end ?? null,
+          currentPeriodEnd: getSubscriptionPeriodEnd(subscription),
         });
         break;
       }
@@ -222,7 +229,7 @@ export async function POST(request: Request) {
           status: subscription.status,
           planTier: tierFromSubscription(subscription),
           cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
-          currentPeriodEnd: subscription.current_period_end ?? null,
+          currentPeriodEnd: getSubscriptionPeriodEnd(subscription),
         });
         break;
       }

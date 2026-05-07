@@ -349,10 +349,7 @@ ${authenticityExtras}`,
   ruleScore -= clicheFlags.length * 8;
   ruleScore = Math.max(0, Math.min(100, ruleScore));
 
-  const authenticity_score = Math.max(
-    0,
-    Math.min(100, Math.round(modelScore * 0.7 + ruleScore * 0.3))
-  );
+  const authenticity_score = Math.max(0, Math.min(100, modelScore));
   const flags = Array.from(new Set([...modelEval.flags, ...clicheFlags]));
 
   return {

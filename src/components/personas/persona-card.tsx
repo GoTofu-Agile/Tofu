@@ -53,41 +53,37 @@ export const PersonaCard = memo(function PersonaCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h4 className="font-medium group-hover:underline">{persona.name}</h4>
-          {(archetypeOrTrait || feedbackTendency !== null) && (
-            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-              {feedbackTendency !== null && (
-                <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${
-                    feedbackTendency > 0.6
-                      ? "bg-red-400"
-                      : feedbackTendency < 0.3
-                        ? "bg-green-400"
-                        : "bg-yellow-400"
-                  }`}
-                  title={
-                    feedbackTendency > 0.6
-                      ? "Gives tough, critical feedback"
-                      : feedbackTendency < 0.3
-                        ? "Tends to be agreeable"
-                        : "Balanced feedback style"
-                  }
-                />
-              )}
-              {archetypeOrTrait ? (
-                <Badge variant="outline" className="text-xs">
-                  {archetypeOrTrait}
-                </Badge>
-              ) : null}
-              {persona.authenticityScore != null ? (
-                <AuthenticityBadge
-                  score={persona.authenticityScore}
-                  band={persona.authenticityBand}
-                  summary={persona.evalSummary}
-                  className="max-w-[min(100%,12rem)] truncate"
-                />
-              ) : null}
-            </div>
-          )}
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            {feedbackTendency !== null && (
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  feedbackTendency > 0.6
+                    ? "bg-red-400"
+                    : feedbackTendency < 0.3
+                      ? "bg-green-400"
+                      : "bg-yellow-400"
+                }`}
+                title={
+                  feedbackTendency > 0.6
+                    ? "Gives tough, critical feedback"
+                    : feedbackTendency < 0.3
+                      ? "Tends to be agreeable"
+                      : "Balanced feedback style"
+                }
+              />
+            )}
+            {archetypeOrTrait ? (
+              <Badge variant="outline" className="text-xs">
+                {archetypeOrTrait}
+              </Badge>
+            ) : null}
+            <AuthenticityBadge
+              score={persona.authenticityScore}
+              band={persona.authenticityBand}
+              summary={persona.evalSummary}
+              className="max-w-[min(100%,12rem)] truncate"
+            />
+          </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {[persona.age && `${persona.age}y`, displayGender, persona.location]
               .filter(Boolean)

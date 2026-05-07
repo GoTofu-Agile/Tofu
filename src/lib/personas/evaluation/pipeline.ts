@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { mapScoreToBand } from "@/lib/evals/persona-authenticity";
 import { judgePersona } from "./judge";
 import {
   computeTrustScore,
@@ -73,6 +74,7 @@ export async function runPersonaEvaluation(personaId: string) {
     verifiabilityScore: judge.verifiabilityScore,
     uniquenessScore: uniqueness.uniquenessScore,
   });
+  const recheckAuthenticityScore = clampScore(trustScore);
 
   await prisma.$transaction(async (tx) => {
     await tx.persona.update({
@@ -80,6 +82,9 @@ export async function runPersonaEvaluation(personaId: string) {
       data: {
         normalizedText,
         embeddingJson: uniqueness.embedding as unknown as Prisma.InputJsonValue,
+        authenticityScore: recheckAuthenticityScore,
+        authenticityBand: mapScoreToBand(recheckAuthenticityScore),
+        evalSummary: judge.summary,
         evaluationStatus: "COMPLETED",
         evaluationError: Prisma.JsonNull,
       },

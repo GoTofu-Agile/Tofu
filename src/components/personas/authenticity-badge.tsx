@@ -67,8 +67,6 @@ export function AuthenticityBadge({
 
   const displayScore = useCountUp(score ?? null, { reducedMotion: reduced, durationMs: 620 });
 
-  if (score == null && !band) return null;
-
   const celebrateGlow =
     celebrate && resolvedBand === "high" && !reduced
       ? {
@@ -104,7 +102,7 @@ export function AuthenticityBadge({
         ) : (
           <ShieldQuestion className="size-3 shrink-0 opacity-90" aria-hidden />
         )}
-        {displayScore != null ? `${displayScore}` : "—"}
+        {displayScore != null ? `${displayScore}` : "Calculating..."}
         <span className="font-normal opacity-90">authenticity</span>
       </Badge>
     </motion.span>
@@ -117,6 +115,20 @@ export function AuthenticityBadge({
         <TooltipContent side="top" className="max-w-xs text-left text-xs">
           <p className="font-medium">{labelForBand(resolvedBand)}</p>
           <p className="mt-1 text-muted-foreground">{summary}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  if (score == null) {
+    return (
+      <Tooltip>
+        <TooltipTrigger className="inline-flex max-w-full">{inner}</TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-left text-xs">
+          <p className="font-medium">Calculating authenticity</p>
+          <p className="mt-1 text-muted-foreground">
+            Verification score is being computed for this persona.
+          </p>
         </TooltipContent>
       </Tooltip>
     );
