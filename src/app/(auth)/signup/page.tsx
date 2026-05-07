@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
 import { PasswordStrength } from "@/components/auth/password-strength";
 import { GoogleButton } from "@/components/auth/google-button";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { signup } from "../actions";
 
 function mapError(message: string): string {
@@ -41,7 +42,8 @@ function SignupForm() {
       try {
         const result = await signup(formData);
         if (result?.error) setError(mapError(result.error));
-      } catch {
+      } catch (err) {
+        if (isRedirectError(err)) throw err;
         setError("Could not create your account right now. Please try again.");
       }
     });

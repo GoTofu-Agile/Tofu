@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
 import { PasswordStrength } from "@/components/auth/password-strength";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { updatePassword } from "@/app/(auth)/actions";
 
 export default function ResetPasswordPage() {
@@ -25,7 +26,8 @@ export default function ResetPasswordPage() {
       try {
         const result = await updatePassword(formData);
         if (result?.error) setError("Could not update password. The link may have expired.");
-      } catch {
+      } catch (err) {
+        if (isRedirectError(err)) throw err;
         setError("Something went wrong. Please try again.");
       }
     });

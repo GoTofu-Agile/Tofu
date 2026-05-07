@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
 import { GoogleButton } from "@/components/auth/google-button";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { login } from "@/app/(auth)/actions";
 
 function mapError(message: string): string {
@@ -41,7 +42,8 @@ function LoginForm() {
         } else {
           setRedirecting(true);
         }
-      } catch {
+      } catch (err) {
+        if (isRedirectError(err)) throw err;
         setError("Something went wrong. Please try again.");
       }
     });

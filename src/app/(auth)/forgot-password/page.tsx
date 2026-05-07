@@ -7,6 +7,7 @@ import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { resetPassword } from "@/app/(auth)/actions";
 
 function ForgotPasswordForm() {
@@ -21,7 +22,8 @@ function ForgotPasswordForm() {
     startTransition(async () => {
       try {
         await resetPassword(formData);
-      } catch {
+      } catch (err) {
+        if (isRedirectError(err)) throw err;
         setError("Something went wrong. Please try again.");
       }
     });
