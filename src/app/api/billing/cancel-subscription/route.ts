@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAuth, resolveActiveOrganizationId } from "@/lib/auth";
-import { getStripeServerClient } from "@/lib/billing/stripe";
+import { getStripeServerClient, subscriptionCurrentPeriodEnd } from "@/lib/billing/stripe";
 import { BillingPlanTier, markSubscriptionUpdated } from "@/lib/billing/credits";
 
 function tierFromMetadata(planTierRaw: string | undefined): BillingPlanTier | null {
@@ -8,15 +8,6 @@ function tierFromMetadata(planTierRaw: string | undefined): BillingPlanTier | nu
     return planTierRaw;
   }
   return null;
-}
-
-function getSubscriptionPeriodEnd(subscription: {
-  cancel_at?: number | null;
-  [key: string]: unknown;
-}): number | null {
-  const currentPeriodEnd = subscription["current_period_end"];
-  if (typeof currentPeriodEnd === "number") return currentPeriodEnd;
-  return typeof subscription.cancel_at === "number" ? subscription.cancel_at : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -66,6 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const planTier = tierFromMetadata(updated.metadata?.planTier);
+    const currentPeriodEnd = subscriptionCurrentPeriodEnd(updated);
     await markSubscriptionUpdated({
       userId: user.id,
       organizationId: activeOrgId,
@@ -74,12 +66,12 @@ export async function POST(request: NextRequest) {
       status: updated.status,
       planTier,
       cancelAtPeriodEnd: updated.cancel_at_period_end ?? true,
-      currentPeriodEnd: getSubscriptionPeriodEnd(updated),
+      currentPeriodEnd,
     });
 
     return Response.json({
       scheduled: updated.cancel_at_period_end ?? true,
-      currentPeriodEnd: getSubscriptionPeriodEnd(updated),
+      currentPeriodEnd,
       planTier,
     });
   } catch (error) {

@@ -198,7 +198,7 @@ export async function consumeCreditOrThrow(params: {
         userId,
         organizationId,
         action: kind === "persona" ? ACTION_PERSONA_CONSUMED : ACTION_STUDY_CONSUMED,
-        metadata: metadata ?? {},
+        metadata: (metadata ?? {}) as Prisma.InputJsonValue,
       },
     });
   } catch (error) {

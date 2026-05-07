@@ -2,6 +2,24 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/db/prisma";
 import type { BillingPlanTier } from "@/lib/billing/credits";
 
+/** Current Stripe Billing API: `current_period_end` is on subscription items, not the subscription root. */
+export function subscriptionCurrentPeriodEnd(subscription: Stripe.Subscription): number | null {
+  const items = subscription.items?.data ?? [];
+  if (items.length === 0) return null;
+  return Math.max(...items.map((item) => item.current_period_end));
+}
+
+/** Subscription id for an invoice lives under `parent.subscription_details` (not top-level `subscription`). */
+export function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const parent = invoice.parent;
+  if (parent?.type !== "subscription_details" || !parent.subscription_details) {
+    return null;
+  }
+  const sub = parent.subscription_details.subscription;
+  if (typeof sub === "string") return sub;
+  return sub?.id ?? null;
+}
+
 const REQUIRED_ENV_VARS = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
@@ -27,7 +45,7 @@ let stripeClient: Stripe | null = null;
 export function getStripeServerClient(): Stripe {
   if (!stripeClient) {
     stripeClient = new Stripe(getEnv("STRIPE_SECRET_KEY"), {
-      apiVersion: "2025-03-31.basil",
+      apiVersion: "2026-04-22.dahlia",
       typescript: true,
     });
   }
