@@ -688,20 +688,6 @@ export async function generateAndSavePersonas(
       };
     }
 
-    // Temporary product decision: keep authenticity in a clearly positive band
-    // while we continue tuning evaluator stability.
-    const uiScore = 80 + Math.floor(Math.random() * 21); // 80..100 inclusive
-    authenticityEval = {
-      ...authenticityEval,
-      authenticity_score: uiScore,
-      authenticity_band: "high",
-      flags: Array.isArray(authenticityEval.flags) ? authenticityEval.flags : [],
-      evalRaw: {
-        ...(authenticityEval.evalRaw ?? {}),
-        uiOverride: "temporary-random-80-100",
-      },
-    };
-
     const persona = p.persona;
     const createdPersona = await prisma.persona.create({
       data: {
