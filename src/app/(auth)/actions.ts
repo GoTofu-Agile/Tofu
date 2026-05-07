@@ -78,3 +78,30 @@ export async function signInWithOAuth(provider: "google" | "github") {
     redirect(data.url);
   }
 }
+
+export async function resetPassword(formData: FormData) {
+  const supabase = await createClient();
+  const email = String(formData.get("email") ?? "").trim();
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${appUrl}/callback?next=/reset-password`,
+  });
+
+  // Always redirect to success — never reveal whether email exists
+  redirect("/forgot-password?sent=1");
+}
+
+export async function updatePassword(formData: FormData) {
+  const supabase = await createClient();
+  const password = String(formData.get("password") ?? "");
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  await supabase.auth.signOut();
+  redirect("/login?message=Password updated. Sign in with your new password.");
+}
