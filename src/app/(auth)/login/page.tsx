@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -20,42 +20,38 @@ function mapError(message: string): string {
 }
 
 function LoginForm() {
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const next = searchParams.get("next");
 
-  const busy = loading || googleLoading || redirecting;
+  const busy = isPending || redirecting || googleBusy;
 
-  async function handleSubmit(formData: FormData) {
-    if (busy) return;
-    setLoading(true);
+  function handleSubmit(formData: FormData) {
     setError(null);
-    try {
-      const result = await login(formData);
-      if (result?.error) {
-        setError(mapError(result.error));
-        return;
+    startTransition(async () => {
+      try {
+        const result = await login(formData);
+        if (result?.error) {
+          setError(mapError(result.error));
+        } else {
+          setRedirecting(true);
+        }
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      setRedirecting(true);
-    } catch {
-      setError("Something went wrong. Please try again.");
-      setRedirecting(false);
-    } finally {
-      setLoading(false);
-    }
+    });
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Sign in to your GoTofu account
-        </p>
+        <p className="mt-1.5 text-sm text-muted-foreground">Sign in to your GoTofu account</p>
       </div>
 
       {message && (
@@ -71,9 +67,9 @@ function LoginForm() {
 
       <GoogleButton
         next={next}
-        disabled={loading || redirecting}
+        disabled={isPending || redirecting}
         onError={setError}
-        onLoadingChange={setGoogleLoading}
+        onLoadingChange={setGoogleBusy}
       />
 
       <div className="relative flex items-center gap-3">
@@ -93,8 +89,10 @@ function LoginForm() {
             type="email"
             autoComplete="email"
             placeholder="you@company.com"
+            autoFocus
             required
             disabled={busy}
+            onChange={() => setError(null)}
           />
         </div>
 
@@ -103,8 +101,8 @@ function LoginForm() {
             <Label htmlFor="password">Password</Label>
             <Link
               href="/forgot-password"
-              className="text-xs text-muted-foreground underline-offset-4 hover:underline"
               tabIndex={-1}
+              className="text-xs text-muted-foreground underline-offset-4 hover:underline"
             >
               Forgot password?
             </Link>
@@ -116,11 +114,12 @@ function LoginForm() {
             placeholder="Enter your password"
             required
             disabled={busy}
+            onChange={() => setError(null)}
           />
         </div>
 
         <Button type="submit" className="w-full" size="lg" disabled={busy}>
-          {loading || redirecting ? (
+          {isPending || redirecting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {redirecting ? "Redirecting…" : "Signing in…"}

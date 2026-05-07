@@ -8,10 +8,8 @@ import { GoogleIcon } from "./google-icon";
 
 interface Props {
   next?: string | null;
-  /** Disables the button when the parent form is also busy */
   disabled?: boolean;
-  onError: (message: string) => void;
-  /** Called when loading state changes so the parent can disable its own fields */
+  onError: (message: string | null) => void;
   onLoadingChange?: (loading: boolean) => void;
 }
 
@@ -19,18 +17,15 @@ export function GoogleButton({ next, disabled, onError, onLoadingChange }: Props
   const [loading, setLoading] = useState(false);
 
   async function handleClick() {
-    if (loading || disabled) return;
     setLoading(true);
     onLoadingChange?.(true);
-    onError("");
+    onError(null);
     try {
       const supabase = createClient();
       const redirectPath = next
         ? `/callback?next=${encodeURIComponent(next)}`
         : "/callback";
-      const appUrl = (
-        process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-      ).replace(/\/$/, "");
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "");
       await supabase.auth.signOut();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",

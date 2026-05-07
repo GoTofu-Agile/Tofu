@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useTransition, useDeferredValue } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -23,27 +23,28 @@ function mapError(message: string): string {
 }
 
 function SignupForm() {
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [password, setPassword] = useState("");
+  // Defer strength meter updates so they never block the input render
+  const deferredPassword = useDeferredValue(password);
+
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
 
-  const busy = loading || googleLoading;
+  const busy = isPending || googleBusy;
 
-  async function handleSubmit(formData: FormData) {
-    if (busy) return;
-    setLoading(true);
+  function handleSubmit(formData: FormData) {
     setError(null);
-    try {
-      const result = await signup(formData);
-      if (result?.error) setError(mapError(result.error));
-    } catch {
-      setError("Could not create your account right now. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    startTransition(async () => {
+      try {
+        const result = await signup(formData);
+        if (result?.error) setError(mapError(result.error));
+      } catch {
+        setError("Could not create your account right now. Please try again.");
+      }
+    });
   }
 
   return (
@@ -63,9 +64,9 @@ function SignupForm() {
 
       <GoogleButton
         next={next}
-        disabled={loading}
+        disabled={isPending}
         onError={setError}
-        onLoadingChange={setGoogleLoading}
+        onLoadingChange={setGoogleBusy}
       />
 
       <div className="relative flex items-center gap-3">
@@ -85,8 +86,10 @@ function SignupForm() {
             type="text"
             autoComplete="name"
             placeholder="Alex Kim"
+            autoFocus
             required
             disabled={busy}
+            onChange={() => setError(null)}
           />
         </div>
 
@@ -100,6 +103,7 @@ function SignupForm() {
             placeholder="you@company.com"
             required
             disabled={busy}
+            onChange={() => setError(null)}
           />
         </div>
 
@@ -116,11 +120,11 @@ function SignupForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <PasswordStrength password={password} />
+          <PasswordStrength password={deferredPassword} />
         </div>
 
         <Button type="submit" className="w-full" size="lg" disabled={busy}>
-          {loading ? (
+          {isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Creating account…
@@ -133,11 +137,11 @@ function SignupForm() {
 
       <p className="text-center text-xs text-muted-foreground">
         By creating an account you agree to our{" "}
-        <Link href="https://gotofu.io/terms" className="underline underline-offset-4 hover:text-foreground" target="_blank">
+        <Link href="https://gotofu.io/terms" target="_blank" className="underline underline-offset-4 hover:text-foreground">
           Terms
         </Link>{" "}
         and{" "}
-        <Link href="https://gotofu.io/privacy" className="underline underline-offset-4 hover:text-foreground" target="_blank">
+        <Link href="https://gotofu.io/privacy" target="_blank" className="underline underline-offset-4 hover:text-foreground">
           Privacy Policy
         </Link>
         .

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
@@ -10,22 +10,21 @@ import { Label } from "@/components/ui/label";
 import { resetPassword } from "@/app/(auth)/actions";
 
 function ForgotPasswordForm() {
-  const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
   const searchParams = useSearchParams();
   const sent = searchParams.get("sent") === "1";
 
-  async function handleSubmit(formData: FormData) {
-    if (loading) return;
-    setLoading(true);
+  function handleSubmit(formData: FormData) {
     setError(null);
-    try {
-      await resetPassword(formData);
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    startTransition(async () => {
+      try {
+        await resetPassword(formData);
+      } catch {
+        setError("Something went wrong. Please try again.");
+      }
+    });
   }
 
   if (sent) {
@@ -39,8 +38,8 @@ function ForgotPasswordForm() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Check your inbox</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            If that email is registered, we&apos;ve sent a password reset link.
-            Check your spam folder if you don&apos;t see it.
+            If that email is registered, we&apos;ve sent a reset link. Check your spam folder if
+            you don&apos;t see it.
           </p>
         </div>
         <Link
@@ -78,14 +77,15 @@ function ForgotPasswordForm() {
             type="email"
             autoComplete="email"
             placeholder="you@company.com"
-            required
-            disabled={loading}
             autoFocus
+            required
+            disabled={isPending}
+            onChange={() => setError(null)}
           />
         </div>
 
-        <Button type="submit" className="w-full" size="lg" disabled={loading}>
-          {loading ? (
+        <Button type="submit" className="w-full" size="lg" disabled={isPending}>
+          {isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Sending…

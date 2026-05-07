@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition, useDeferredValue } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,33 +9,26 @@ import { PasswordStrength } from "@/components/auth/password-strength";
 import { updatePassword } from "@/app/(auth)/actions";
 
 export default function ResetPasswordPage() {
-  const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const deferredPassword = useDeferredValue(password);
 
-  async function handleSubmit(formData: FormData) {
-    if (loading) return;
+  function handleSubmit(formData: FormData) {
     if (password !== confirm) {
       setError("Passwords do not match.");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    setLoading(true);
     setError(null);
-    try {
-      const result = await updatePassword(formData);
-      if (result?.error) {
-        setError("Could not update password. The link may have expired.");
+    startTransition(async () => {
+      try {
+        const result = await updatePassword(formData);
+        if (result?.error) setError("Could not update password. The link may have expired.");
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    });
   }
 
   return (
@@ -61,13 +54,14 @@ export default function ResetPasswordPage() {
             name="password"
             autoComplete="new-password"
             placeholder="Minimum 6 characters"
+            autoFocus
             required
             minLength={6}
-            disabled={loading}
+            disabled={isPending}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); setError(null); }}
           />
-          <PasswordStrength password={password} />
+          <PasswordStrength password={deferredPassword} />
         </div>
 
         <div className="space-y-1.5">
@@ -78,14 +72,14 @@ export default function ResetPasswordPage() {
             autoComplete="new-password"
             placeholder="Re-enter your password"
             required
-            disabled={loading}
+            disabled={isPending}
             value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
+            onChange={(e) => { setConfirm(e.target.value); setError(null); }}
           />
         </div>
 
-        <Button type="submit" className="w-full" size="lg" disabled={loading}>
-          {loading ? (
+        <Button type="submit" className="w-full" size="lg" disabled={isPending}>
+          {isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Updating…
