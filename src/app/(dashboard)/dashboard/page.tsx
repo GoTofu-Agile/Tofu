@@ -239,7 +239,7 @@ export default async function DashboardPage() {
             <p className="mt-1 text-sm text-muted-foreground">{ONBOARDING_FULL_LOOP_LEDE}</p>
           </div>
           <TooltipProvider delay={100}>
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
               <DashboardFlowCard
                 href="/setup/product-context"
                 icon={<Settings className="h-4 w-4 text-muted-foreground" />}
