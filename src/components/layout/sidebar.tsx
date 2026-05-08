@@ -12,11 +12,13 @@ import {
   ShieldCheck,
   LogOut,
   PanelLeft,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrgSwitcher } from "./org-switcher";
 import { signOut } from "@/app/(auth)/actions";
 import { useAssistant } from "@/components/assistant/assistant-provider";
+import { useUpgrade } from "@/components/billing/upgrade-provider";
 
 interface SidebarProps {
   user: { id: string; name: string | null; email: string; avatarUrl: string | null };
@@ -39,6 +41,7 @@ const mainNav = [
 export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarProps) {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useAssistant();
+  const { openUpgrade } = useUpgrade();
   const activeOrg = organizations.find((o) => o.id === activeOrgId);
   const isPersonalWorkspace = activeOrg?.isPersonal ?? false;
 
@@ -167,6 +170,22 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
         >
           Settings
         </NavItem>
+        <button
+          type="button"
+          onClick={() => openUpgrade("See plans and remaining free credits.")}
+          className={cn(
+            "flex w-full items-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            collapsed
+              ? "h-9 justify-center p-2"
+              : "gap-2.5 px-3 py-2 text-[13px]",
+            "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+          )}
+          title="Upgrade plan"
+          aria-label="Upgrade plan"
+        >
+          <Zap className={cn("shrink-0 opacity-90", collapsed ? "h-[18px] w-[18px]" : "h-4 w-4")} />
+          {!collapsed && <span className="font-medium">Upgrade</span>}
+        </button>
         {isAdmin && (
           <NavItem
             href="/admin"

@@ -176,8 +176,8 @@ export function UpgradeDialog() {
     }
   }, [snapshot]);
 
-  async function startCheckout() {
-    const selectedTier = selectedPlan.toLowerCase();
+  async function startCheckout(planName?: string) {
+    const selectedTier = (planName ?? selectedPlan).toLowerCase();
     if (
       selectedTier !== "pilot" &&
       selectedTier !== "builder" &&
@@ -388,6 +388,24 @@ export function UpgradeDialog() {
                       </li>
                     ))}
                   </ul>
+                  {/* Mobile-only per-card CTA — on desktop the global button at the bottom is used */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); void startCheckout(plan.name); }}
+                    disabled={isActive || startingCheckout || (loading && snapshot === null)}
+                    className="mt-4 w-full rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background transition-colors hover:bg-foreground/90 disabled:opacity-40 md:hidden"
+                  >
+                    {startingCheckout && selectedPlan === plan.name ? (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Redirecting...
+                      </span>
+                    ) : isActive ? (
+                      "Current plan"
+                    ) : (
+                      `Subscribe to ${plan.name}`
+                    )}
+                  </button>
                 </button>
               );
             })}
@@ -402,11 +420,12 @@ export function UpgradeDialog() {
             >
               Cancel subscription
             </button>
+            {/* Desktop-only global CTA — on mobile each card has its own button */}
             <Button
               type="button"
-              onClick={startCheckout}
+              onClick={() => void startCheckout()}
               disabled={startingCheckout || ctaDisabled}
-              className="text-xs sm:text-sm"
+              className="hidden text-xs sm:text-sm md:inline-flex"
             >
               {startingCheckout ? (
                 <>
