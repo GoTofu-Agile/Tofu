@@ -711,8 +711,8 @@ export function AssistantChat() {
         aria-modal="true"
         aria-labelledby="ask-panel-title"
         className={cn(
-        "fixed z-50 flex flex-col transition-all duration-300 ease-out",
-        "inset-0 h-dvh w-screen rounded-none sm:top-2 sm:bottom-2 sm:right-0 sm:left-auto sm:h-auto sm:w-[min(23rem,100vw-0.75rem)] sm:rounded-l-2xl",
+        "fixed z-50 flex flex-col transition-all duration-300 ease-out bg-background",
+        "inset-0 h-dvh w-screen rounded-none sm:top-2 sm:bottom-2 sm:right-0 sm:left-auto sm:h-auto sm:w-[min(23rem,100vw-0.75rem)] sm:rounded-l-2xl sm:shadow-2xl sm:ring-1 sm:ring-stone-200/80",
         isOpen
           ? "translate-x-0 opacity-100"
           : "translate-y-full sm:translate-y-0 sm:translate-x-full opacity-0 pointer-events-none"
@@ -775,7 +775,7 @@ export function AssistantChat() {
           aria-live="polite"
           aria-relevant="additions text"
           aria-busy={isLoading}
-          className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-3 pb-32 space-y-3"
+          className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-3 pb-6 space-y-3"
         >
           {messages.length === 0 && (
             <div className="my-2 space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-3">
@@ -921,7 +921,7 @@ export function AssistantChat() {
         </div>
 
         {/* Input */}
-        <div className="mx-4 mb-0 border-t border-stone-200/80 pt-3">
+        <div className="mx-4 border-t border-stone-200/80 pt-3 pb-[env(safe-area-inset-bottom,0.75rem)]">
           <div className="relative">
           <textarea
             ref={inputRef}
@@ -953,7 +953,7 @@ export function AssistantChat() {
             {inputValue.trim().length}/2000
           </div>
           </div>
-          <div className="mt-1 pb-1 text-[11px] text-stone-400">
+          <div className="mt-1 pb-1 text-[11px] text-stone-400 hidden sm:block">
             Press Enter to send, Shift+Enter for a new line
           </div>
         </div>
