@@ -42,6 +42,7 @@ const nextConfig: NextConfig = {
       "base-uri 'self'",
       "object-src 'none'",
       "frame-ancestors 'none'",
+      "frame-src https://demo.arcade.software",
       "img-src 'self' data: https:",
       "font-src 'self' data: https:",
       "style-src 'self' 'unsafe-inline'",
