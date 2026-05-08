@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BadgeDollarSign, Check, ChevronDown, Crown, Loader2, Rocket } from "lucide-react";
+import { BadgeDollarSign, Check, CheckCircle2, ChevronDown, Crown, Loader2, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -92,6 +92,13 @@ export function UpgradeDialog() {
     setUsageExpanded(false);
     void refreshCredits();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!snapshot?.currentPlanTier) return;
+    const tier = snapshot.currentPlanTier;
+    const match = pricingPlans.find((p) => p.name.toLowerCase() === tier);
+    if (match) setSelectedPlan(match.name);
+  }, [snapshot?.currentPlanTier]);
 
   useEffect(() => {
     const handleSubscriptionSynced = () => {
@@ -329,17 +336,28 @@ export function UpgradeDialog() {
             {pricingPlans.map((plan) => {
               const Icon = plan.icon;
               const isSelected = selectedPlan === plan.name;
+              const isActive = plan.name.toLowerCase() === usageStats.currentPlanTier;
               return (
                 <button
                   key={plan.name}
                   type="button"
                   onClick={() => setSelectedPlan(plan.name)}
-                  className={`rounded-xl border p-4 text-left transition-all ${
-                    isSelected
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border bg-background hover:border-primary/40"
+                  className={`relative rounded-xl border p-4 text-left transition-all ${
+                    isActive
+                      ? "border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/30 dark:bg-emerald-950/20"
+                      : isSelected
+                        ? "border-primary bg-primary/10 shadow-sm"
+                        : "border-border bg-background hover:border-primary/40"
                   }`}
                 >
+                  {isActive && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-sm">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Current plan
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
@@ -350,13 +368,13 @@ export function UpgradeDialog() {
                     >
                       {plan.badge}
                     </span>
-                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <Icon className={`h-4 w-4 ${isActive ? "text-emerald-600" : "text-muted-foreground"}`} />
                   </div>
-                  <p className="mt-3 text-2xl font-semibold">{plan.name}</p>
+                  <p className={`mt-3 text-2xl font-semibold ${isActive ? "text-emerald-700 dark:text-emerald-400" : ""}`}>{plan.name}</p>
                   <p className="mt-2 text-sm text-muted-foreground line-through">{plan.oldPrice}</p>
                   <p className="mt-1 text-5xl font-bold tracking-tight">{plan.price}</p>
                   <p className="mt-1 text-base text-muted-foreground">{plan.billingLabel}</p>
-                  <div className="mt-3 rounded-lg bg-muted/80 px-3 py-2 text-sm font-medium">
+                  <div className={`mt-3 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-emerald-100/80 dark:bg-emerald-900/30" : "bg-muted/80"}`}>
                     <span>{plan.creditsLabel}</span>
                     {plan.creditsBonus ? (
                       <span className="ml-1.5 font-semibold text-primary">{plan.creditsBonus}</span>
