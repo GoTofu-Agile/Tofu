@@ -55,10 +55,23 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
   const collapsed = sidebarCollapsed;
 
   return (
+    <>
+      {/* Mobile backdrop — tap to close sidebar */}
+      {!collapsed && (
+        <div
+          className="fixed inset-0 z-10 bg-black/30 md:hidden"
+          aria-hidden="true"
+          onClick={toggleSidebar}
+        />
+      )}
     <aside
       className={cn(
         "flex h-full flex-col transition-all duration-200 overflow-hidden bg-stone-50",
-        collapsed ? "w-14" : "w-52"
+        // Desktop: inline icon bar or full sidebar
+        // Mobile: hidden when collapsed, full-width overlay when open
+        collapsed
+          ? "w-0 md:w-14"
+          : "absolute inset-y-0 left-0 z-20 w-52 md:relative md:inset-auto md:z-auto"
       )}
     >
       {/* Brand + Workspace */}
@@ -195,6 +208,7 @@ export function Sidebar({ user, organizations, activeOrgId, isAdmin }: SidebarPr
         )}
       </div>
     </aside>
+    </>
   );
 }
 

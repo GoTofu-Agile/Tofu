@@ -234,8 +234,8 @@ export function UpgradeDialog() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => (!open ? closeUpgrade() : undefined)}>
-      <DialogContent className="sm:max-w-3xl p-0 overflow-hidden">
-        <div className="border-b p-6">
+      <DialogContent className="sm:max-w-3xl p-0 overflow-hidden max-h-[90svh] flex flex-col">
+        <div className="border-b p-6 shrink-0">
           <DialogHeader className="space-y-3">
             <DialogTitle className="text-xl">Upgrade to continue</DialogTitle>
             <DialogDescription className="text-sm">
@@ -330,7 +330,7 @@ export function UpgradeDialog() {
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="overflow-y-auto p-6">
           <p className="mb-3 text-sm font-medium">Plans</p>
           <div className="grid gap-3 md:grid-cols-3">
             {pricingPlans.map((plan) => {

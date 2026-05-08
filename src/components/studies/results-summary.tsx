@@ -85,7 +85,7 @@ export function ResultsSummary({
         <p className="text-sm leading-relaxed">{summary}</p>
       </motion.div>
 
-      <div className={`grid grid-cols-2 gap-3 ${hasSentiment ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
+      <div className={`grid grid-cols-2 gap-3 ${hasSentiment ? "sm:grid-cols-3 md:grid-cols-5" : "sm:grid-cols-2"}`}>
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}

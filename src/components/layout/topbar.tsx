@@ -86,7 +86,7 @@ export function Topbar() {
             aria-label="Open upgrade plans and credits"
           >
             <ArrowUpRight className="h-3 w-3" />
-            <span>Upgrade</span>
+            <span className="hidden sm:inline">Upgrade</span>
           </button>
           <button
             type="button"

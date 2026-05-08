@@ -63,7 +63,7 @@ export function OrgSwitcher({ organizations, activeOrgId, collapsed }: OrgSwitch
         align="start"
         side={collapsed ? "right" : undefined}
         sideOffset={collapsed ? 8 : 4}
-        className="w-[200px]"
+        className="w-[200px] max-w-[calc(100vw-2rem)]"
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
