@@ -161,10 +161,9 @@ export function UpgradeDialog() {
 
   const ctaDisabled = useMemo(() => {
     const selectedTier = selectedPlan.toLowerCase() as "pilot" | "builder" | "studio";
-    const isCurrentTier = Boolean(usageStats.currentPlanTier) && selectedTier === usageStats.currentPlanTier;
-    const isInitialLoading = loading && snapshot === null;
-    return isCurrentTier || isInitialLoading;
-  }, [selectedPlan, usageStats.currentPlanTier, usageStats.isUnlimited]);
+    // Only disable when the user is genuinely already on this plan — never block on loading state.
+    return Boolean(usageStats.currentPlanTier) && selectedTier === usageStats.currentPlanTier;
+  }, [selectedPlan, usageStats.currentPlanTier]);
 
   const isCancellationScheduled = snapshot?.cancelAtPeriodEnd === true;
   const cancellationDateLabel = useMemo(() => {
@@ -392,7 +391,7 @@ export function UpgradeDialog() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); void startCheckout(plan.name); }}
-                    disabled={isActive || startingCheckout || (loading && snapshot === null)}
+                    disabled={isActive || startingCheckout}
                     className="mt-4 w-full rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background transition-colors hover:bg-foreground/90 disabled:opacity-40 md:hidden"
                   >
                     {startingCheckout && selectedPlan === plan.name ? (
